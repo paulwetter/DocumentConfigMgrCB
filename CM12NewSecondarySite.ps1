@@ -1,0 +1,3 @@
+﻿$SQLServerSettings = New-CMSqlServerSetting -CopySqlServerExpressOnSecondarySite
+$InstallFiles = New-CMInstallationSourceFile -CopyFromParentSiteServer
+New-CMSecondarySite -CertificateExpirationTimeUtc "2/1/2025 12:00 AM" -CreateSelfSignedCertificate -Http -InstallationSourceFile $InstallFiles -InstallInternetServer $True -ParentSiteCode "HQ1" -ServerName "cm02.do.local" -SiteCode "SE1" -SiteName "Secondary 1" -SqlServerSetting $SQLServerSettings
