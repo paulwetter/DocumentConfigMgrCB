@@ -231,6 +231,98 @@ Function Add-NodeToConfigMgrCollection {
   $inparams.PSBase.properties | select name,Value | Format-Table
   $R = $mc.PSBase.InvokeMethod("AddMembershipRule", $inParams, $Null)
 }
+
+Function Get-ConfigMgrSoftwareUpdateCompliance {
+  [CmdletBinding()]
+  param(
+    [Parameter(Position=0,ValueFromPipeline=$true)]
+    [System.String]		
+    $ComputerName=(get-content env:computername) #defaults to local computer name		
+  )
+  process{
+    try
+    {		
+      
+      Write-Output "Checking Software Updates Compliance on [$ComputerName]"
+      
+      #check if the machine has an update assignment targeted at it
+      $UpdateAssigment = Get-WmiObject -Query 'Select * from CCM_AssignmentCompliance' -Namespace root\ccm\SoftwareUpdates\DeploymentAgent -ComputerName $ComputerName -ErrorAction Stop
+      
+      #if update assignments were returned check to see if any are non-compliant
+      if($UpdateAssigment)
+      {
+        $IsCompliant = $true			
+        $UpdateAssigment | ForEach-Object{
+          
+          Write-Output "Update Assignment: $($_.AssignmentId) : "
+          if($_.IsCompliant -eq $true){Write-Output 'Compliant'}else{Write-Output 'Non-Compliant'}
+          
+          
+          #mark the compliance as false
+          if($_.IsCompliant -eq $false -and $IsCompliant -eq $true){$IsCompliant = $false}
+        }
+      }
+      else
+      {
+        Write-Output 'No Software Update Assignment targeted.'
+        return $true
+      }
+      
+      #the machine is not compliant; search for the updates
+      if($UpdateAssigment -and $IsCompliant -eq $false)
+      {			
+        
+        #check if the machine has any targeted updates that are missing
+        $TargetedUpdates = Get-WmiObject -Query 'Select * from CCM_TargetedUpdateEX1 where UpdateState = 0' -Namespace root\ccm\SoftwareUpdates\DeploymentAgent -ComputerName $ComputerName -ErrorAction Stop
+        
+        if($TargetedUpdates)
+        {
+          $iMissing=0
+          $UpdatesMissing=@()
+          
+          #loop through updates and get the details.
+          $TargetedUpdates | ForEach-Object {
+            
+            #get the GUID
+            $uID=$_.UpdateID | Select-String -Pattern 'SUM_[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}' | Select-Object -Expand Matches | Select-Object -Expand Value
+            #strip out the SUM_
+            $uID=$uID.Remove(0,4)				
+            $uBulletinID=''				
+            $uTitle=''				
+            
+            #query the update status from WMI
+            Get-WmiObject -Query "Select * from CCM_UpdateStatus where UniqueID = '$($uID)'" -Namespace root\ccm\SoftwareUpdates\UpdatesStore -ComputerName $ComputerName | ForEach-Object {
+              $iMissing++
+              $uBulletinID = $_.Bulletin
+              #if there is no MS00-000 ID swap it for the KB article number
+              if($uBulletinID -eq ''){$uBulletinID="KB$($_.Article)"}					
+              $uTitle=$_.Title
+            }
+            
+            #Write-Host "[$uBulletinID] :: [$uTitle]"
+            $UpdatesMissing+= "[$uBulletinID] :: [$uTitle]"
+          }
+          
+          Write-Output "[$iMissing] required security updates are missing:"
+          #resort the array of missing updates and return it
+          $UpdatesMissing=$UpdatesMissing | Sort-Object -Descending
+          return $false #$UpdatesMissing
+        }					
+      }
+      #machine is targeted and compliant
+      else
+      {
+        #Write-Output 'No Missing Software Updates found.'
+        return $true			
+      }
+    }
+    catch
+    {
+      throw		
+    }
+  }
+}
+
 #endregion helper functions
 
 
@@ -337,6 +429,8 @@ foreach ($SecondaryReplica in $SecondaryReplicaServer) {
       Invoke-WmiMethod -Namespace root\ccm -Class sms_client -Name TriggerSchedule '{00000000-0000-0000-0000-000000000042}' -ComputerName $SecondaryReplica.Split('\')[0]
       
       #Check if all updates have been installed and server finished rebooting
+      do {Get-ConfigMgrSoftwareUpdateCompliance -ComputerName $SecondaryReplica; Start-Sleep -Seconds 10}
+      while (-not (Get-ConfigMgrSoftwareUpdateCompliance -ComputerName $SecondaryReplica))
       
       $AlreadyPatched += $SecondaryReplica.Split('\')[0]
     }
@@ -358,7 +452,8 @@ Invoke-WmiMethod -Namespace root\ccm -Class sms_client -Name TriggerSchedule '{0
 Invoke-WmiMethod -Namespace root\ccm -Class sms_client -Name TriggerSchedule '{00000000-0000-0000-0000-000000000042}' -ComputerName $PrimaryReplicaServer.Split('\')[0]
 
 #Check if all updates have been installed and server finished rebooting
-
+do {Get-ConfigMgrSoftwareUpdateCompliance -ComputerName $SecondaryReplica; Start-Sleep -Seconds 10}
+while (-not (Get-ConfigMgrSoftwareUpdateCompliance -ComputerName $SecondaryReplica))
 
 #If the primary node is finished updating, fail over again to the Primary
 Switch-SqlAvailabilityGroup -Path SQLSERVER:\Sql\$PrimaryReplicaServer\AvailabilityGroups\$AvailabilityGroupName -Verbose
