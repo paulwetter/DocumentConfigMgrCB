@@ -1,11 +1,26 @@
-﻿#region declare variables
-[CmdletBinding()]
-param()
+﻿<#
+Usage: .\Update-AlwaysOn_v3.ps1 -SQLNodes @('SQL01AO', 'SQL02AO') -AlwaysOnInstance 'ALWAYSON' -AvailabilityGroupName 'AG01' -CollectionID 'HQ100066' -SMSProvider CM01.DO.LOCAL -Verbose
+#>
 
+
+#region declare variables
+[CmdletBinding()]
+param(
+$SQLNodes = @('SQL01AO', 'SQL02AO'),
+$AlwaysOnInstance = 'ALWAYSON',
+$AvailabilityGroupName = 'AG01',
+$CollectionID = 'HQ100066',
+$SMSProvider = 'cm01.do.local',
+[switch]$SendEmail
+)
+
+<#
 $SQLNodes = @('SQL01AO', 'SQL02AO')
 $AlwaysOnInstance = 'ALWAYSON'
 $AvailabilityGroupName = 'AG01'
-
+$CollectionID = 'HQ100066'
+$SMSProvider = 'cm01.do.local'
+#>
 $location = Split-Path $MyInvocation.MyCommand.Path -Parent
 
 #endregion declare variables
@@ -63,12 +78,10 @@ Function Get-SQLAlwaysOnReplicaNode {
     $connection.Open()
     ## Execute T-SQL command in variable, fetch the results, and close the connection
     $adapter = New-Object System.Data.OleDb.OleDbDataAdapter $command
-    #$dataset = New-Object System.Data.DataSet
     [void] $adapter.Fill($dataSet)
     $connection.Close()
   }
   ## Return all of the rows from dataset object
-  #$dataSet.Tables | FT -AutoSize
   return ($DataSet.Tables[0] | Select-Object replica_server_name).replica_server_name
   
   #>
@@ -81,9 +94,7 @@ Function Check-AGHealth {
     [ValidateNotNullOrEmpty()]
     [string]$AGName
   )
-  
-  #Set-Location "SQLServer:\SQL\$PrimaryReplicaServer\availabilitygroups\$AGName"
-  
+
   $objHealth = Test-SqlAvailabilityGroup -Path "SQLServer:\SQL\$PrimaryReplicaServer\availabilitygroups\$AGName"
   
   if ($objHealth.HealthState -eq 'Healthy') {
@@ -124,7 +135,6 @@ Function Check-ReplicaHealth {
   else {
     Write-Verbose "There were $HealthIssues issues in this AvailabilityGroup."
     return $UnhealthyReplica
-    #return $true
   }
 }
 
@@ -150,17 +160,22 @@ Function Backup-AvailabilityDB {
   Set-Location "SQLServer:\SQL\$PrimaryReplicaServer\availabilitygroups\$AvailabilityGroupName\AvailabilityDatabases"
   $DBs = Get-ChildItem -Path "SQLServer:\SQL\$PrimaryReplicaServer\availabilitygroups\$AvailabilityGroupName\AvailabilityDatabases"
   foreach ($DB in $DBs) {
-    Write-Verbose "Starting Backup of $($DB.Name)."
-    Backup-SqlDatabase "$($DB.Name)" "\\dc01\sources\SQLAlwaysOn\$($DB.Name)_PoSh.bak" -BackupAction Database -Verbose
-    Backup-SqlDatabase "$($DB.Name)" "\\dc01\sources\SQLAlwaysOn\$($DB.Name)_PoSh.trn" -BackupAction Log -Verbose
-    Start-Sleep -Seconds 5
+    if ($DB.SynchronizationState -eq 'Synchronized') {
+        Write-Verbose "Starting Backup of $($DB.Name)."
+        Backup-SqlDatabase "$($DB.Name)" "\\dc01\sources\SQLAlwaysOn\$($DB.Name)_PoSh.bak" -BackupAction Database -Verbose
+        Backup-SqlDatabase "$($DB.Name)" "\\dc01\sources\SQLAlwaysOn\$($DB.Name)_PoSh.trn" -BackupAction Log -Verbose
+        Start-Sleep -Seconds 5
     
-    if ((!(Test-Path "filesystem::\\dc01\sources\SQLAlwaysOn\$($DB.Name)_PoSh.bak")) -or (!(Test-Path "filesystem::\\dc01\sources\SQLAlwaysOn\$($DB.Name)_PoSh.trn"))) {
-      Write-Verbose "$($DB.Name) is missing"
-      $errorcount++
+        if ((!(Test-Path "filesystem::\\dc01\sources\SQLAlwaysOn\$($DB.Name)_PoSh.bak")) -or (!(Test-Path "filesystem::\\dc01\sources\SQLAlwaysOn\$($DB.Name)_PoSh.trn"))) {
+          Write-Verbose "$($DB.Name) is missing"
+          $errorcount++
+        }
+    }
+    else {
+        Write-Error "$($DB.Name) is not in a synchronised state. Aborting."
     }
   }
-  #$errorcount
+
   if ($errorcount -eq 0) {
     Write-Verbose 'this is true'
     return $true;
@@ -182,10 +197,8 @@ Function Disable-AutomaticFailover {
   $ReplicaServer = $Node+'\'+$AlwaysOnInstance
   
   $NewReplicaString = $ReplicaServer.Replace('\','%5C')
-  $NewReplicaString
   try {
-    "Set-SqlAvailabilityReplica -AvailabilityMode `"SynchronousCommit`" -FailoverMode 'Manual' -Path SQLSERVER:\Sql\$PrimaryReplicaServer\AvailabilityGroups\$AvailabilityGroupName\AvailabilityReplicas\$NewReplicaString"
-    Set-SqlAvailabilityReplica -AvailabilityMode "SynchronousCommit" -FailoverMode 'Manual' -Path SQLSERVER:\Sql\$PrimaryReplicaServer\AvailabilityGroups\$AvailabilityGroupName\AvailabilityReplicas\$NewReplicaString
+    Set-SqlAvailabilityReplica -AvailabilityMode 'SynchronousCommit' -FailoverMode 'Manual' -Path SQLSERVER:\Sql\$PrimaryReplicaServer\AvailabilityGroups\$AvailabilityGroupName\AvailabilityReplicas\$NewReplicaString
   }
   catch {
     Write-Error $_
@@ -226,10 +239,25 @@ Function Add-NodeToConfigMgrCollection {
   $MC = Get-WmiObject -Class SMS_Collection -ComputerName $SMSProvider -Namespace "ROOT\SMS\site_$SiteCode" -Filter "CollectionID = '$CollectionID'"
   $InParams = $mc.psbase.GetMethodParameters("AddMembershipRule")
   $InParams.collectionRule = $objColRuledirect
-  #$inparams.PSBase.properties | select name,Value | Format-Table
   $R = $mc.PSBase.InvokeMethod("AddMembershipRule", $inParams, $Null)
 }
 
+Function Invoke-PolicyDownload {
+  [CmdletBinding()]
+  param(
+    [Parameter(Position=0,ValueFromPipeline=$true)]
+    [System.String]		
+    $ComputerName=(get-content env:computername) #defaults to local computer name		
+  )
+    Invoke-WmiMethod -Namespace root\ccm -Class sms_client -Name TriggerSchedule '{00000000-0000-0000-0000-000000000021}' -ComputerName $ComputerName -ErrorAction SilentlyContinue | Out-Null
+    #Trigger machine policy download
+    Invoke-WmiMethod -Namespace root\ccm -Class sms_client -Name TriggerSchedule '{00000000-0000-0000-0000-000000000022}' -ComputerName $ComputerName -ErrorAction SilentlyContinue | Out-Null
+    #Trigger Software Update Scane cycle
+    Invoke-WmiMethod -Namespace root\ccm -Class sms_client -Name TriggerSchedule '{00000000-0000-0000-0000-000000000113}' -ComputerName $ComputerName -ErrorAction SilentlyContinue | Out-Null
+    #Trigger Software Update Deployment Evaluation Cycle
+    Invoke-WmiMethod -Namespace root\ccm -Class sms_client -Name TriggerSchedule '{00000000-0000-0000-0000-000000000114}' -ComputerName $ComputerName -ErrorAction SilentlyContinue | Out-Null
+
+}
 Function Get-ConfigMgrSoftwareUpdateCompliance {
   [CmdletBinding()]
   param(
@@ -237,104 +265,38 @@ Function Get-ConfigMgrSoftwareUpdateCompliance {
     [System.String]		
     $ComputerName=(get-content env:computername) #defaults to local computer name		
   )
-  process{
-    try
-    {		
-      
+  Invoke-PolicyDownload -ComputerName $ComputerName;
+  do {
+      Start-Sleep -Seconds 30
       Write-Output "Checking Software Updates Compliance on [$ComputerName]"
       
       #check if the machine has an update assignment targeted at it
-      $j = 0
-      do {$UpdateAssigment = Get-WmiObject -Query 'Select * from CCM_AssignmentCompliance' -Namespace root\ccm\SoftwareUpdates\DeploymentAgent -ComputerName $ComputerName -ErrorAction Stop; 
-            $UpdateAssigment
-            $j++;
-              #Trigger machine policy download
-              Invoke-WmiMethod -Namespace root\ccm -Class sms_client -Name TriggerSchedule '{00000000-0000-0000-0000-000000000022}' -ComputerName $SecondaryReplica.Split('\')[0] | Out-Null
-              #Trigger Software Update Scane cycle
-              Invoke-WmiMethod -Namespace root\ccm -Class sms_client -Name TriggerSchedule '{00000000-0000-0000-0000-000000000113}' -ComputerName $SecondaryReplica.Split('\')[0] | Out-Null
-              #Trigger Software Update Deployment Evaluation Cycle
-              Invoke-WmiMethod -Namespace root\ccm -Class sms_client -Name TriggerSchedule '{00000000-0000-0000-0000-000000000114}' -ComputerName $SecondaryReplica.Split('\')[0] | Out-Null
-            Start-Sleep -Seconds 10
-            }
-      while (($UpdateAssigment -eq $null) -or ($UpdateAssigment -eq ''))
-      
+    $global:UpdateAssigment = Get-WmiObject -Query 'Select * from CCM_AssignmentCompliance' -Namespace root\ccm\SoftwareUpdates\DeploymentAgent -ComputerName $ComputerName -ErrorAction SilentlyContinue ;
+    
+    Write-Output $UpdateAssigment
+            
       #if update assignments were returned check to see if any are non-compliant
-      if($UpdateAssigment)
-      {
         $IsCompliant = $true			
-        $UpdateAssigment | ForEach-Object{
-          
-          Write-Output "Update Assignment: $($_.AssignmentId) : "
-          if ($_.IsCompliant -eq $true) {
-            Write-Output 'Compliant'
-            }
-          else {
-            Write-Output 'Non-Compliant'
-            }       
+        
+        $UpdateAssigment | ForEach-Object{     
           #mark the compliance as false
           if($_.IsCompliant -eq $false -and $IsCompliant -eq $true){$IsCompliant = $false}
-        }
-      }
-      else
-      {
-        Write-Output 'No Software Update Assignment targeted.'
-        return $true
-      }
-      
-      #the machine is not compliant; search for the updates
-      if($UpdateAssigment -and $IsCompliant -eq $false)
-      {			
-        
-        #check if the machine has any targeted updates that are missing
-        $TargetedUpdates = Get-WmiObject -Query 'Select * from CCM_TargetedUpdateEX1 where UpdateState = 0' -Namespace root\ccm\SoftwareUpdates\DeploymentAgent -ComputerName $ComputerName -ErrorAction Stop
-        
-        if($TargetedUpdates)
-        {
-          $iMissing=0
-          $UpdatesMissing=@()
-          
-          #loop through updates and get the details.
-          $TargetedUpdates | ForEach-Object {
-            
-            #get the GUID
-            $uID=$_.UpdateID | Select-String -Pattern 'SUM_[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}' | Select-Object -Expand Matches | Select-Object -Expand Value
-            #strip out the SUM_
-            $uID=$uID.Remove(0,4)				
-            $uBulletinID=''				
-            $uTitle=''				
-            
-            #query the update status from WMI
-            Get-WmiObject -Query "Select * from CCM_UpdateStatus where UniqueID = '$($uID)'" -Namespace root\ccm\SoftwareUpdates\UpdatesStore -ComputerName $ComputerName | ForEach-Object {
-              $iMissing++
-              $uBulletinID = $_.Bulletin
-              #if there is no MS00-000 ID swap it for the KB article number
-              if($uBulletinID -eq ''){$uBulletinID="KB$($_.Article)"}					
-              $uTitle=$_.Title
-            }
-            
-            #Write-Host "[$uBulletinID] :: [$uTitle]"
-            $UpdatesMissing+= "[$uBulletinID] :: [$uTitle]"
           }
-          
-          Write-Output "[$iMissing] required security updates are missing:"
-          #resort the array of missing updates and return it
-          $UpdatesMissing=$UpdatesMissing | Sort-Object -Descending
-          $UpdatesMissing
-          return $false #$UpdatesMissing
-        }					
-      }
-      #machine is targeted and compliant
-      else
-      {
-        Write-Output 'No Missing Software Updates found.'
-        return $true			
-      }
-    }
-    catch
-    {
-      throw		
-    }
-  }
+        #Check for pending reboot to finish compliance
+        $rebootPending = (Invoke-WmiMethod -Namespace root\ccm\clientsdk -Class CCM_ClientUtilities -Name DetermineIfRebootPending -ComputerName $ComputerName).RebootPending
+
+          if ($rebootPending)
+            {
+                Invoke-WmiMethod -Namespace root\ccm\clientsdk -Class CCM_ClientUtilities -Name RestartComputer -ComputerName $ComputerName
+                do {'waiting...';start-sleep -Seconds 5} 
+                while (-not ((get-service -name 'SMS Agent Host' -ComputerName $ComputerName).Status -eq 'Running'))
+
+            } 
+          else {
+            Write-Output 'No pending reboot. Continue...'
+            }
+        }
+        while (-not $IsCompliant)
 }
 
 #endregion helper functions
@@ -357,12 +319,13 @@ else {
 
 if (! (Test-Path 'SQLServer:')) {
   Write-Verbose 'Cannot access the SQLServer PSDrive. Exiting.';
+  exit 1
   #exit after here
 }
 else {
   Set-Location $location
 }
-    #>
+
 $PrimaryReplicaServer = Get-SQLAlwaysOnReplicaNode -SQLNodes $SQLNodes -SQLInstance $AlwaysOnInstance -Role PRIMARY;
 $SecondaryReplicaServer = Get-SQLAlwaysOnReplicaNode -SQLNodes $SQLNodes -SQLInstance $AlwaysOnInstance -Role SECONDARY;
 
@@ -417,46 +380,29 @@ foreach ($SQLNode in $SQLNodes)
   Disable-AutomaticFailover -Node $SQLNode -AlwaysOnInstance $AlwaysOnInstance -Verbose
 }
 
-$OriginalPrimary = $PrimaryReplicaServer
+#Start Updating one Secondary Node at a time
 
-<#
-
-Start Updating one Secondary Node at a time
-
-#>
-
-$SiteCode = Get-SiteCode -SMSProvider CM01.Do.Local
+$SiteCode = Get-SiteCode -SMSProvider $SMSProvider
 $i = 0
 foreach ($SecondaryReplica in $SecondaryReplicaServer) {
   if (-not ($AlreadyPatched -contains $SecondaryReplica.Split('\')[0])) {
     try {
       $i++
       Write-Verbose "Patching Server round $i = $($SecondaryReplica.Split('\')[0])"
-      
+
       #Add current secondary node to ConfigMgr collection to receive its updates
-      Add-NodeToConfigMgrCollection -Node $SecondaryReplica.Split('\')[0] -SiteCode $SiteCode -SMSProvider cm01.do.local -CollectionID 'HQ100066' -Verbose
-      Start-Sleep -Seconds 30
-      #Trigger machine policy download
-      Invoke-WmiMethod -Namespace root\ccm -Class sms_client -Name TriggerSchedule '{00000000-0000-0000-0000-000000000022}' -ComputerName $SecondaryReplica.Split('\')[0] | Out-Null
-      #Trigger Software Update Scane cycle
-      Invoke-WmiMethod -Namespace root\ccm -Class sms_client -Name TriggerSchedule '{00000000-0000-0000-0000-000000000113}' -ComputerName $SecondaryReplica.Split('\')[0] | Out-Null
-      #Trigger Software Update Deployment Evaluation Cycle
-      Invoke-WmiMethod -Namespace root\ccm -Class sms_client -Name TriggerSchedule '{00000000-0000-0000-0000-000000000114}' -ComputerName $SecondaryReplica.Split('\')[0] | Out-Null
-      
+      Add-NodeToConfigMgrCollection -Node $SecondaryReplica.Split('\')[0] -SiteCode $SiteCode -SMSProvider $SMSProvider -CollectionID $CollectionID -Verbose
+
       Start-Sleep -Seconds 60
+      Invoke-policydownload -computername $SecondaryReplica.Split('\')[0]
 
+      Start-Sleep -Seconds 90
+      Invoke-policydownload -computername $SecondaryReplica.Split('\')[0]
+
+      Start-Sleep -Seconds 90
       #Check if all updates have been installed and server finished rebooting
-      do {Get-ConfigMgrSoftwareUpdateCompliance -ComputerName $SecondaryReplica.Split('\')[0]; 'Waiting for Updates to be installed. Checking again in 10s.'; Start-Sleep -Seconds 10}
-      while (! (Get-ConfigMgrSoftwareUpdateCompliance -ComputerName $SecondaryReplica.Split('\')[0]))
-      
-      $rebootPending = (Invoke-WmiMethod -Namespace root\ccm\clientsdk -Class CCM_ClientUtilities -Name DetermineIfRebootPending -ComputerName $SecondaryReplica.Split('\')[0]).RebootPending
-
-      if ($rebootPending)
-        {
-            Invoke-WmiMethod -Namespace root\ccm\clientsdk -Class CCM_ClientUtilities -Name RestartComputer -ComputerName $SecondaryReplica.Split('\')[0]
-        } 
-    do {'waiting...';start-sleep -Seconds 5} 
-    while (-not (Test-NetConnection -ComputerName $SecondaryReplica.Split('\')[0] -Hops 1 -ErrorAction SilentlyContinue -InformationLevel Quiet))
+      Write-Output 'Applying updates now'
+      Get-ConfigMgrSoftwareUpdateCompliance -ComputerName $SecondaryReplica.Split('\')[0]
         
       $AlreadyPatched += $SecondaryReplica.Split('\')[0]
     }
@@ -468,23 +414,34 @@ foreach ($SecondaryReplica in $SecondaryReplicaServer) {
     Write-Verbose "$($SecondaryReplica.Split('\')[0]) has already been patched. Skipping."
   }
 }
-<#
+
 # fail over to one of the secondary nodes and update the primary node, after that, fail over again to the original primary node
+
 Switch-SqlAvailabilityGroup -Path SQLSERVER:\Sql\$(Get-Random -InputObject $SecondaryReplicaServer)\AvailabilityGroups\$AvailabilityGroupName -Verbose
-Add-NodeToConfigMgrCollection -Node $PrimaryReplicaServer.Split('\')[0] -SiteCode $SiteCode -SMSProvider cm01.do.local -CollectionID 'HQ100066' -Verbose
-Start-Sleep -Seconds 30
+Add-NodeToConfigMgrCollection -Node $PrimaryReplicaServer.Split('\')[0] -SiteCode $SiteCode -SMSProvider $SMSProvider -CollectionID $CollectionID -Verbose
 
-Invoke-WmiMethod -Namespace root\ccm -Class sms_client -Name TriggerSchedule '{00000000-0000-0000-0000-000000000113}' -ComputerName $PrimaryReplicaServer.Split('\')[0]
-Invoke-WmiMethod -Namespace root\ccm -Class sms_client -Name TriggerSchedule '{00000000-0000-0000-0000-000000000042}' -ComputerName $PrimaryReplicaServer.Split('\')[0]
+Start-Sleep -Seconds 60
+Invoke-PolicyDownload -computername $PrimaryReplicaServer.Split('\')[0]
 
+Start-Sleep -Seconds 90
+Invoke-PolicyDownload -computername $PrimaryReplicaServer.Split('\')[0]
+
+Start-Sleep -Seconds 90
 #Check if all updates have been installed and server finished rebooting
-do {Get-ConfigMgrSoftwareUpdateCompliance -ComputerName $SecondaryReplica; Start-Sleep -Seconds 10}
-while (-not (Get-ConfigMgrSoftwareUpdateCompliance -ComputerName $SecondaryReplica))
+Write-Output 'Applying updates now'
+Get-ConfigMgrSoftwareUpdateCompliance -ComputerName $PrimaryReplicaServer.Split('\')[0]
+
 
 #If the primary node is finished updating, fail over again to the Primary
 Switch-SqlAvailabilityGroup -Path SQLSERVER:\Sql\$PrimaryReplicaServer\AvailabilityGroups\$AvailabilityGroupName -Verbose
-#>
-#$SecondaryReplicaServer
+
 Set-Location C:\
 Set-Location $location
+
+If ($SendEmail) {
+$secpasswd = ConvertTo-SecureString "XXXXXXXXXXXXXXXXX" -AsPlainText -Force
+$mycreds = New-Object System.Management.Automation.PSCredential ("obrien.david@outlook.com", $secpasswd)
+
+Send-MailMessage -Body 'Test' -Subject 'SQL AlwaysON Completion Message' -From 'obrien.david@outlook.com' -SmtpServer dub403-m.hotmail.com -UseSsl -Credential $mycreds -To 'david.obrien@dilignet.com'
+}
 #endregion that's it!
