@@ -231,10 +231,10 @@
 	No objects are output from this script.  
 	This script creates a Word, PDF, Formatted Text or HTML document.
 .NOTES
-	NAME: ScriptTemplate.ps1
+	NAME: DocumentCM12R2v2.ps1
 	VERSION: 1.00
-	AUTHOR: Carl Webster, Michael B. Smith, Iain Brighton, Jeff Wouters, Barry Schiffer
-	LASTEDIT: March 29, 2015
+	AUTHOR: Carl Webster, Michael B. Smith, Iain Brighton, Jeff Wouters, Barry Schiffer, David O'Brien
+	LASTEDIT: April 06, 2015
 #>
 
 #endregion
