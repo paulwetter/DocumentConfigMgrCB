@@ -79,16 +79,9 @@
 	SaveAs PDF file instead of DOCX file.
 	This parameter is disabled by default.
 	The PDF file is roughly 5X to 10X larger than the DOCX file.
-.PARAMETER Text
-	Creates a formatted text file with a .txt extension.
-	This parameter is disabled by default.
 .PARAMETER MSWord
 	SaveAs DOCX file
 	This parameter is set True if no other output format is selected.
-.PARAMETER HTML
-	Creates an HTML file with an .html extension.
-	This parameter is disabled by default.
-	This parameter is reserved for a future update and no output is created at this time.
 .PARAMETER AddDateTime
 	Adds a date time stamp to the end of the file name.
 	Time stamp is in the format of yyyy-MM-dd_HHmm.
@@ -107,17 +100,15 @@
 	If entered as localhost, the actual computer name is determined and used.
 	If entered as an IP address, an attempt is made to determine and use the actual computer name.
 	Default is localhost.
-.EXAMPLE
-	PS C:\PSScript > .\ScriptTemplate.ps1
-	
-	Will use all default values.
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\CompanyName="Carl Webster" or
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\Company="Carl Webster"
-	$env:username = Administrator
-
-	Carl Webster for the Company Name.
-	Sideline for the Cover Page format.
-	Administrator for the User Name.
+.PARAMETER Software
+    Specifies whether the script should run an inventory of Applications, Packages and OSD related objects.
+.PARAMETER ListAllInformation
+    Specifies whether the script should only output an overview of what is configured (like count of collections) or 
+    a full output with verbose information.
+.PARAMETER SMSProvider
+    Some information rely on WMI queries that need to be executed against the SMS Provider directly. 
+    Please specify as FQDN.
+    If not specified, it assumes localhost.
 .EXAMPLE
 	PS C:\PSScript > .\ScriptTemplate.ps1 -PDF
 	
@@ -129,30 +120,7 @@
 	Carl Webster for the Company Name.
 	Sideline for the Cover Page format.
 	Administrator for the User Name.
-.EXAMPLE
-	PS C:\PSScript > .\ScriptTemplate.ps1 -TEXT
 
-	Will use all default values and save the document as a formatted text file.
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\CompanyName="Carl Webster" or
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\Company="Carl Webster"
-	$env:username = Administrator
-
-	Carl Webster for the Company Name.
-	Sideline for the Cover Page format.
-	Administrator for the User Name.
-.EXAMPLE
-	PS C:\PSScript > .\ScriptTemplate.ps1 -HTML
-
-	This parameter is reserved for a future update and no output is created at this time.
-	
-	Will use all default values and save the document as an HTML file.
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\CompanyName="Carl Webster" or
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\Company="Carl Webster"
-	$env:username = Administrator
-
-	Carl Webster for the Company Name.
-	Sideline for the Cover Page format.
-	Administrator for the User Name.
 .EXAMPLE
 	PS C:\PSScript .\ScriptTemplate.ps1 -CompanyName "Carl Webster Consulting" -CoverPage "Mod" -UserName "Carl Webster"
 
