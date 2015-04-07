@@ -3976,7 +3976,7 @@ if ($ListAllInformation)
         $IncludeRules = $Null
         $CollectionRules = $DeviceCollection.CollectionRules #just for Direct and Query
                     
-        $Collection = Get-WmiObject -Namespace root\sms\site_$SiteCode -Query "SELECT * FROM SMS_Collection WHERE CollectionID = '$($DeviceCollection.CollectionID)'"
+        $Collection = Get-WmiObject -Namespace root\sms\site_$SiteCode -Query "SELECT * FROM SMS_Collection WHERE CollectionID = '$($DeviceCollection.CollectionID)'" -ComputerName $SMSProvider
         [wmi]$Collection = $Collection.__PATH
                     
         $OtherCollectionRules = $Collection.CollectionRules
