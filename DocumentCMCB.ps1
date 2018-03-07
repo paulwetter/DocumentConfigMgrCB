@@ -1,31 +1,17 @@
-﻿#Requires -Version 3.0
-#This File is in Unicode format.  Do not edit in an ASCII editor.
+#Requires -Version 4.0
 
 #region help text
 
 <#
 .SYNOPSIS
-	Demonstrates script functionality using Microsoft Word, PDF, formatted text or HTML.
+	Script attempts to fully document a Microsoft Configuration Manager environment.
 .DESCRIPTION
-	Creates a sample report of various Word functionality using Microsoft Word, PDF, formatted text, HTML and PowerShell.
-	Creates a document named Script_Template.docx (or .PDF or .TXT or .HTML).
-	Word and PDF documents include a Cover Page, Table of Contents and Footer.
-	Includes support for the following language versions of Microsoft Word:
-		Catalan
-		Danish
-		Dutch
-		English
-		Finnish
-		French
-		German
-		Norwegian
-		Portuguese
-		Spanish
-		Swedish
-
-	Look for the sections starting with ### to find the lines to either be replaced with your 
-	script code or that need changing for your script needs
-.PARAMETER CompanyName
+	This script will fully document a Configuration Manager environment.  The original 
+    script developed several years ago by David O'Brien required Microsoft Word to create 
+    the documentation.  This updated script is more detailed and outputs the documentation
+    in pure HTML.  If you so desire, you can import this HTML report into Word for easier
+    editing.
+.PARAMETER Title
 	Company Name to use for the Cover Page.  
 	Default value is contained in HKCU:\Software\Microsoft\Office\Common\UserInfo\CompanyName or
 	HKCU:\Software\Microsoft\Office\Common\UserInfo\Company, whichever is populated on the 
@@ -33,73 +19,23 @@
 	This parameter has an alias of CN.
 	If either registry key does not exist and this parameter is not specified, the report will
 	not contain a Company Name on the cover page.
-.PARAMETER CoverPage
-	What Microsoft Word Cover Page to use.
-	Only Word 2010 and 2013 are supported.
-	(default cover pages in Word en-US)
-	Valid input is:
-		Alphabet (Word 2010. Works)
-		Annual (Word 2010. Doesn't work well for this report)
-		Austere (Word 2010. Works)
-		Austin (Word 2010/2013. Doesn't work in 2013, mostly works in 2010 but Subtitle/Subject & Author fields need to be moved after title box is moved up)
-		Banded (Word 2013. Works)
-		Conservative (Word 2010. Works)
-		Contrast (Word 2010. Works)
-		Cubicles (Word 2010. Works)
-		Exposure (Word 2010. Works if you like looking sideways)
-		Facet (Word 2013. Works)
-		Filigree (Word 2013. Works)
-		Grid (Word 2010/2013.Works in 2010)
-		Integral (Word 2013. Works)
-		Ion (Dark) (Word 2013. Top date doesn't fit, box needs to be manually resized or font changed to 8 point)
-		Ion (Light) (Word 2013. Top date doesn't fit, box needs to be manually resized or font changed to 8 point)
-		Mod (Word 2010. Works)
-		Motion (Word 2010/2013. Works if top date is manually changed to 36 point)
-		Newsprint (Word 2010. Works but date is not populated)
-		Perspective (Word 2010. Works)
-		Pinstripes (Word 2010. Works)
-		Puzzle (Word 2010. Top date doesn't fit, box needs to be manually resized or font changed to 14 point)
-		Retrospect (Word 2013. Works)
-		Semaphore (Word 2013. Works)
-		Sideline (Word 2010/2013. Doesn't work in 2013, works in 2010)
-		Slice (Dark) (Word 2013. Doesn't work)
-		Slice (Light) (Word 2013. Doesn't work)
-		Stacks (Word 2010. Works)
-		Tiles (Word 2010. Date doesn't fit unless changed to 26 point)
-		Transcend (Word 2010. Works)
-		ViewMaster (Word 2013. Works)
-		Whisp (Word 2013. Works)
-	Default value is Sideline.
-	This parameter has an alias of CP.
-.PARAMETER UserName
-	User name to use for the Cover Page and Footer.
-	Default value is contained in $env:username
-	This parameter has an alias of UN.
-.PARAMETER PDF
-	SaveAs PDF file instead of DOCX file.
-	This parameter is disabled by default.
-	The PDF file is roughly 5X to 10X larger than the DOCX file.
-.PARAMETER MSWord
-	SaveAs DOCX file
-	This parameter is set True if no other output format is selected.
+.PARAMETER FilePath
+	This is the path of the documentation file.  By default, the file will be created in the same directory as the
+    where the script is currently located. And named CMDocumentation.html
 .PARAMETER AddDateTime
 	Adds a date time stamp to the end of the file name.
 	Time stamp is in the format of yyyy-MM-dd_HHmm.
 	June 1, 2014 at 6PM is 2014-06-01_1800.
-	Output filename will be ReportName_2014-06-01_1800.docx (or .pdf).
-	This parameter is disabled by default.
-.PARAMETER Hardware
-	Use WMI to gather hardware information on: Computer System, Disks, Processor and Network Interface Cards
-	This parameter may require the script be run from an elevated PowerShell session 
-	using an account with permission to retrieve hardware information (i.e. Domain Admin or Local Administrator).
-	Selecting this parameter will add to both the time it takes to run the script and size of the report.
-	This parameter is disabled by default.
-.PARAMETER ComputerName
-	Specifies a computer to use to run the script against.
-	ComputerName can be entered as the NetBIOS name, FQDN, localhost or IP Address.
-	If entered as localhost, the actual computer name is determined and used.
-	If entered as an IP address, an attempt is made to determine and use the actual computer name.
-	Default is localhost.
+	Output filename will be ReportName_2014-06-01_1800.html.
+.PARAMETER CompanyName
+	This is the name of the company or organization that the documentation will be created for.
+.PARAMETER CompanyLogo
+    This is a UNC or URL path to a image file jpg, or png to embed into the document on the title page.  By default,
+    the Cyber Advisors logo will display.
+.PARAMETER Author
+    This is the report author.  Their name appears in the lower right corner of the title page.
+.PARAMETER Vendor
+    This displays a company name in the lower right corner of the title page.
 .PARAMETER Software
     Specifies whether the script should run an inventory of Applications, Packages and OSD related objects.
 .PARAMETER ListAllInformation
@@ -109,135 +45,50 @@
     Some information rely on WMI queries that need to be executed against the SMS Provider directly. 
     Please specify as FQDN.
     If not specified, it assumes localhost.
+.PARAMETER UnknownClientSettings
+    With new releases of CM come new client settings.  If this parameter is added, it will display raw 
+    information for these client settings.
 .EXAMPLE
-	PS C:\PSScript > .\ScriptTemplate.ps1 -PDF
-	
-	Will use all default values and save the document as a PDF file.
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\CompanyName="Carl Webster" or
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\Company="Carl Webster"
-	$env:username = Administrator
 
-	Carl Webster for the Company Name.
-	Sideline for the Cover Page format.
-	Administrator for the User Name.
-
-.EXAMPLE
-	PS C:\PSScript .\ScriptTemplate.ps1 -CompanyName "Carl Webster Consulting" -CoverPage "Mod" -UserName "Carl Webster"
-
-	Will use:
-		Carl Webster Consulting for the Company Name.
-		Mod for the Cover Page format.
-		Carl Webster for the User Name.
-.EXAMPLE
-	PS C:\PSScript .\ScriptTemplate.ps1 -CN "Carl Webster Consulting" -CP "Mod" -UN "Carl Webster"
-
-	Will use:
-		Carl Webster Consulting for the Company Name (alias CN).
-		Mod for the Cover Page format (alias CP).
-		Carl Webster for the User Name (alias UN).
-.EXAMPLE
-	PS C:\PSScript > .\ScriptTemplate.ps1 -AddDateTime
-	
-	Will use all default values.
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\CompanyName="Carl Webster" or
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\Company="Carl Webster"
-	$env:username = Administrator
-
-	Carl Webster for the Company Name.
-	Sideline for the Cover Page format.
-	Administrator for the User Name.
-
-	Adds a date time stamp to the end of the file name.
-	Time stamp is in the format of yyyy-MM-dd_HHmm.
-	June 1, 2014 at 6PM is 2014-06-01_1800.
-	Output filename will be Script_Template_2014-06-01_1800.docx
-.EXAMPLE
-	PS C:\PSScript > .\ScriptTemplate.ps1 -PDF -AddDateTime
-	
-	Will use all default values and save the document as a PDF file.
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\CompanyName="Carl Webster" or
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\Company="Carl Webster"
-	$env:username = Administrator
-
-	Carl Webster for the Company Name.
-	Sideline for the Cover Page format.
-	Administrator for the User Name.
-
-	Adds a date time stamp to the end of the file name.
-	Time stamp is in the format of yyyy-MM-dd_HHmm.
-	June 1, 2014 at 6PM is 2014-06-01_1800.
-	Output filename will be Script_Template_2014-06-01_1800.PDF
-.EXAMPLE
-	PS C:\PSScript > .\ScriptTemplate.ps1 -Hardware
-	
-	Will use all default values.
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\CompanyName="Carl Webster" or
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\Company="Carl Webster"
-	$env:username = Administrator
-
-	Carl Webster for the Company Name.
-	Sideline for the Cover Page format.
-	Administrator for the User Name.
-	localhost for running hardware inventory.
-	localhost will be replaced by the actual computer name.
-.EXAMPLE
-	PS C:\PSScript > .\ScriptTemplate.ps1 -Hardware -ComputerName 192.168.1.51
-	
-	Will use all default values.
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\CompanyName="Carl Webster" or
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\Company="Carl Webster"
-	$env:username = Administrator
-
-	Carl Webster for the Company Name.
-	Sideline for the Cover Page format.
-	Administrator for the User Name.
-	192.168.1.51 for running hardware inventory.
-	192.168.1.51 will be replaced by the actual computer name, if possible.
 .INPUTS
 	None.  You cannot pipe objects to this script.
 .OUTPUTS
 	No objects are output from this script.  
-	This script creates a Word, PDF, Formatted Text or HTML document.
+	This script creates a HTML document.
 .NOTES
-	NAME: DocumentCM12R2v2.ps1
+	NAME: DocumentCMCB.ps1
 	VERSION: 1.00
-	AUTHOR: Carl Webster, Michael B. Smith, Iain Brighton, Jeff Wouters, Barry Schiffer, David O'Brien
-	LASTEDIT: April 06, 2015
+	AUTHOR: Paul Wetter, David O'Brien
+	LASTEDIT: March 07, 2018
 #>
 
 #endregion
 
 #region script parameters
-#thanks to @jeffwouters and Michael B. Smith for helping me with these parameters
-[CmdletBinding(SupportsShouldProcess = $False, ConfirmImpact = "None", DefaultParameterSetName = "Word") ]
+#[CmdletBinding(DefaultParameterSetName = "Word") ]
+[CmdletBinding()]
 
 Param(
-	[parameter(ParameterSetName="Word",Mandatory=$False)] 
-	[Switch]$MSWord=$False,
+	[parameter(Mandatory=$False)] 
+	[String]$Title = "Configuration Manager Site Documentation",
 
-	[parameter(ParameterSetName="PDF",Mandatory=$False)] 
-	[Switch]$PDF=$False,
+	[parameter(Mandatory=$False)] 
+	[String]$FilePath = "$([System.IO.Path]::GetDirectoryName($myInvocation.MyCommand.Definition))\CMDocumentation.html",
 
 	[parameter(Mandatory=$False)] 
 	[Switch]$AddDateTime=$False,
 	
-	[parameter(ParameterSetName="Word",Mandatory=$False)] 
-	[parameter(ParameterSetName="PDF",Mandatory=$False)] 
-	[Alias("CN")]
-	[ValidateNotNullOrEmpty()]
-	[string]$CompanyName="",
+	[parameter(Mandatory=$True)] 
+	[string]$CompanyName,
     
-	[parameter(ParameterSetName="Word",Mandatory=$False)] 
-	[parameter(ParameterSetName="PDF",Mandatory=$False)] 
-	[Alias("CP")]
-	[ValidateNotNullOrEmpty()]
-	[string]$CoverPage="Sideline", 
+	[parameter(Mandatory=$False)] 
+    [string]$CompanyLogo = "https://blog.cyberadvisors.com/hubfs/CAI_logo.jpg",
 
-	[parameter(ParameterSetName="Word",Mandatory=$False)] 
-	[parameter(ParameterSetName="PDF",Mandatory=$False)] 
-	[Alias("UN")]
-	[ValidateNotNullOrEmpty()]
-	[string]$UserName=$env:username,
+	[parameter(Mandatory=$False)] 
+	[string]$Author="Paul Wetter",
+
+	[parameter(Mandatory=$False)] 
+    [string]$Vendor = "Cyber Advisors",
 
 	[parameter(Mandatory=$False)] 
 	[Switch]$Software,
@@ -246,2159 +97,614 @@ Param(
 	[Switch]$ListAllInformation,
 
 	[parameter(Mandatory=$False)] 
-	[string]$SMSProvider='localhost'
+	[string]$SMSProvider='localhost',
+
+	[parameter(Mandatory=$False)] 
+    [switch]$UnknownClientSettings
 
 	)
 #endregion
-
-#region script change log	
-#webster@carlwebster.com
-#@carlwebster on Twitter
-#http://www.CarlWebster.com
-#Created on June 1, 2014
-
-#HTML functions and sample text contributed by Ken Avram October 2014
-#Organized functions into logical units 16-Oct-2014
-#Added regions 16-Oct-2014
-#endregion
-
-#region initial variable testing and setup
-Set-StrictMode -Version 2
-
-#force  on
-$PSDefaultParameterValues = @{"*:Verbose"=$True}
-$SaveEAPreference = $ErrorActionPreference
-$ErrorActionPreference = 'SilentlyContinue'
-
-If($PDF -eq $Null)
-{
-	$PDF = $False
-}
-If($Text -eq $Null)
-{
-	$Text = $False
-}
-If($MSWord -eq $Null)
-{
-	$MSWord = $False
-}
-If($HTML -eq $Null)
-{
-	$HTML = $False
-}
-If($AddDateTime -eq $Null)
-{
-	$AddDateTime = $False
-}
-If($Hardware -eq $Null)
-{
-	$Hardware = $False
-}
-If($ComputerName -eq $Null)
-{
-	$ComputerName = "LocalHost"
-}
-
-If(!(Test-Path Variable:PDF))
-{
-	$PDF = $False
-}
-If(!(Test-Path Variable:Text))
-{
-	$Text = $False
-}
-If(!(Test-Path Variable:MSWord))
-{
-	$MSWord = $False
-}
-If(!(Test-Path Variable:HTML))
-{
-	$HTML = $False
-}
-If(!(Test-Path Variable:AddDateTime))
-{
-	$AddDateTime = $False
-}
-If(!(Test-Path Variable:Hardware))
-{
-	$Hardware = $False
-}
-If(!(Test-Path Variable:ComputerName))
-{
-	$ComputerName = "LocalHost"
-}
-
-If($MSWord -eq $Null)
-{
-	If($Text -or $HTML -or $PDF)
-	{
-		$MSWord = $False
-	}
-	Else
-	{
-		$MSWord = $True
-	}
-}
-
-If($MSWord -eq $False -and $PDF -eq $False -and $Text -eq $False -and $HTML -eq $False)
-{
-	$MSWord = $True
-}
-
-Write-Verbose "$(Get-Date): Testing output parameters"
-
-If($MSWord)
-{
-	Write-Verbose "$(Get-Date): MSWord is set"
-}
-ElseIf($PDF)
-{
-	Write-Verbose "$(Get-Date): PDF is set"
-}
-ElseIf($Text)
-{
-	Write-Verbose "$(Get-Date): Text is set"
-}
-ElseIf($HTML)
-{
-	Write-Verbose "$(Get-Date): HTML is set"
-}
-Else
-{
-	$ErrorActionPreference = $SaveEAPreference
-	Write-Verbose "$(Get-Date): Unable to determine output parameter"
-	If($MSWord -eq $Null)
-	{
-		Write-Verbose "$(Get-Date): MSWord is Null"
-	}
-	ElseIf($PDF -eq $Null)
-	{
-		Write-Verbose "$(Get-Date): PDF is Null"
-	}
-	ElseIf($Text -eq $Null)
-	{
-		Write-Verbose "$(Get-Date): Text is Null"
-	}
-	ElseIf($HTML -eq $Null)
-	{
-		Write-Verbose "$(Get-Date): HTML is Null"
-	}
-	Else
-	{
-		Write-Verbose "$(Get-Date): MSWord is $($MSWord)"
-		Write-Verbose "$(Get-Date): PDF is $($PDF)"
-		Write-Verbose "$(Get-Date): Text is $($Text)"
-		Write-Verbose "$(Get-Date): HTML is $($HTML)"
-	}
-	Write-Error "Unable to determine output parameter.  Script cannot continue"
-	Exit
-}
-#endregion
-
-#region initialize variables for word html and text
-If($MSWord -or $PDF)
-{
-	#try and fix the issue with the $CompanyName variable
-	$Script:CoName = $CompanyName
-	Write-Verbose "$(Get-Date): CoName is $($Script:CoName)"
-	
-	#the following values were attained from 
-	#http://groovy.codehaus.org/modules/scriptom/1.6.0/scriptom-office-2K3-tlb/apidocs/
-	#http://msdn.microsoft.com/en-us/library/office/aa211923(v=office.11).aspx
-	[int]$wdAlignPageNumberRight = 2
-	[long]$wdColorGray15 = 14277081
-	[long]$wdColorGray05 = 15987699 
-	[int]$wdMove = 0
-	[int]$wdSeekMainDocument = 0
-	[int]$wdSeekPrimaryFooter = 4
-	[int]$wdStory = 6
-	[int]$wdColorRed = 255
-	[int]$wdColorBlack = 0
-	[int]$wdWord2007 = 12
-	[int]$wdWord2010 = 14
-	[int]$wdWord2013 = 15
-	[int]$wdFormatDocumentDefault = 16
-	[int]$wdFormatPDF = 17
-	#http://blogs.technet.com/b/heyscriptingguy/archive/2006/03/01/how-can-i-right-align-a-single-column-in-a-word-table.aspx
-	#http://msdn.microsoft.com/en-us/library/office/ff835817%28v=office.15%29.aspx
-	[int]$wdAlignParagraphLeft = 0
-	[int]$wdAlignParagraphCenter = 1
-	[int]$wdAlignParagraphRight = 2
-	#http://msdn.microsoft.com/en-us/library/office/ff193345%28v=office.15%29.aspx
-	[int]$wdCellAlignVerticalTop = 0
-	[int]$wdCellAlignVerticalCenter = 1
-	[int]$wdCellAlignVerticalBottom = 2
-	#http://msdn.microsoft.com/en-us/library/office/ff844856%28v=office.15%29.aspx
-	[int]$wdAutoFitFixed = 0
-	[int]$wdAutoFitContent = 1
-	[int]$wdAutoFitWindow = 2
-	#http://msdn.microsoft.com/en-us/library/office/ff821928%28v=office.15%29.aspx
-	[int]$wdAdjustNone = 0
-	[int]$wdAdjustProportional = 1
-	[int]$wdAdjustFirstColumn = 2
-	[int]$wdAdjustSameWidth = 3
-
-	[int]$PointsPerTabStop = 36
-	[int]$Indent0TabStops = 0 * $PointsPerTabStop
-	[int]$Indent1TabStops = 1 * $PointsPerTabStop
-	[int]$Indent2TabStops = 2 * $PointsPerTabStop
-	[int]$Indent3TabStops = 3 * $PointsPerTabStop
-	[int]$Indent4TabStops = 4 * $PointsPerTabStop
-
-	# http://www.thedoctools.com/index.php?show=wt_style_names_english_danish_german_french
-	[int]$wdStyleHeading1 = -2
-	[int]$wdStyleHeading2 = -3
-	[int]$wdStyleHeading3 = -4
-	[int]$wdStyleHeading4 = -5
-	[int]$wdStyleNoSpacing = -158
-	[int]$wdTableGrid = -155
-
-	#http://groovy.codehaus.org/modules/scriptom/1.6.0/scriptom-office-2K3-tlb/apidocs/org/codehaus/groovy/scriptom/tlb/office/word/WdLineStyle.html
-	[int]$wdLineStyleNone = 0
-	[int]$wdLineStyleSingle = 1
-
-	[int]$wdHeadingFormatTrue = -1
-	[int]$wdHeadingFormatFalse = 0 
-
-	[string]$RunningOS = (Get-WmiObject -class Win32_OperatingSystem -EA 0).Caption
-}
-
-If($HTML)
-{
-    Set htmlredmask         -Option AllScope -Value "#FF0000" 4>$Null
-    Set htmlcyanmask        -Option AllScope -Value "#00FFFF" 4>$Null
-    Set htmlbluemask        -Option AllScope -Value "#0000FF" 4>$Null
-    Set htmldarkbluemask    -Option AllScope -Value "#0000A0" 4>$Null
-    Set htmllightbluemask   -Option AllScope -Value "#ADD8E6" 4>$Null
-    Set htmlpurplemask      -Option AllScope -Value "#800080" 4>$Null
-    Set htmlyellowmask      -Option AllScope -Value "#FFFF00" 4>$Null
-    Set htmllimemask        -Option AllScope -Value "#00FF00" 4>$Null
-    Set htmlmagentamask     -Option AllScope -Value "#FF00FF" 4>$Null
-    Set htmlwhitemask       -Option AllScope -Value "#FFFFFF" 4>$Null
-    Set htmlsilvermask      -Option AllScope -Value "#C0C0C0" 4>$Null
-    Set htmlgraymask        -Option AllScope -Value "#808080" 4>$Null
-    Set htmlblackmask       -Option AllScope -Value "#000000" 4>$Null
-    Set htmlorangemask      -Option AllScope -Value "#FFA500" 4>$Null
-    Set htmlmaroonmask      -Option AllScope -Value "#800000" 4>$Null
-    Set htmlgreenmask       -Option AllScope -Value "#008000" 4>$Null
-    Set htmlolivemask       -Option AllScope -Value "#808000" 4>$Null
-
-    Set htmlbold        -Option AllScope -Value 1 4>$Null
-    Set htmlitalics     -Option AllScope -Value 2 4>$Null
-    Set htmlred         -Option AllScope -Value 4 4>$Null
-    Set htmlcyan        -Option AllScope -Value 8 4>$Null
-    Set htmlblue        -Option AllScope -Value 16 4>$Null
-    Set htmldarkblue    -Option AllScope -Value 32 4>$Null
-    Set htmllightblue   -Option AllScope -Value 64 4>$Null
-    Set htmlpurple      -Option AllScope -Value 128 4>$Null
-    Set htmlyellow      -Option AllScope -Value 256 4>$Null
-    Set htmllime        -Option AllScope -Value 512 4>$Null
-    Set htmlmagenta     -Option AllScope -Value 1024 4>$Null
-    Set htmlwhite       -Option AllScope -Value 2048 4>$Null
-    Set htmlsilver      -Option AllScope -Value 4096 4>$Null
-    Set htmlgray        -Option AllScope -Value 8192 4>$Null
-    Set htmlolive       -Option AllScope -Value 16384 4>$Null
-    Set htmlorange      -Option AllScope -Value 32768 4>$Null
-    Set htmlmaroon      -Option AllScope -Value 65536 4>$Null
-    Set htmlgreen       -Option AllScope -Value 131072 4>$Null
-    Set htmlblack       -Option AllScope -Value 262144 4>$Null
-}
-
-If($TEXT)
-{
-	$global:output = ""
-}
-#endregion
-
-#region word specific functions
-Function SetWordHashTable
-{
-	Param([string]$CultureCode)
-
-	#optimized by Michael B. SMith
-	
-	# DE and FR translations for Word 2010 by Vladimir Radojevic
-	# Vladimir.Radojevic@Commerzreal.com
-
-	# DA translations for Word 2010 by Thomas Daugaard
-	# Citrix Infrastructure Specialist at edgemo A/S
-
-	# CA translations by Javier Sanchez 
-	# CEO & Founder 101 Consulting
-
-	#ca - Catalan
-	#da - Danish
-	#de - German
-	#en - English
-	#es - Spanish
-	#fi - Finnish
-	#fr - French
-	#nb - Norwegian
-	#nl - Dutch
-	#pt - Portuguese
-	#sv - Swedish
-
-	[string]$toc = $(
-		Switch ($CultureCode)
-		{
-			'ca-'	{ 'Taula automática 2' }
-
-			'da-'	{ 'Automatisk tabel 2' }
-
-			'de-'	{ 'Automatische Tabelle 2' }
-
-			'en-'	{ 'Automatic Table 2' }
-
-			'es-'	{ 'Tabla automática 2' }
-
-			'fi-'	{ 'Automaattinen taulukko 2' }
-
-			'fr-'	{ 'Sommaire Automatique 2' }
-
-			'nb-'	{ 'Automatisk tabell 2' }
-
-			'nl-'	{ 'Automatische inhoudsopgave 2' }
-
-			'pt-'	{ 'Sumário Automático 2' }
-
-			'sv-'	{ 'Automatisk innehållsförteckning2' }
-		}
-	)
-
-	$Script:myHash                      = @{}
-	$Script:myHash.Word_TableOfContents = $toc
-	$Script:myHash.Word_NoSpacing       = $wdStyleNoSpacing
-	$Script:myHash.Word_Heading1        = $wdStyleheading1
-	$Script:myHash.Word_Heading2        = $wdStyleheading2
-	$Script:myHash.Word_Heading3        = $wdStyleheading3
-	$Script:myHash.Word_Heading4        = $wdStyleheading4
-	$Script:myHash.Word_TableGrid       = $wdTableGrid
-}
-
-Function GetCulture
-{
-	Param([int]$WordValue)
-	
-	#codes obtained from http://support.microsoft.com/kb/221435
-	#http://msdn.microsoft.com/en-us/library/bb213877(v=office.12).aspx
-	$CatalanArray = 1027
-	$DanishArray = 1030
-	$DutchArray = 2067, 1043
-	$EnglishArray = 3081, 10249, 4105, 9225, 6153, 8201, 5129, 13321, 7177, 11273, 2057, 1033, 12297
-	$FinnishArray = 1035
-	$FrenchArray = 2060, 1036, 11276, 3084, 12300, 5132, 13324, 6156, 8204, 10252, 7180, 9228, 4108
-	$GermanArray = 1031, 3079, 5127, 4103, 2055
-	$NorwegianArray = 1044, 2068
-	$PortugueseArray = 1046, 2070
-	$SpanishArray = 1034, 11274, 16394, 13322, 9226, 5130, 7178, 12298, 17418, 4106, 18442, 19466, 6154, 15370, 10250, 20490, 3082, 14346, 8202
-	$SwedishArray = 1053, 2077
-
-	#ca - Catalan
-	#da - Danish
-	#de - German
-	#en - English
-	#es - Spanish
-	#fi - Finnish
-	#fr - French
-	#nb - Norwegian
-	#nl - Dutch
-	#pt - Portuguese
-	#sv - Swedish
-
-	Switch ($WordValue)
-	{
-		{$CatalanArray -contains $_} {$CultureCode = "ca-"}
-		{$DanishArray -contains $_} {$CultureCode = "da-"}
-		{$DutchArray -contains $_} {$CultureCode = "nl-"}
-		{$EnglishArray -contains $_} {$CultureCode = "en-"}
-		{$FinnishArray -contains $_} {$CultureCode = "fi-"}
-		{$FrenchArray -contains $_} {$CultureCode = "fr-"}
-		{$GermanArray -contains $_} {$CultureCode = "de-"}
-		{$NorwegianArray -contains $_} {$CultureCode = "nb-"}
-		{$PortugueseArray -contains $_} {$CultureCode = "pt-"}
-		{$SpanishArray -contains $_} {$CultureCode = "es-"}
-		{$SwedishArray -contains $_} {$CultureCode = "sv-"}
-		Default {$CultureCode = "en-"}
-	}
-	
-	Return $CultureCode
-}
-
-Function ValidateCoverPage
-{
-	Param([int]$xWordVersion, [string]$xCP, [string]$CultureCode)
-	
-	$xArray = ""
-	
-	Switch ($CultureCode)
-	{
-		'ca-'	{
-				If($xWordVersion -eq $wdWord2013)
-				{
-					$xArray = ("Austin", "En bandes", "Faceta", "Filigrana",
-					"Integral", "Ió (clar)", "Ió (fosc)", "Línia lateral",
-					"Moviment", "Quadrícula", "Retrospectiu", "Sector (clar)",
-					"Sector (fosc)", "Semàfor", "Visualització", "Whisp")
-				}
-				ElseIf($xWordVersion -eq $wdWord2010)
-				{
-					$xArray = ("Alfabet", "Anual", "Austin", "Conservador",
-					"Contrast", "Cubicles", "Diplomàtic", "Exposició",
-					"Línia lateral", "Mod", "Mosiac", "Moviment", "Paper de diari",
-					"Perspectiva", "Piles", "Quadrícula", "Sobri",
-					"Transcendir", "Trencaclosques")
-				}
-			}
-
-		'da-'	{
-				If($xWordVersion -eq $wdWord2013)
-				{
-					$xArray = ("BevægElse", "Brusen", "Ion (lys)", "Filigran",
-					"Retro", "Semafor", "Visningsmaster", "Integral",
-					"Facet", "Gitter", "Stribet", "Sidelinje", "Udsnit (lys)",
-					"Udsnit (mørk)", "Ion (mørk)", "Austin")
-				}
-				ElseIf($xWordVersion -eq $wdWord2010)
-				{
-					$xArray = ("BevægElse", "Moderat", "Perspektiv", "Firkanter",
-					"Overskrid", "Alfabet", "Kontrast", "Stakke", "Fliser", "Gåde",
-					"Gitter", "Austin", "Eksponering", "Sidelinje", "Enkel",
-					"Nålestribet", "Årlig", "Avispapir", "Tradionel")
-				}
-			}
-
-		'de-'	{
-				If($xWordVersion -eq $wdWord2013)
-				{
-					$xArray = ("Semaphor", "Segment (hell)", "Ion (hell)",
-					"Raster", "Ion (dunkel)", "Filigran", "Rückblick", "Pfiff",
-					"ViewMaster", "Segment (dunkel)", "Verbunden", "Bewegung",
-					"Randlinie", "Austin", "Integral", "Facette")
-				}
-				ElseIf($xWordVersion -eq $wdWord2010)
-				{
-					$xArray = ("Alphabet", "Austin", "Bewegung", "Durchscheinend",
-					"Herausgestellt", "Jährlich", "Kacheln", "Kontrast", "Kubistisch",
-					"Modern", "Nadelstreifen", "Perspektive", "Puzzle", "Randlinie",
-					"Raster", "Schlicht", "Stapel", "Traditionell", "Zeitungspapier")
-				}
-			}
-
-		'en-'	{
-				If($xWordVersion -eq $wdWord2013)
-				{
-					$xArray = ("Austin", "Banded", "Facet", "Filigree", "Grid",
-					"Integral", "Ion (Dark)", "Ion (Light)", "Motion", "Retrospect",
-					"Semaphore", "Sideline", "Slice (Dark)", "Slice (Light)", "ViewMaster",
-					"Whisp")
-				}
-				ElseIf($xWordVersion -eq $wdWord2010)
-				{
-					$xArray = ("Alphabet", "Annual", "Austere", "Austin", "Conservative",
-					"Contrast", "Cubicles", "Exposure", "Grid", "Mod", "Motion", "Newsprint",
-					"Perspective", "Pinstripes", "Puzzle", "Sideline", "Stacks", "Tiles", "Transcend")
-				}
-			}
-
-		'es-'	{
-				If($xWordVersion -eq $wdWord2013)
-				{
-					$xArray = ("Whisp", "Vista principal", "Filigrana", "Austin",
-					"Slice (luz)", "Faceta", "Semáforo", "Retrospectiva", "Cuadrícula",
-					"Movimiento", "Cortar (oscuro)", "Línea lateral", "Ion (oscuro)",
-					"Ion (claro)", "Integral", "Con bandas")
-				}
-				ElseIf($xWordVersion -eq $wdWord2010)
-				{
-					$xArray = ("Alfabeto", "Anual", "Austero", "Austin", "Conservador",
-					"Contraste", "Cuadrícula", "Cubículos", "Exposición", "Línea lateral",
-					"Moderno", "Mosaicos", "Movimiento", "Papel periódico",
-					"Perspectiva", "Pilas", "Puzzle", "Rayas", "Sobrepasar")
-				}
-			}
-
-		'fi-'	{
-				If($xWordVersion -eq $wdWord2013)
-				{
-					$xArray = ("Filigraani", "Integraali", "Ioni (tumma)",
-					"Ioni (vaalea)", "Opastin", "Pinta", "Retro", "Sektori (tumma)",
-					"Sektori (vaalea)", "Vaihtuvavärinen", "ViewMaster", "Austin",
-					"Kiehkura", "Liike", "Ruudukko", "Sivussa")
-				}
-				ElseIf($xWordVersion -eq $wdWord2010)
-				{
-					$xArray = ("Aakkoset", "Askeettinen", "Austin", "Kontrasti",
-					"Laatikot", "Liike", "Liituraita", "Mod", "Osittain peitossa",
-					"Palapeli", "Perinteinen", "Perspektiivi", "Pinot", "Ruudukko",
-					"Ruudut", "Sanomalehtipaperi", "Sivussa", "Vuotuinen", "Ylitys")
-				}
-			}
-
-		'fr-'	{
-				If($xWordVersion -eq $wdWord2013)
-				{
-					$xArray = ("ViewMaster", "Secteur (foncé)", "Sémaphore",
-					"Rétrospective", "Ion (foncé)", "Ion (clair)", "Intégrale",
-					"Filigrane", "Facette", "Secteur (clair)", "À bandes", "Austin",
-					"Guide", "Whisp", "Lignes latérales", "Quadrillage")
-				}
-				ElseIf($xWordVersion -eq $wdWord2010)
-				{
-					$xArray = ("Mosaïques", "Ligne latérale", "Annuel", "Perspective",
-					"Contraste", "Emplacements de bureau", "Moderne", "Blocs empilés",
-					"Rayures fines", "Austère", "Transcendant", "Classique", "Quadrillage",
-					"Exposition", "Alphabet", "Mots croisés", "Papier journal", "Austin", "Guide")
-				}
-			}
-
-		'nb-'	{
-				If($xWordVersion -eq $wdWord2013)
-				{
-					$xArray = ("Austin", "BevegElse", "Dempet", "Fasett", "Filigran",
-					"Integral", "Ion (lys)", "Ion (mørk)", "Retrospekt", "Rutenett",
-					"Sektor (lys)", "Sektor (mørk)", "Semafor", "Sidelinje", "Stripet",
-					"ViewMaster")
-				}
-				ElseIf($xWordVersion -eq $wdWord2010)
-				{
-					$xArray = ("Alfabet", "Årlig", "Avistrykk", "Austin", "Avlukker",
-					"BevegElse", "Engasjement", "Enkel", "Fliser", "Konservativ",
-					"Kontrast", "Mod", "Perspektiv", "Puslespill", "Rutenett", "Sidelinje",
-					"Smale striper", "Stabler", "Transcenderende")
-				}
-			}
-
-		'nl-'	{
-				If($xWordVersion -eq $wdWord2013)
-				{
-					$xArray = ("Austin", "Beweging", "Facet", "Filigraan", "Gestreept",
-					"Integraal", "Ion (donker)", "Ion (licht)", "Raster",
-					"Segment (Light)", "Semafoor", "Slice (donker)", "Spriet",
-					"Terugblik", "Terzijde", "ViewMaster")
-				}
-				ElseIf($xWordVersion -eq $wdWord2010)
-				{
-					$xArray = ("Aantrekkelijk", "Alfabet", "Austin", "Bescheiden",
-					"Beweging", "Blikvanger", "Contrast", "Eenvoudig", "Jaarlijks",
-					"Krantenpapier", "Krijtstreep", "Kubussen", "Mod", "Perspectief",
-					"Puzzel", "Raster", "Stapels",
-					"Tegels", "Terzijde")
-				}
-			}
-
-		'pt-'	{
-				If($xWordVersion -eq $wdWord2013)
-				{
-					$xArray = ("Animação", "Austin", "Em Tiras", "Exibição Mestra",
-					"Faceta", "Fatia (Clara)", "Fatia (Escura)", "Filete", "Filigrana",
-					"Grade", "Integral", "Íon (Claro)", "Íon (Escuro)", "Linha Lateral",
-					"Retrospectiva", "Semáforo")
-				}
-				ElseIf($xWordVersion -eq $wdWord2010)
-				{
-					$xArray = ("Alfabeto", "Animação", "Anual", "Austero", "Austin", "Baias",
-					"Conservador", "Contraste", "Exposição", "Grade", "Ladrilhos",
-					"Linha Lateral", "Listras", "Mod", "Papel Jornal", "Perspectiva", "Pilhas",
-					"Quebra-cabeça", "Transcend")
-				}
-			}
-
-		'sv-'	{
-				If($xWordVersion -eq $wdWord2013)
-				{
-					$xArray = ("Austin", "Band", "Fasett", "Filigran", "Integrerad", "Jon (ljust)",
-					"Jon (mörkt)", "Knippe", "Rutnät", "RörElse", "Sektor (ljus)", "Sektor (mörk)",
-					"Semafor", "Sidlinje", "VisaHuvudsida", "Återblick")
-				}
-				ElseIf($xWordVersion -eq $wdWord2010)
-				{
-					$xArray = ("Alfabetmönster", "Austin", "Enkelt", "Exponering", "Konservativt",
-					"Kontrast", "Kritstreck", "Kuber", "Perspektiv", "Plattor", "Pussel", "Rutnät",
-					"RörElse", "Sidlinje", "Sobert", "Staplat", "Tidningspapper", "Årligt",
-					"Övergående")
-				}
-			}
-
-		Default	{
-					If($xWordVersion -eq $wdWord2013)
-					{
-						$xArray = ("Austin", "Banded", "Facet", "Filigree", "Grid", "Integral",
-						"Ion (Dark)", "Ion (Light)", "Motion", "Retrospect", "Semaphore",
-						"Sideline", "Slice (Dark)", "Slice (Light)", "ViewMaster", "Whisp")
-					}
-					ElseIf($xWordVersion -eq $wdWord2010)
-					{
-						$xArray = ("Alphabet", "Annual", "Austere", "Austin", "Conservative",
-						"Contrast", "Cubicles", "Exposure", "Grid", "Mod", "Motion", "Newsprint",
-						"Perspective", "Pinstripes", "Puzzle", "Sideline", "Stacks", "Tiles", "Transcend")
-					}
-				}
-	}
-	
-	If($xArray -contains $xCP)
-	{
-		$xArray = $Null
-		Return $True
-	}
-	Else
-	{
-		$xArray = $Null
-		Return $False
-	}
-}
-
-Function CheckWordPrereq
-{
-	If((Test-Path  REGISTRY::HKEY_CLASSES_ROOT\Word.Application) -eq $False)
-	{
-		$ErrorActionPreference = $SaveEAPreference
-		Write-Host "`n`n`t`tThis script directly outputs to Microsoft Word, please install Microsoft Word`n`n"
-		Exit
-	}
-
-	#find out our session (usually "1" except on TS/RDC or Citrix)
-	$SessionID = (Get-Process -PID $PID).SessionId
-	
-	#Find out if winword is running in our session
-	[bool]$wordrunning = ((Get-Process 'WinWord' -ea 0)|?{$_.SessionId -eq $SessionID}) -ne $Null
-	If($wordrunning)
-	{
-		$ErrorActionPreference = $SaveEAPreference
-		Write-Host "`n`n`tPlease close all instances of Microsoft Word before running this report.`n`n"
-		Exit
-	}
-}
-
-Function ValidateCompanyName
-{
-	[bool]$xResult = Test-RegistryValue "HKCU:\Software\Microsoft\Office\Common\UserInfo" "CompanyName"
-	If($xResult)
-	{
-		Return Get-RegistryValue "HKCU:\Software\Microsoft\Office\Common\UserInfo" "CompanyName"
-	}
-	Else
-	{
-		$xResult = Test-RegistryValue "HKCU:\Software\Microsoft\Office\Common\UserInfo" "Company"
-		If($xResult)
-		{
-			Return Get-RegistryValue "HKCU:\Software\Microsoft\Office\Common\UserInfo" "Company"
-		}
-		Else
-		{
-			Return ""
-		}
-	}
-}
-
-Function _SetDocumentProperty 
-{
-	#jeff hicks
-	Param([object]$Properties,[string]$Name,[string]$Value)
-	#get the property object
-	$prop = $properties | ForEach { 
-		$propname=$_.GetType().InvokeMember("Name","GetProperty",$Null,$_,$Null)
-		If($propname -eq $Name) 
-		{
-			Return $_
-		}
-	} #ForEach
-
-	#set the value
-	$Prop.GetType().InvokeMember("Value","SetProperty",$Null,$prop,$Value)
-}
-
-Function FindWordDocumentEnd
-{
-	#return focus to main document    
-	$Script:Doc.ActiveWindow.ActivePane.view.SeekView = $wdSeekMainDocument
-	#move to the end of the current document
-	$Script:Selection.EndKey($wdStory,$wdMove) | Out-Null
-}
-
-Function SetupWord
-{
-	Write-Verbose "$(Get-Date): Setting up Word"
-    
-	# Setup word for output
-	Write-Verbose "$(Get-Date): Create Word comObject."
-	$Script:Word = New-Object -comobject "Word.Application" -EA 0 4>$Null
-	
-	If(!$? -or $Script:Word -eq $Null)
-	{
-		Write-Warning "The Word object could not be created.  You may need to repair your Word installation."
-		$ErrorActionPreference = $SaveEAPreference
-		Write-Error "`n`n`t`tThe Word object could not be created.  You may need to repair your Word installation.`n`n`t`tScript cannot continue.`n`n"
-		Exit
-	}
-
-	Write-Verbose "$(Get-Date): Determine Word language value"
-	If( ( validStateProp $Script:Word Language Value__ ) )
-	{
-		[int]$Script:WordLanguageValue = [int]$Script:Word.Language.Value__
-	}
-	Else
-	{
-		[int]$Script:WordLanguageValue = [int]$Script:Word.Language
-	}
-
-	If(!($Script:WordLanguageValue -gt -1))
-	{
-		$ErrorActionPreference = $SaveEAPreference
-		Write-Error "`n`n`t`tUnable to determine the Word language value.`n`n`t`tScript cannot continue.`n`n"
-		AbortScript
-	}
-	Write-Verbose "$(Get-Date): Word language value is $($Script:WordLanguageValue)"
-	
-	$Script:WordCultureCode = GetCulture $Script:WordLanguageValue
-	
-	SetWordHashTable $Script:WordCultureCode
-	
-	[int]$Script:WordVersion = [int]$Script:Word.Version
-	If($Script:WordVersion -eq $wdWord2013)
-	{
-		$Script:WordProduct = "Word 2013"
-	}
-	ElseIf($Script:WordVersion -eq $wdWord2010)
-	{
-		$Script:WordProduct = "Word 2010"
-	}
-	ElseIf($Script:WordVersion -eq $wdWord2007)
-	{
-		$ErrorActionPreference = $SaveEAPreference
-		Write-Error "`n`n`t`tMicrosoft Word 2007 is no longer supported.`n`n`t`tScript will end.`n`n"
-		AbortScript
-	}
-	Else
-	{
-		$ErrorActionPreference = $SaveEAPreference
-		Write-Error "`n`n`t`tYou are running an untested or unsupported version of Microsoft Word.`n`n`t`tScript will end.`n`n`t`tPlease send info on your version of Word to webster@carlwebster.com`n`n"
-		AbortScript
-	}
-
-	#only validate CompanyName if the field is blank
-	If([String]::IsNullOrEmpty($Script:CoName))
-	{
-		Write-Verbose "$(Get-Date): Company name is blank.  Retrieve company name from registry."
-		$TmpName = ValidateCompanyName
-		
-		If([String]::IsNullOrEmpty($TmpName))
-		{
-			Write-Warning "`n`n`t`tCompany Name is blank so Cover Page will not show a Company Name."
-			Write-Warning "`n`t`tCheck HKCU:\Software\Microsoft\Office\Common\UserInfo for Company or CompanyName value."
-			Write-Warning "`n`t`tYou may want to use the -CompanyName parameter if you need a Company Name on the cover page.`n`n"
-		}
-		Else
-		{
-			$Script:CoName = $TmpName
-			Write-Verbose "$(Get-Date): Updated company name to $($Script:CoName)"
-		}
-	}
-
-	If($Script:WordCultureCode -ne "en-")
-	{
-		Write-Verbose "$(Get-Date): Check Default Cover Page for $($WordCultureCode)"
-		[bool]$CPChanged = $False
-		Switch ($Script:WordCultureCode)
-		{
-			'ca-'	{
-					If($CoverPage -eq "Sideline")
-					{
-						$CoverPage = "Línia lateral"
-						$CPChanged = $True
-					}
-				}
-
-			'da-'	{
-					If($CoverPage -eq "Sideline")
-					{
-						$CoverPage = "Sidelinje"
-						$CPChanged = $True
-					}
-				}
-
-			'de-'	{
-					If($CoverPage -eq "Sideline")
-					{
-						$CoverPage = "Randlinie"
-						$CPChanged = $True
-					}
-				}
-
-			'es-'	{
-					If($CoverPage -eq "Sideline")
-					{
-						$CoverPage = "Línea lateral"
-						$CPChanged = $True
-					}
-				}
-
-			'fi-'	{
-					If($CoverPage -eq "Sideline")
-					{
-						$CoverPage = "Sivussa"
-						$CPChanged = $True
-					}
-				}
-
-			'fr-'	{
-					If($CoverPage -eq "Sideline")
-					{
-						If($Script:WordVersion -eq $wdWord2013)
-						{
-							$CoverPage = "Lignes latérales"
-							$CPChanged = $True
-						}
-						Else
-						{
-							$CoverPage = "Ligne latérale"
-							$CPChanged = $True
-						}
-					}
-				}
-
-			'nb-'	{
-					If($CoverPage -eq "Sideline")
-					{
-						$CoverPage = "Sidelinje"
-						$CPChanged = $True
-					}
-				}
-
-			'nl-'	{
-					If($CoverPage -eq "Sideline")
-					{
-						$CoverPage = "Terzijde"
-						$CPChanged = $True
-					}
-				}
-
-			'pt-'	{
-					If($CoverPage -eq "Sideline")
-					{
-						$CoverPage = "Linha Lateral"
-						$CPChanged = $True
-					}
-				}
-
-			'sv-'	{
-					If($CoverPage -eq "Sideline")
-					{
-						$CoverPage = "Sidlinje"
-						$CPChanged = $True
-					}
-				}
-		}
-
-		If($CPChanged)
-		{
-			Write-Verbose "$(Get-Date): Changed Default Cover Page from Sideline to $($CoverPage)"
-		}
-	}
-
-	Write-Verbose "$(Get-Date): Validate cover page $($CoverPage) for culture code $($Script:WordCultureCode)"
-	[bool]$ValidCP = $False
-	
-	$ValidCP = ValidateCoverPage $Script:WordVersion $CoverPage $Script:WordCultureCode
-	
-	If(!$ValidCP)
-	{
-		$ErrorActionPreference = $SaveEAPreference
-		Write-Verbose "$(Get-Date): Word language value $($Script:WordLanguageValue)"
-		Write-Verbose "$(Get-Date): Culture code $($Script:WordCultureCode)"
-		Write-Error "`n`n`t`tFor $($Script:WordProduct), $($CoverPage) is not a valid Cover Page option.`n`n`t`tScript cannot continue.`n`n"
-		AbortScript
-	}
-
-	ShowScriptOptions
-
-	$Script:Word.Visible = $False
-
-	#http://jdhitsolutions.com/blog/2012/05/san-diego-2012-powershell-deep-dive-slides-and-demos/
-	#using Jeff's Demo-WordReport.ps1 file for examples
-	Write-Verbose "$(Get-Date): Load Word Templates"
-
-	[bool]$Script:CoverPagesExist = $False
-	[bool]$BuildingBlocksExist = $False
-
-	$Script:Word.Templates.LoadBuildingBlocks()
-	#word 2010/2013
-	$BuildingBlocksCollection = $Script:Word.Templates | Where {$_.name -eq "Built-In Building Blocks.dotx"}
-
-	Write-Verbose "$(Get-Date): Attempt to load cover page $($CoverPage)"
-	$part = $Null
-
-	$BuildingBlocksCollection | 
-	ForEach{
-		If ($_.BuildingBlockEntries.Item($CoverPage).Name -eq $CoverPage) 
-		{
-			$BuildingBlocks = $_
-		}
-	}        
-
-	If($BuildingBlocks -ne $Null)
-	{
-		$BuildingBlocksExist = $True
-
-		Try 
-		{
-			$part = $BuildingBlocks.BuildingBlockEntries.Item($CoverPage)
-		}
-
-		Catch
-		{
-			$part = $Null
-		}
-
-		If($part -ne $Null)
-		{
-			$Script:CoverPagesExist = $True
-		}
-	}
-
-	If(!$Script:CoverPagesExist)
-	{
-		Write-Verbose "$(Get-Date): Cover Pages are not installed or the Cover Page $($CoverPage) does not exist."
-		Write-Warning "Cover Pages are not installed or the Cover Page $($CoverPage) does not exist."
-		Write-Warning "This report will not have a Cover Page."
-	}
-
-	Write-Verbose "$(Get-Date): Create empty word doc"
-	$Script:Doc = $Script:Word.Documents.Add()
-	If($Script:Doc -eq $Null)
-	{
-		Write-Verbose "$(Get-Date): "
-		$ErrorActionPreference = $SaveEAPreference
-		Write-Error "`n`n`t`tAn empty Word document could not be created.`n`n`t`tScript cannot continue.`n`n"
-		AbortScript
-	}
-
-	$Script:Selection = $Script:Word.Selection
-	If($Script:Selection -eq $Null)
-	{
-		Write-Verbose "$(Get-Date): "
-		$ErrorActionPreference = $SaveEAPreference
-		Write-Error "`n`n`t`tAn unknown error happened selecting the entire Word document for default formatting options.`n`n`t`tScript cannot continue.`n`n"
-		AbortScript
-	}
-
-	#set Default tab stops to 1/2 inch (this line is not from Jeff Hicks)
-	#36 = .50"
-	$Script:Word.ActiveDocument.DefaultTabStop = 36
-
-	#Disable Spell and Grammar Check to resolve issue and improve performance (from Pat Coughlin)
-	Write-Verbose "$(Get-Date): Disable grammar and spell checking"
-	#bug reported 1-Apr-2014 by Tim Mangan
-	#save current options first before turning them off
-	$Script:CurrentGrammarOption = $Script:Word.Options.CheckGrammarAsYouType
-	$Script:CurrentSpellingOption = $Script:Word.Options.CheckSpellingAsYouType
-	$Script:Word.Options.CheckGrammarAsYouType = $False
-	$Script:Word.Options.CheckSpellingAsYouType = $False
-
-	If($BuildingBlocksExist)
-	{
-		#insert new page, getting ready for table of contents
-		Write-Verbose "$(Get-Date): Insert new page, getting ready for table of contents"
-		$part.Insert($Script:Selection.Range,$True) | Out-Null
-		$Script:Selection.InsertNewPage()
-
-		#table of contents
-		Write-Verbose "$(Get-Date): Table of Contents - $($Script:MyHash.Word_TableOfContents)"
-		$toc = $BuildingBlocks.BuildingBlockEntries.Item($Script:MyHash.Word_TableOfContents)
-		If($toc -eq $Null)
-		{
-			Write-Verbose "$(Get-Date): "
-			Write-Verbose "$(Get-Date): Table of Content - $($Script:MyHash.Word_TableOfContents) could not be retrieved."
-			Write-Warning "This report will not have a Table of Contents."
-		}
-		Else
-		{
-			$toc.insert($Script:Selection.Range,$True) | Out-Null
-		}
-	}
-	Else
-	{
-		Write-Verbose "$(Get-Date): Table of Contents are not installed."
-		Write-Warning "Table of Contents are not installed so this report will not have a Table of Contents."
-	}
-
-	#set the footer
-	Write-Verbose "$(Get-Date): Set the footer"
-	[string]$footertext = "Report created by $username"
-
-	#get the footer
-	Write-Verbose "$(Get-Date): Get the footer and format font"
-	$Script:Doc.ActiveWindow.ActivePane.view.SeekView = $wdSeekPrimaryFooter
-	#get the footer and format font
-	$footers = $Script:Doc.Sections.Last.Footers
-	ForEach ($footer in $footers) 
-	{
-		If($footer.exists) 
-		{
-			$footer.range.Font.name = "Calibri"
-			$footer.range.Font.size = 8
-			$footer.range.Font.Italic = $True
-			$footer.range.Font.Bold = $True
-		}
-	} #end ForEach
-	Write-Verbose "$(Get-Date): Footer text"
-	$Script:Selection.HeaderFooter.Range.Text = $footerText
-
-	#add page numbering
-	Write-Verbose "$(Get-Date): Add page numbering"
-	$Script:Selection.HeaderFooter.PageNumbers.Add($wdAlignPageNumberRight) | Out-Null
-
-	FindWordDocumentEnd
-	Write-Verbose "$(Get-Date):"
-	#end of Jeff Hicks 
-}
-
-Function UpdateDocumentProperties
-{
-	Param([string]$AbstractTitle, [string]$SubjectTitle)
-	#Update document properties
-	If($MSWORD -or $PDF)
-	{
-		If($Script:CoverPagesExist)
-		{
-			Write-Verbose "$(Get-Date): Set Cover Page Properties"
-			_SetDocumentProperty $Script:Doc.BuiltInDocumentProperties "Company" $Script:CoName
-			_SetDocumentProperty $Script:Doc.BuiltInDocumentProperties "Title" $Script:title
-			_SetDocumentProperty $Script:Doc.BuiltInDocumentProperties "Author" $username
-
-			_SetDocumentProperty $Script:Doc.BuiltInDocumentProperties "Subject" $SubjectTitle
-
-			#Get the Coverpage XML part
-			$cp = $Script:Doc.CustomXMLParts | Where {$_.NamespaceURI -match "coverPageProps$"}
-
-			#get the abstract XML part
-			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "Abstract"}
-
-			#set the text
-			If([String]::IsNullOrEmpty($Script:CoName))
-			{
-				[string]$abstract = $AbstractTitle
-			}
-			Else
-			{
-				[string]$abstract = "$($AbstractTitle) for $($Script:CoName)"
-			}
-
-			$ab.Text = $abstract
-
-			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "PublishDate"}
-			#set the text
-			[string]$abstract = (Get-Date -Format d).ToString()
-			$ab.Text = $abstract
-
-			Write-Verbose "$(Get-Date): Update the Table of Contents"
-			#update the Table of Contents
-			$Script:Doc.TablesOfContents.item(1).Update()
-			$cp = $Null
-			$ab = $Null
-			$abstract = $Null
-		}
-	}
-}
-#endregion
-
-#region registry functions
-#http://stackoverflow.com/questions/5648931/test-if-registry-value-exists
-# This Function just gets $True or $False
-Function Test-RegistryValue($path, $name)
-{
-	$key = Get-Item -LiteralPath $path -EA 0
-	$key -and $Null -ne $key.GetValue($name, $Null)
-}
-
-# Gets the specified registry value or $Null if it is missing
-Function Get-RegistryValue($path, $name)
-{
-	$key = Get-Item -LiteralPath $path -EA 0
-	If($key)
-	{
-		$key.GetValue($name, $Null)
-	}
-	Else
-	{
-		$Null
-	}
-}
-#endregion
-
-#region word, text and html line output functions
-Function line
-#function created by Michael B. Smith, Exchange MVP
-#@essentialexchange on Twitter
-#http://TheEssentialExchange.com
-#for creating the formatted text report
-#created March 2011
-#updated March 2014
-{
-	Param( [int]$tabs = 0, [string]$name = '', [string]$value = '', [string]$newline = "`r`n", [switch]$nonewline )
-	While( $tabs -gt 0 ) { $Global:Output += "`t"; $tabs--; }
-	If( $nonewline )
-	{
-		$Global:Output += $name + $value
-	}
-	Else
-	{
-		$Global:Output += $name + $value + $newline
-	}
-}
-	
-Function WriteWordLine
-#Function created by Ryan Revord
-#@rsrevord on Twitter
-#Function created to make output to Word easy in this script
-#updated 27-Mar-2014 to include font name, font size, italics and bold options
-{
-	Param([int]$style=0, 
-	[int]$tabs = 0, 
-	[string]$name = '', 
-	[string]$value = '', 
-	[string]$fontName=$Null,
-	[int]$fontSize=0,
-	[bool]$italics=$False,
-	[bool]$boldface=$False,
-	[Switch]$nonewline)
-	
-	#Build output style
-	[string]$output = ""
-	Switch ($style)
-	{
-		0 {$Script:Selection.Style = $Script:MyHash.Word_NoSpacing}
-		1 {$Script:Selection.Style = $Script:MyHash.Word_Heading1}
-		2 {$Script:Selection.Style = $Script:MyHash.Word_Heading2}
-		3 {$Script:Selection.Style = $Script:MyHash.Word_Heading3}
-		4 {$Script:Selection.Style = $Script:MyHash.Word_Heading4}
-		Default {$Script:Selection.Style = $Script:MyHash.Word_NoSpacing}
-	}
-	
-	#build # of tabs
-	While($tabs -gt 0)
-	{ 
-		$output += "`t"; $tabs--; 
-	}
- 
-	If(![String]::IsNullOrEmpty($fontName)) 
-	{
-		$Script:Selection.Font.name = $fontName
-	} 
-
-	If($fontSize -ne 0) 
-	{
-		$Script:Selection.Font.size = $fontSize
-	} 
- 
-	If($italics -eq $True) 
-	{
-		$Script:Selection.Font.Italic = $True
-	} 
- 
-	If($boldface -eq $True) 
-	{
-		$Script:Selection.Font.Bold = $True
-	} 
-
-	#output the rest of the parameters.
-	$output += $name + $value
-	$Script:Selection.TypeText($output)
- 
-	#test for new WriteWordLine 0.
-	If($nonewline)
-	{
-		# Do nothing.
-	} 
-	Else 
-	{
-		$Script:Selection.TypeParagraph()
-	}
-}
-
-#***********************************************************************************************************
-# WriteHTMLLine
-#***********************************************************************************************************
 
 <#
-.Synopsis
-	Writes a line of output for HTML output
-.DESCRIPTION
-	This function formats an HTML line
-	
-	
-.USAGE
-	WriteHTMLLine <Style> <Tabs> <Name> <Value> <Font Name> <Font Size> <Options>
+$FilePath = "C:\Users\Administrator\Desktop\TestDocumentation.html"
+$Title = "Configuration Manager Site Documentation"
+$Author = "Snow Lizard"
+$Vendor = "FYLCP"
+$Org = "Wetter Servicing"
+$SMSProvider = 'localhost'
+$UnknownClientSettings = $true
+$ListAllInformation = $true
+#>
 
-    0 for Font Size denotes using the default font size of 2 or 10 point
+$CMPSSuppressFastNotUsedCheck = $true
+$Global:DocTOC = @()
 
+Function Write-HtmlTable{
+<#
+.SYNOPSIS
+    This will take an input array of objects and turn it into an HTML table.  Optionally, you can set a border for the table as well.
+.PARAMETER InputObject
+    This is an array of objects that will be built into a HTML table.
+.PARAMETER Padding
+    This is the amount of space in each field between the border and the text.
+.PARAMETER Spacing
+    This is the amount of space between the borders of each field.  Rarely anything other than zero (0).
+.PARAMETER Level
+    This is the amount of space that the table will indented by.
+.PARAMETER File
+    This is the file that the HTML will be written to.
 .EXAMPLE
-	WriteHTMLLine 0 0 ""
-
-    Writes a blank line with no style or tab stops, obviously none needed.
-
-.EXAMPLE
-	WriteHTMLLine 0 1 "This is a regular line of text indented 1 tab stops"
-
-    Writes a line with 1 tab stop.
-	
-.EXAMPLE
-	WriteHTMLLine 0 0 "This is a regular line of text in the default font in italics" "" $null 0 $htmlitalics
-
-    Writes a line omitting font and font size and setting the italics attribute
-
-.EXAMPLE
-	WriteHTMLLine 0 0 "This is a regular line of text in the default font in bold" "" $null 0 $htmlbold
-
-    Writes a line omitting font and font size and setting the bold attribute
-	
-.EXAMPLE
-	WriteHTMLLine 0 0 "This is a regular line of text in the default font in bold italics" "" $null 0 ($htmlbold -bor $htmlitalics)
-
-    Writes a line omitting font and font size and setting both italics and bold options
-	
-.EXAMPLE	
-    WriteHTMLLine 0 0 "This is a regular line of text in the default font in 10 point" "" $null 2  # 10 point font
-
-    Writes a line using 10 point font
-
-.EXAMPLE
-	WriteHTMLLine 0 0 "This is a regular line of text in Courier New font" "" "Courier New" 0 
-    
-	Writes a line using Courier New Font and 0 font point size (default = 2 if set to 0)
-
-.EXAMPLE	
-	WriteHTMLLine 0 0 "This is a regular line of RED text indented 0 tab stops with the computer name as data in 10 point Courier New bold italics: " $env:computername "Courier New" 2 ($htmlbold -bor $htmlred -bor $htmlitalics)
-
-    Writes a line using Courier New Font with first and second string values to be used, also uses 10 point font with bold, italics and red color options set.
-
+    Write-HtmlTable -InputObject $folders -Border 1
 .NOTES
-
-    Font Size - Unlike word, there is a limited set of font sizes that can be used in HTML.  They are:
-        0 - default which actually gives it a 2 or 10 point.
-        1 - 7.5 point font size
-        2 - 10 point
-        3 - 13.5 point
-        4 - 15 point
-        5 - 18 point
-        6 - 24 point
-        7 - 36 point
-            Any number larger than 7 defaults to 7
-
-    Style - Refers to the headers that are used with output and resemble the headers in word, HTML supports headers h1-h6 and h1-h4 are more commonly used.  Unlike word, H1 will not give you
-    a blue colored font, you will have to set that yourself.
-
-    Colors and Bold/Italics Flags are:
-
-        htmlbold       
-        htmlitalics    
-        htmlred        
-        htmlcyan        
-        htmlblue       
-        htmldarkblue   
-        htmllightblue   
-        htmlpurple      
-        htmlyellow      
-        htmllime       
-        htmlmagenta     
-        htmlwhite       
-        htmlsilver      
-        htmlgray       
-        htmlolive       
-        htmlorange      
-        htmlmaroon      
-        htmlgreen       
-        htmlblack       
-
-    
-    
+    Author: Paul Wetter
+    Website: 
+    Email: tellwetter[at]gmail.com
 
 #>
 
-Function WriteHTMLLine
-#Function created by Ken Avram
-#Function created to make output to HTML easy in this script
-{
-	Param([int]$style=0, 
-	[int]$tabs = 0, 
-	[string]$name = '', 
-	[string]$value = '', 
-    [string]$fontName="Calibri",
-	[int]$fontSize=1,
-	[int]$options=$htmlblack)
-	
-	
-	#Build output style
-	[string]$output = ""
-	
-    If([String]::IsNullOrEmpty($Name))	
-    {
-        $HTMLBody = "<p></p>"
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$false,
+        HelpMessage="This is an array of objects that will be built into a HTML table.")]
+        $InputObject,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="If this table has a border, select the thickness here")]
+        [int]$Border=1,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is the amount of space in each field between the border and the text.")]
+        [int]$Padding=3,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is the amount of space between the borders of each field.  Rarely anything other than zero (0).")]
+        [int]$Spacing=0,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is the amount of space that the table will indent by")]
+        [ValidateRange(0,9)]
+        [int]$Level=0,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is the amount of space that the table will indent by")]
+        [string]$File
+    )
+
+    switch ($Level) 
+    { 
+        0 {$Indent=0} 
+        1 {$Indent=5} 
+        2 {$Indent=15} 
+        3 {$Indent=25} 
+        4 {$Indent=35} 
+        5 {$Indent=45}
+        6 {$Indent=55} 
+        7 {$Indent=65} 
+        8 {$Indent=75} 
+        9 {$Indent=85} 
+        default {$Indent=5}
     }
-    Else
+    $table = $InputObject|ConvertTo-Html -Fragment
+    $table[0] = "<table cellpadding=$Padding cellspacing=$Spacing border=$Border style=`"margin-left:$($Indent)px;`">"
+    $table = $table -replace "--CRLF--","<BR />"
+    If ($File) {$table | Out-File -filepath $File -Append}
+    Else {Return $table}
+}
+
+Function Write-HtmlList{
+<#
+.SYNOPSIS
+    This will take an input array of strings and turn them into an HTML list.  This can be an ordered or unordered list (Numbered or bulleted).
+.PARAMETER InputObject
+    This is an array of strings that will be made into the list.
+.PARAMETER Title
+    This is the title text for the list.
+.PARAMETER Description
+    This is html formatted test that will appear as a description or paragraph between the Title and actual list.
+.PARAMETER Level
+    This is the amount of space that the list will indented by.
+.PARAMETER Type
+    Choose ordered (OL) or unordered (UL) list.  Unordered or bulleted is the default
+.PARAMETER File
+    This is the file that the HTML will be written to.
+.EXAMPLE
+    Write-HtmlList -InputObject @('Red','Blue','Green','Yellow') -Title "Colors of the Rainbow" -Description "This is a <i>list</i> of colors in the rainbow." -level 1
+.NOTES
+    Author: Paul Wetter
+    Website: 
+    Email: tellwetter[at]gmail.com
+
+#>
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$false,
+        HelpMessage="This is an array of strings that will be made into the list.")]
+        $InputObject,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is the title text for the list")]
+        $Title,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is html formatted test that will appear as a description or paragraph between the Title and actual list")]
+        $Description,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is the amount of space that the list will indent by")]
+        [ValidateRange(0,6)]
+        [int]$Level=0,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="Choose ordered (OL) or unordered (UL) list.  Unordered or bulleted is the default")]
+        [ValidateSet("OL","UL")]
+        [string]$Type="UL",
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is the amount of space that the List will indent by")]
+        [string]$File
+    )
+
+    switch ($Level) 
+    { 
+        0 {$Indent=0} 
+        1 {$Indent=5} 
+        2 {$Indent=15} 
+        3 {$Indent=25} 
+        4 {$Indent=35} 
+        5 {$Indent=45}
+        6 {$Indent=55} 
+        default {$Indent=5}
+    }
+    if ($Title)
         {
+          $ListHTML = "<P style=`"margin-left:$($indent)px;`"><B>$($Title)</B>"
+        }Else{
+          $ListHTML = "<P style=`"margin-left:$($indent)px;`">"
+        }
+    if ($Description)
+        {
+          $ListHTML = $ListHTML + "<Div style=`"margin-left:$($indent + 5)px;`">$Description</div>"
+        }
+    $GroupList = "<$Type style=`"margin-left:$($indent)px;margin-top:0px;`">"
+    If ($InputObject){
+        foreach ($Item in $InputObject)
+            {
+                $GroupList = $GroupList + "<LI>$Item</LI>"
+            }
+    }
+    $GroupList = $GroupList + "</$Type>"
+    $ListHTML = $ListHTML + $GroupList + "</P>"
+    If ($File) {$ListHTML | Out-File -filepath $File -Append}
+    Else {Return $ListHTML}
+}
 
-        $color = CheckHTMLColor $options
 
-	    #build # of tabs
-        
-	    While($tabs -gt 0)
-	    { 
-		    $output += "&nbsp;&nbsp;&nbsp;&nbsp;"; $tabs--; 
-	    }
- 
-	    $HTMLFontName = $fontName		
-	   
-        $HTMLBody = ""
 
-	    If($options -band $htmlitalics) 
-	    {
-		    $HTMLBody += "<i>"
-	    } 
- 
-	    If($options -band $htmlbold) 
-	    {
-		    $HTMLBody += "<b>"
-	    } 
+Function Write-HTMLHeading{
+<#
+.SYNOPSIS
+    This will format text as a heading in HTML.  Optionally, it will add a page break to the heading so that when printing, it will appear on a new page.
+.PARAMETER Text
+    This is the text that will appear inside the heading <H#`> tag
+.PARAMETER Level
+    This is the level of the heading. 1,2,3,4,5,6 are valid options.
+.PARAMETER File
+    This is the file that the HTML will be written to.
+.EXAMPLE
+    Write-HTMLHeading -Text "Test Heading 1"
+.EXAMPLE
+    Write-HTMLHeading -Text "Test Heading 2" -Level 2
+.EXAMPLE
+    Write-HTMLHeading -Text "Test Heading 3" -Level 3 -PageBreak
+.NOTES
+    Author: Paul Wetter
+    Website: 
+    Email: tellwetter[at]gmail.com
 
-	    #output the rest of the parameters.
-	    $output += $name + $value
-	
+#>
 
-        $HTMLBody += "<font face='" + $HTMLFontName + "' " + "color='" + $color + "' size='"  + $fontsize + "'>"
-        Switch ($style)
-	    {
-		
-		    1 {$HTMLStyle = "<h1>"}
-		    2 {$HTMLStyle = "<h2>"}
-		    3 {$HTMLStyle = "<h3>"}
-		    4 {$HTMLStyle = "<h4>"}
-		    Default {$HTMLStyle = ""}
-	    }
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$false,
+        HelpMessage="This is the text that will appear inside the heading <H#`> tag")]
+        [string]$Text,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is the level of the heading. 1,2,3,4,5,6 are valid options")]
+        [ValidateRange(1,6)]
+        [int]$Level=1,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This will style the HTML so it will print a page break")]
+        [switch]$PageBreak,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This will exclude the heading from the Table of Contents")]
+        [switch]$ExcludeTOC,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is the file that the HTML will be written to")]
+        [string]$File
+    )
+    $PropertyID = $Text.Replace(' ','')
+    If(-not $ExcludeTOC){
+        $Global:DocTOC += New-Object -TypeName PSObject -Property @{'Level'=$level; 'Title'="$Text"; 'Id'=$PropertyID}
+    }
+    If ($PageBreak) {$HtmlClass = " Class=`"pagebreak`""}
+    $HeadLine = "<H$Level$HtmlClass id=`"$PropertyID`">$Text</H$Level>"
+    If ($File) {$HeadLine | Out-File -filepath $File -Append}
+    Else {Return $HeadLine}
+}
+
+
+Function Write-HTMLParagraph{
+<#
+.SYNOPSIS
+    This will format text as a paragraph in HTML.  Optionally, it will allow you to indent the text to match the headings.
+.PARAMETER Text
+    This is the text that will appear inside the heading <P> tag.
+.PARAMETER Level
+    This is the amount of space that the paragraph will indent by.  This is equivelent to the heading level indent +5.
+.PARAMETER File
+    This is the file that the HTML will be written to.
+.EXAMPLE
+    Write-HTMLParagraph -Text "This is a bunch of text. It is a lot to go into the paragraph."
+.EXAMPLE
+    Write-HTMLParagraph -Text "This is also a bunch of text. It is a lot to go into the paragraph as well." -Indent
+.NOTES
+    Author: Paul Wetter
+    Website: 
+    Email: tellwetter[at]gmail.com
+
+#>
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$false,
+        HelpMessage="This is the text that will appear inside the heading <P> tag")]
+        [string]$Text,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is the indent level of the paragraph")]
+        [ValidateRange(0,6)]
+        [int]$Level=0,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is the amount of space that the table will indent by")]
+        [string]$File
+    )
     
-        $HTMLBody += $HTMLStyle + $output
+    switch ($Level) 
+    { 
+        0 {$Indent=0} 
+        1 {$Indent=5} 
+        2 {$Indent=15} 
+        3 {$Indent=25} 
+        4 {$Indent=35} 
+        5 {$Indent=45}
+        6 {$Indent=55} 
+        default {$Indent=5}
+    }
+    $Paragraph = "<P style=`"margin-left:$($Indent)px;`">$Text</p>"
+    If ($File) {$Paragraph | Out-File -filepath $File -Append}
+    Else {Return $Paragraph}
+}
 
-        Switch ($style)
-	    {
-		
-		    1 {$HTMLStyle = "</h1>"}
-		    2 {$HTMLStyle = "</h2>"}
-		    3 {$HTMLStyle = "</h3>"}
-		    4 {$HTMLStyle = "</h4>"}
-		    Default {$HTMLStyle = ""}
-	    }
 
-        $HTMLBody += $HTMLStyle +  "</font>"
 
-        If($options -band $htmlitalics) 
-	    {
-		    $HTMLBody += "</i>"
-	    } 
+Function Write-HTMLHeader{
+<#
+.SYNOPSIS
+    This will write the header for the document/HTML.  This also resets the document to no text (does not append to the document).
+.PARAMETER Title
+    This is the title for the document.
+.PARAMETER File
+    This is the file that the HTML will be written to.
+.EXAMPLE
+    Write-HTMLHeader -Title "This is a bunch of text for the title"
+.EXAMPLE
+    Write-HTMLHeader -Title "This is also a bunch of text for the title" -file "C:\test.html"
+.NOTES
+    Author: Paul Wetter
+    Website: 
+    Email: tellwetter[at]gmail.com
+
+#>
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$false,
+        HelpMessage="This is the text that will appear in title tag of the header")]
+        [string]$Title,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is the amount of space that the table will indent by")]
+        [string]$File
+    )
+    $Header = @()
+    $Header += "<html>"
+    $Header += "<Head>"
+    $Header += "<Title>$Title</Title>"
+    $Header += "<Style>"
+    $Header += 'H1  {background-color:royalblue; border-top: 1px solid black;}'
+    $Header += 'H2	{margin-left:10px;background-color:steelblue; border-top: 1px solid black;}'
+    $Header += 'H3	{margin-left:20px;background-color:lightblue; border-top: 1px solid black;}'
+    $Header += 'H4	{margin-left:30px;background-color:lightsteelblue; border-top: 1px solid black;}'
+    $Header += 'H5	{margin-left:40px;background-color:lightcyan; border-top: 1px solid black;}'
+    $Header += 'H6	{margin-left:50px;background-color:lavender; border-top: 1px solid black;}'
+    $Header += ".pagebreak { page-break-before: always; }"
+    $Header += "TH  {background-color:LightBlue;padding: 3px; border: 2px solid black;}"
+    $Header += "TD  {padding: 3px; border: 1px solid black;}"
+    $Header += "TABLE	{border-collapse: collapse;}"
+    $Header += "</Style>"
+    $Header += "</Head>"
+    $Header += "<Body>"
+    If ($File) {IF (Test-Path -Path $File) {Remove-Item -Path $File -Force}}
+    If ($File) {$header | Out-File -filepath $File -Append}
+    Else {Return $Header}
+}
+
+Function Write-HTMLCoverPage{
+<#
+.SYNOPSIS
+    This will write the title/cover page for the document.
+.PARAMETER Title
+    This is the title for the document.
+.PARAMETER Author
+    This is the name of the person that is creating the document.
+.PARAMETER Vendor
+    This is the name of the vendor that is creating the document.
+.PARAMETER Org
+    This is the organization that the documentation was created for.  Typically, they are the owner of the CM environment.
+.PARAMETER ImagePath
+    This is the path to an optional image to put on the cover page.  It will appear in the lower left of the body of the page.
+.PARAMETER File
+    This is the file that the HTML will be written to.
+.EXAMPLE
+    Write-HTMLCoverPage -Text "This is a bunch of text. It is a lot to go into the paragraph."
+.EXAMPLE
+    Write-HTMLCoverPage -Text "This is also a bunch of text. It is a lot to go into the paragraph as well." -Indent
+.NOTES
+    Author: Paul Wetter
+    Website: 
+    Email: tellwetter[at]gmail.com
+
+#>
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$false,
+        HelpMessage="This is the text that will appear in title tag of the header")]
+        [string]$Title,
+        [Parameter(Mandatory=$true,ValueFromPipeline=$false,
+        HelpMessage="This is the text that will appear in the lower left by line")]
+        [string]$Author,
+        [Parameter(Mandatory=$true,ValueFromPipeline=$false,
+        HelpMessage="This text will also appear in to lower left by line, below")]
+        [string]$Vendor,
+        [Parameter(Mandatory=$true,ValueFromPipeline=$false,
+        HelpMessage="Will apprear in the top right, below the title.")]
+        [string]$Org,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is an image logo that will be embedded in the title page")]
+        [string]$ImagePath,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is the amount of space that the table will indent by")]
+        [string]$File
+    )
+    $Cover = @()
+    $Cover += "<Table border=0 cellspacing=0 cellpadding=0 style=`"width:100%;border: 0px`">"
+    $Cover += "<TR><TD Height=50 VAlign=`"top`" align=`"left`" style=`"border: 0px;font-size:48pt`">$Title</TD></TR>"
+    $Cover += "<TR><TD Height=20 VAlign=`"top`" align=`"left`" style=`"border: 0px;font-size:24pt;padding-left:10px`">Report Prepared for: $Org</TD></TR>"
+    If ($ImagePath){
+        $ImageData=Convert-Image2Base64 -Path $ImagePath
+    }
+    If ($ImageData){
+        $Cover += "<TR><TD Height=700 VAlign=`"bottom`" align=`"right`" style=`"border: 0px`"><img src=`"$ImageData`"></TD></TR>"
+    }Else{
+        $Cover += "<TR><TD Height=700 VAlign=`"top`" style=`"border: 0px`">&nbsp;</TD></TR>"
+    }
+    $Cover += "<TR><TD Height=30 VAlign=`"top`" Align=`"right`" style=`"border: 0px;font-size:18pt`">Report Prepared By: $Author</TD></TR>"
+    If ($Vendor) {$Cover += "<TR><TD Height=30 VAlign=`"top`" Align=`"right`" style=`"border: 0px;font-size:24pt`">$Vendor</TD></TR>"}
+    $Cover += "</Table>"
+    If ($File) {$Cover | Out-File -filepath $File -Append}
+    Else {Return $Cover}
+}
+
+Function Convert-Image2Base64{
+    [CmdletBinding()]
+    param (
+        [Parameter(ValueFromPipelineByPropertyName=$false,Mandatory=$true,ValueFromPipeline=$True,
+        HelpMessage="this is a path to either a file on the web or locally on the network to convert")]
+        [string]$Path
+    )
+    If (($Path -match '^[A-z]:\\.*(\.png|\.jpg)$') -or ($Path -match '^\\\\*\\.*(\.png|\.jpg)$')){
+        If (Test-Path -Path "filesystem::$Path"){
+            $EncodedImage = [convert]::ToBase64String((get-content $Path -encoding byte))
+        }else{
+            Write-Error "Path not found: $path"
+            Return $false
+        }
+    }
+    ElseIf ($Path -match '^http[s]://.*(\.png|\.jpg)$'){
+        $ext=$Path.Substring($Path.Length-4)
+        $tempfile = "${env:TEMP}\logo31337$ext"
+        if (Test-Path $tempfile) {Remove-Item -Path $tempfile -Force}
+        Try{Invoke-WebRequest -Uri $Path -OutFile $tempfile}
+        Catch{
+            Write-Host -ForegroundColor Yellow "Image not Found. Skipping."
+            Return $false
+        }
+        $EncodedImage = [convert]::ToBase64String((get-content $tempfile -encoding byte))
+    }else{
+        Write-Error "Path does not match pattern: $path"
+        Return $false
+    }
+    if($path.EndsWith(".jpg")){$imgtype = "jpg"}
+    elseif($path.EndsWith(".png")){$imgtype = "png"}
+    "data:image/$imgtype;base64,$EncodedImage"
+}
+
+function Write-HTMLTOC {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$false,
+        HelpMessage="This is the text that will appear in title tag of the header")]
+        $InputObject,
+        [Parameter(Mandatory=$true,ValueFromPipeline=$false,
+        HelpMessage="This is the amount of space that the table will indent by")]
+        [string]$File,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is the text that will appear in the lower left by line")]
+        [string]$InsertPoint = "Table of Contents"
+    )
+    $TOC = @()
+    foreach ($heading in $InputObject){
+        If ($heading.level -le 4){
+            Switch ($heading.level){
+                1{$Style = "Margin-left:10;Font-Size:16pt"}
+                2{$Style = "Margin-left:30"}
+                3{$Style = "Margin-left:50"}
+                4{$Style = "Margin-left:70"}
+            }
+            $TOC += "<DIV style=`"$Style`"><a href=`"`#$($heading.Id)`" style=`"color:blue`">$($heading.Title)</a></DIV>"
+        }
+    }
+    (Get-Content $File) | 
+        Foreach-Object {
+            $_ # send the current line to output
+            if ($_ -match $InsertPoint) 
+            {
+                #Add Lines after the selected pattern 
+                $TOC
+            }
+        } | Set-Content $File
+}
+
+#$folders=Get-ChildItem -Path 'C:\AMD\WU-CCC2\ccc2_install' | Where {$_.PSIsContainer -eq $false} | select Name,FullName,Mode,Length
+#Write-HTMLHeadLine -Text "Applications" -Level 2 -PageBreak
+#Write-HTMLParagraph -Text "Please read this text. It is good to share with all." -Indent 20
+#Write-HtmlTable -InputObject $folders -Border 1 -Indent 25
+#Write-HTMLHeadLine -Text "Programs" -Level 2
+#Write-HTMLParagraph -Text "Please read this text. It is good to share with all. Don't indent." -Indent 20
+#Write-HtmlTable -InputObject $folders -Border 1 -Indent 25
+
+##########################################################################################################################
+###############################################HTML Format functions above################################################
+##########################################################################################################################
+
+function Ping-Host { 
+  Param([string]$computername=$(Throw "You must specify a computername.")) 
+  Write-Debug "In Ping-Host function" 
+  $query="Select * from Win32_PingStatus where address='$computername'" 
+  $wmi=Get-WmiObject -query $query 
+  if([string]::IsNullOrEmpty($wmi.ResponseTime)){$false}Else{$true}
+}
+
+
+function Invoke-SqlDataReader {
  
-	    If($options -band $htmlbold) 
-	    {
-		    $HTMLBody += "</b>"
-	    } 
-	}
-	
-	#echo $HTMLBody >> $FileName1
-	out-file -FilePath $Script:FileName1 -Append -InputObject $HTMLBody 4>$Null
-}
-#endregion
-
-#region Iain's Word table functions
-
 <#
-.Synopsis
-	Add a table to a Microsoft Word document
+.SYNOPSIS
+    Runs a select statement query against a SQL Server database.
+ 
 .DESCRIPTION
-	This function adds a table to a Microsoft Word document from either an array of
-	Hashtables or an array of PSCustomObjects.
-
-	Using this function is quicker than setting each table cell individually but can
-	only utilise the built-in MS Word table autoformats. Individual tables cells can
-	be altered after the table has been appended to the document (a table reference
-	is returned).
+    Invoke-SqlDataReader is a PowerShell function that is designed to query
+    a SQL Server database using a select statement without the need for the SQL
+    PowerShell module or snap-in being installed.
+ 
+.PARAMETER ServerInstance
+    The name of an instance of the SQL Server database engine. For default instances,
+    only specify the server name: 'ServerName'. For named instances, use the format
+    'ServerName\InstanceName'.
+ 
+.PARAMETER Database
+    The name of the database to query on the specified SQL Server instance.
+ 
+.PARAMETER Query
+    Specifies one Transact-SQL select statement query to be run.
+ 
+.PARAMETER Credential
+    SQL Authentication userid and password in the form of a credential object.
+ 
 .EXAMPLE
-	AddWordTable -Hashtable $HashtableArray
-
-	This example adds table to the MS Word document, utilising all key/value pairs in
-	the array of hashtables. Column headers will display the key names as defined.
-	Note: the columns might not be displayed in the order that they were defined. To
-	ensure columns are displayed in the required order utilise the -Columns parameter.
+     Invoke-SqlDataReader -ServerInstance Server01 -Database Master -Query '
+     select name, database_id, compatibility_level, recovery_model_desc from sys.databases'
+ 
 .EXAMPLE
-	AddWordTable -Hashtable $HashtableArray -List
-
-	This example adds table to the MS Word document, utilising all key/value pairs in
-	the array of hashtables. No column headers will be added, in a ListView format.
-	Note: the columns might not be displayed in the order that they were defined. To
-	ensure columns are displayed in the required order utilise the -Columns parameter.
+     'select name, database_id, compatibility_level, recovery_model_desc from sys.databases' |
+     Invoke-SqlDataReader -ServerInstance Server01 -Database Master
+ 
 .EXAMPLE
-	AddWordTable -CustomObject $PSCustomObjectArray
-
-	This example adds table to the MS Word document, utilising all note property names
-	the array of PSCustomObjects. Column headers will display the note property names.
-	Note: the columns might not be displayed in the order that they were defined. To
-	ensure columns are displayed in the required order utilise the -Columns parameter.
-.EXAMPLE
-	AddWordTable -Hashtable $HashtableArray -Columns FirstName,LastName,EmailAddress
-
-	This example adds a table to the MS Word document, but only using the specified
-	key names: FirstName, LastName and EmailAddress. If other keys are present in the
-	array of Hashtables they will be ignored.
-.EXAMPLE
-	AddWordTable -CustomObject $PSCustomObjectArray -Columns FirstName,LastName,EmailAddress -Headers "First Name","Last Name","Email Address"
-
-	This example adds a table to the MS Word document, but only using the specified
-	PSCustomObject note properties: FirstName, LastName and EmailAddress. If other note
-	properties are present in the array of PSCustomObjects they will be ignored. The
-	display names for each specified column header has been overridden to display a
-	custom header. Note: the order of the header names must match the specified columns.
+     'select name, database_id, compatibility_level, recovery_model_desc from sys.databases' |
+     Invoke-SqlDataReader -ServerInstance Server01 -Database Master -Credential (Get-Credential)
+ 
+.INPUTS
+    String
+ 
+.OUTPUTS
+    DataRow
+ 
+.NOTES
+    Author:  Mike F Robbins
+    Website: http://mikefrobbins.com
+    Twitter: @mikefrobbins
 #>
-
-Function AddWordTable
-{
-	[CmdletBinding()]
-	Param
-	(
-		# Array of Hashtable (including table headers)
-		[Parameter(Mandatory=$True, ValueFromPipelineByPropertyName=$True, ParameterSetName='Hashtable', Position=0)]
-		[ValidateNotNullOrEmpty()] [System.Collections.Hashtable[]] $Hashtable,
-		# Array of PSCustomObjects
-		[Parameter(Mandatory=$True, ValueFromPipelineByPropertyName=$True, ParameterSetName='CustomObject', Position=0)]
-		[ValidateNotNullOrEmpty()] [PSCustomObject[]] $CustomObject,
-		# Array of Hashtable key names or PSCustomObject property names to include, in display order.
-		# If not supplied then all Hashtable keys or all PSCustomObject properties will be displayed.
-		[Parameter(ValueFromPipelineByPropertyName=$True)] [AllowNull()] [string[]] $Columns = $Null,
-		# Array of custom table header strings in display order.
-		[Parameter(ValueFromPipelineByPropertyName=$True)] [AllowNull()] [string[]] $Headers = $Null,
-		# AutoFit table behavior.
-		[Parameter(ValueFromPipelineByPropertyName=$True)] [AllowNull()] [int] $AutoFit = -1,
-		# List view (no headers)
-		[Switch] $List,
-		# Grid lines
-		[Switch] $NoGridLines,
-		[Switch] $NoInternalGridLines,
-		# Built-in Word table formatting style constant
-		# Would recommend only $wdTableFormatContempory for normal usage (possibly $wdTableFormatList5 for List view)
-		[Parameter(ValueFromPipelineByPropertyName=$True)] [int] $Format = 0
-	)
-
-	Begin 
-	{
-		Write-Debug ("Using parameter set '{0}'" -f $PSCmdlet.ParameterSetName);
-		## Check if -Columns wasn't specified but -Headers were (saves some additional parameter sets!)
-		If(($Columns -eq $Null) -and ($Headers -ne $Null)) 
-		{
-			Write-Warning "No columns specified and therefore, specified headers will be ignored.";
-			$Columns = $Null;
-		}
-		ElseIf(($Columns -ne $Null) -and ($Headers -ne $Null)) 
-		{
-			## Check if number of specified -Columns matches number of specified -Headers
-			If($Columns.Length -ne $Headers.Length) 
-			{
-				Write-Error "The specified number of columns does not match the specified number of headers.";
-			}
-		} ## end elseif
-	} ## end Begin
-
-	Process
-	{
-		## Build the Word table data string to be converted to a range and then a table later.
-		[System.Text.StringBuilder] $WordRangeString = New-Object System.Text.StringBuilder;
-
-		Switch ($PSCmdlet.ParameterSetName) 
-		{
-			'CustomObject' 
-			{
-				If($Columns -eq $Null) 
-				{
-					## Build the available columns from all availble PSCustomObject note properties
-					[string[]] $Columns = @();
-					## Add each NoteProperty name to the array
-					ForEach($Property in ($CustomObject | Get-Member -MemberType NoteProperty)) 
-					{ 
-						$Columns += $Property.Name; 
-					}
-				}
-
-				## Add the table headers from -Headers or -Columns (except when in -List(view)
-				If(-not $List) 
-				{
-					Write-Debug ("$(Get-Date): `t`tBuilding table headers");
-					If($Headers -ne $Null) 
-					{
-                        [ref] $Null = $WordRangeString.AppendFormat("{0}`n", [string]::Join("`t", $Headers));
-					}
-					Else 
-					{ 
-                        [ref] $Null = $WordRangeString.AppendFormat("{0}`n", [string]::Join("`t", $Columns));
-					}
-				}
-
-				## Iterate through each PSCustomObject
-				Write-Debug ("$(Get-Date): `t`tBuilding table rows");
-				ForEach($Object in $CustomObject) 
-				{
-					$OrderedValues = @();
-					## Add each row item in the specified order
-					ForEach($Column in $Columns) 
-					{ 
-						$OrderedValues += $Object.$Column; 
-					}
-					## Use the ordered list to add each column in specified order
-					[ref] $Null = $WordRangeString.AppendFormat("{0}`n", [string]::Join("`t", $OrderedValues));
-				} ## end foreach
-				Write-Debug ("$(Get-Date): `t`t`tAdded '{0}' table rows" -f ($CustomObject.Count));
-			} ## end CustomObject
-
-			Default 
-			{   ## Hashtable
-				If($Columns -eq $Null) 
-				{
-					## Build the available columns from all available hashtable keys. Hopefully
-					## all Hashtables have the same keys (they should for a table).
-					$Columns = $Hashtable[0].Keys;
-				}
-
-				## Add the table headers from -Headers or -Columns (except when in -List(view)
-				If(-not $List) 
-				{
-					Write-Debug ("$(Get-Date): `t`tBuilding table headers");
-					If($Headers -ne $Null) 
-					{ 
-						[ref] $Null = $WordRangeString.AppendFormat("{0}`n", [string]::Join("`t", $Headers));
-					}
-					Else 
-					{
-						[ref] $Null = $WordRangeString.AppendFormat("{0}`n", [string]::Join("`t", $Columns));
-					}
-				}
-                
-				## Iterate through each Hashtable
-				Write-Debug ("$(Get-Date): `t`tBuilding table rows");
-				ForEach($Hash in $Hashtable) 
-				{
-					$OrderedValues = @();
-					## Add each row item in the specified order
-					ForEach($Column in $Columns) 
-					{ 
-						$OrderedValues += $Hash.$Column; 
-					}
-					## Use the ordered list to add each column in specified order
-					[ref] $Null = $WordRangeString.AppendFormat("{0}`n", [string]::Join("`t", $OrderedValues));
-				} ## end foreach
-
-				Write-Debug ("$(Get-Date): `t`t`tAdded '{0}' table rows" -f $Hashtable.Count);
-			} ## end default
-		} ## end switch
-
-		## Create a MS Word range and set its text to our tab-delimited, concatenated string
-		Write-Debug ("$(Get-Date): `t`tBuilding table range");
-		$WordRange = $Script:Doc.Application.Selection.Range;
-		$WordRange.Text = $WordRangeString.ToString();
-
-		## Create hash table of named arguments to pass to the ConvertToTable method
-		$ConvertToTableArguments = @{ Separator = [Microsoft.Office.Interop.Word.WdTableFieldSeparator]::wdSeparateByTabs; }
-
-		## Negative built-in styles are not supported by the ConvertToTable method
-		If($Format -ge 0) 
-		{
-			$ConvertToTableArguments.Add("Format", $Format);
-			$ConvertToTableArguments.Add("ApplyBorders", $True);
-			$ConvertToTableArguments.Add("ApplyShading", $True);
-			$ConvertToTableArguments.Add("ApplyFont", $True);
-			$ConvertToTableArguments.Add("ApplyColor", $True);
-			If(!$List) 
-			{ 
-				$ConvertToTableArguments.Add("ApplyHeadingRows", $True); 
-			}
-			$ConvertToTableArguments.Add("ApplyLastRow", $True);
-			$ConvertToTableArguments.Add("ApplyFirstColumn", $True);
-			$ConvertToTableArguments.Add("ApplyLastColumn", $True);
-		}
-
-		## Invoke ConvertToTable method - with named arguments - to convert Word range to a table
-		## See http://msdn.microsoft.com/en-us/library/office/aa171893(v=office.11).aspx
-		Write-Debug ("$(Get-Date): `t`tConverting range to table");
-		## Store the table reference just in case we need to set alternate row coloring
-		$WordTable = $WordRange.GetType().InvokeMember(
-			"ConvertToTable",                               # Method name
-			[System.Reflection.BindingFlags]::InvokeMethod, # Flags
-			$Null,                                          # Binder
-			$WordRange,                                     # Target (self!)
-			([Object[]]($ConvertToTableArguments.Values)),  ## Named argument values
-			$Null,                                          # Modifiers
-			$Null,                                          # Culture
-			([String[]]($ConvertToTableArguments.Keys))     ## Named argument names
-		);
-
-		## Implement grid lines (will wipe out any existing formatting
-		If($Format -lt 0) 
-		{
-			Write-Debug ("$(Get-Date): `t`tSetting table format");
-			$WordTable.Style = $Format;
-		}
-
-		## Set the table autofit behavior
-		If($AutoFit -ne -1) 
-		{ 
-			$WordTable.AutoFitBehavior($AutoFit); 
-		}
-
-		If(!$List)
-		{
-			#the next line causes the heading row to flow across page breaks
-			$WordTable.Rows.First.Headingformat = $wdHeadingFormatTrue;
-		}
-
-		If(!$NoGridLines) 
-		{
-			$WordTable.Borders.InsideLineStyle = $wdLineStyleSingle;
-			$WordTable.Borders.OutsideLineStyle = $wdLineStyleSingle;
-		}
-		If($NoGridLines) 
-		{
-			$WordTable.Borders.InsideLineStyle = $wdLineStyleNone;
-			$WordTable.Borders.OutsideLineStyle = $wdLineStyleNone;
-		}
-		If($NoInternalGridLines) 
-		{
-			$WordTable.Borders.InsideLineStyle = $wdLineStyleNone;
-			$WordTable.Borders.OutsideLineStyle = $wdLineStyleSingle;
-		}
-
-		Return $WordTable;
-
-	} ## end Process
+ 
+    [CmdletBinding()]
+    param (        
+        [Parameter(Mandatory)]
+        [string]$ServerInstance,
+ 
+        [Parameter(Mandatory)]
+        [string]$Database,
+        
+        [Parameter(Mandatory,
+                   ValueFromPipeline)]
+        [string]$Query,
+        
+        [System.Management.Automation.Credential()]$Credential = [System.Management.Automation.PSCredential]::Empty
+    )
+    
+    BEGIN {
+        $connection = New-Object -TypeName System.Data.SqlClient.SqlConnection
+ 
+        if (-not($PSBoundParameters.Credential)) {
+            $connectionString = "Server=$ServerInstance;Database=$Database;Integrated Security=True;"
+        }
+        else {
+            $connectionString = "Server=$ServerInstance;Database=$Database;Integrated Security=False;"
+            $userid= $Credential.UserName -replace '^.*\\|@.*$'
+            ($password = $credential.Password).MakeReadOnly()
+            $sqlCred = New-Object -TypeName System.Data.SqlClient.SqlCredential($userid, $password)
+            $connection.Credential = $sqlCred
+        }
+ 
+        $connection.ConnectionString = $connectionString
+        $ErrorActionPreference = 'Stop'
+        
+        try {
+            $connection.Open()
+            Write-Verbose -Message "Connection to the $($connection.Database) database on $($connection.DataSource) has been successfully opened."
+        }
+        catch {
+            Write-Error -Message "An error has occurred. Error details: $($_.Exception.Message)"
+        }
+        
+        $ErrorActionPreference = 'Continue'
+        $command = $connection.CreateCommand()
+    }
+ 
+    PROCESS {
+        $command.CommandText = $Query
+        $ErrorActionPreference = 'Stop'
+ 
+        try {
+            $result = $command.ExecuteReader()
+        }
+        catch {
+            Write-Error -Message "An error has occured. Error Details: $($_.Exception.Message)"
+        }
+ 
+        $ErrorActionPreference = 'Continue'
+ 
+        if ($result) {
+            $dataTable = New-Object -TypeName System.Data.DataTable
+            $dataTable.Load($result)
+            $dataTable
+        }
+    }
+ 
+    END {
+        $connection.Close()
+    }
+ 
 }
 
-<#
-.Synopsis
-	Sets the format of one or more Word table cells
-.DESCRIPTION
-	This function sets the format of one or more table cells, either from a collection
-	of Word COM object cell references, an individual Word COM object cell reference or
-	a hashtable containing Row and Column information.
-
-	The font name, font size, bold, italic , underline and shading values can be used.
-.EXAMPLE
-	SetWordCellFormat -Hashtable $Coordinates -Table $TableReference -Bold
-
-	This example sets all text to bold that is contained within the $TableReference
-	Word table, using an array of hashtables. Each hashtable contain a pair of co-
-	ordinates that is used to select the required cells. Note: the hashtable must
-	contain the .Row and .Column key names. For example:
-	@ { Row = 7; Column = 3 } to set the cell at row 7 and column 3 to bold.
-.EXAMPLE
-	$RowCollection = $Table.Rows.First.Cells
-	SetWordCellFormat -Collection $RowCollection -Bold -Size 10
-
-	This example sets all text to size 8 and bold for all cells that are contained
-	within the first row of the table.
-	Note: the $Table.Rows.First.Cells returns a collection of Word COM cells objects
-	that are in the first table row.
-.EXAMPLE
-	$ColumnCollection = $Table.Columns.Item(2).Cells
-	SetWordCellFormat -Collection $ColumnCollection -BackgroundColor 255
-
-	This example sets the background (shading) of all cells in the table's second
-	column to red.
-	Note: the $Table.Columns.Item(2).Cells returns a collection of Word COM cells objects
-	that are in the table's second column.
-.EXAMPLE
-	SetWordCellFormat -Cell $Table.Cell(17,3) -Font "Tahoma" -Color 16711680
-
-	This example sets the font to Tahoma and the text color to blue for the cell located
-	in the table's 17th row and 3rd column.
-	Note: the $Table.Cell(17,3) returns a single Word COM cells object.
-#>
-
-Function SetWordCellFormat 
-{
-	[CmdletBinding(DefaultParameterSetName='Collection')]
-	Param (
-		# Word COM object cell collection reference
-		[Parameter(Mandatory=$true, ValueFromPipeline=$true, ParameterSetName='Collection', Position=0)] [ValidateNotNullOrEmpty()] $Collection,
-		# Word COM object individual cell reference
-		[Parameter(Mandatory=$true, ParameterSetName='Cell', Position=0)] [ValidateNotNullOrEmpty()] $Cell,
-		# Hashtable of cell co-ordinates
-		[Parameter(Mandatory=$true, ParameterSetName='Hashtable', Position=0)] [ValidateNotNullOrEmpty()] [System.Collections.Hashtable[]] $Coordinates,
-		# Word COM object table reference
-		[Parameter(Mandatory=$true, ParameterSetName='Hashtable', Position=1)] [ValidateNotNullOrEmpty()] $Table,
-		# Font name
-		[Parameter()] [AllowNull()] [string] $Font = $null,
-		# Font color
-		[Parameter()] [AllowNull()] $Color = $null,
-		# Font size
-		[Parameter()] [ValidateNotNullOrEmpty()] [int] $Size = 0,
-		# Cell background color
-		[Parameter()] [AllowNull()] $BackgroundColor = $null,
-		# Force solid background color
-		[Switch] $Solid,
-		[Switch] $Bold,
-		[Switch] $Italic,
-		[Switch] $Underline
-	)
-
-	Begin 
-	{
-		Write-Debug ("Using parameter set '{0}'." -f $PSCmdlet.ParameterSetName);
-	}
-
-	Process 
-	{
-		Switch ($PSCmdlet.ParameterSetName) 
-		{
-			'Collection' {
-				ForEach($Cell in $Collection) 
-				{
-					If($BackgroundColor -ne $null) { $Cell.Shading.BackgroundPatternColor = $BackgroundColor; }
-					If($Bold) { $Cell.Range.Font.Bold = $true; }
-					If($Italic) { $Cell.Range.Font.Italic = $true; }
-					If($Underline) { $Cell.Range.Font.Underline = 1; }
-					If($Font -ne $null) { $Cell.Range.Font.Name = $Font; }
-					If($Color -ne $null) { $Cell.Range.Font.Color = $Color; }
-					If($Size -ne 0) { $Cell.Range.Font.Size = $Size; }
-					If($Solid) { $Cell.Shading.Texture = 0; } ## wdTextureNone
-				} # end foreach
-			} # end Collection
-			'Cell' 
-			{
-				If($Bold) { $Cell.Range.Font.Bold = $true; }
-				If($Italic) { $Cell.Range.Font.Italic = $true; }
-				If($Underline) { $Cell.Range.Font.Underline = 1; }
-				If($Font -ne $null) { $Cell.Range.Font.Name = $Font; }
-				If($Color -ne $null) { $Cell.Range.Font.Color = $Color; }
-				If($Size -ne 0) { $Cell.Range.Font.Size = $Size; }
-				If($BackgroundColor -ne $null) { $Cell.Shading.BackgroundPatternColor = $BackgroundColor; }
-				If($Solid) { $Cell.Shading.Texture = 0; } ## wdTextureNone
-			} # end Cell
-			'Hashtable' 
-			{
-				ForEach($Coordinate in $Coordinates) 
-				{
-					$Cell = $Table.Cell($Coordinate.Row, $Coordinate.Column);
-					If($Bold) { $Cell.Range.Font.Bold = $true; }
-					If($Italic) { $Cell.Range.Font.Italic = $true; }
-					If($Underline) { $Cell.Range.Font.Underline = 1; }
-					If($Font -ne $null) { $Cell.Range.Font.Name = $Font; }
-					If($Color -ne $null) { $Cell.Range.Font.Color = $Color; }
-					If($Size -ne 0) { $Cell.Range.Font.Size = $Size; }
-					If($BackgroundColor -ne $null) { $Cell.Shading.BackgroundPatternColor = $BackgroundColor; }
-					If($Solid) { $Cell.Shading.Texture = 0; } ## wdTextureNone
-				}
-			} # end Hashtable
-		} # end switch
-	} # end process
-}
-
-<#
-.Synopsis
-	Sets alternate row colors in a Word table
-.DESCRIPTION
-	This function sets the format of alternate rows within a Word table using the
-	specified $BackgroundColor. This function is expensive (in performance terms) as
-	it recursively sets the format on alternate rows. It would be better to pick one
-	of the predefined table formats (if one exists)? Obviously the more rows, the
-	longer it takes :'(
-
-	Note: this function is called by the AddWordTable function if an alternate row
-	format is specified.
-.EXAMPLE
-	SetWordTableAlternateRowColor -Table $TableReference -BackgroundColor 255
-
-	This example sets every-other table (starting with the first) row and sets the
-	background color to red (wdColorRed).
-.EXAMPLE
-	SetWordTableAlternateRowColor -Table $TableReference -BackgroundColor 39423 -Seed Second
-
-	This example sets every other table (starting with the second) row and sets the
-	background color to light orange (weColorLightOrange).
-#>
-
-Function SetWordTableAlternateRowColor 
-{
-	[CmdletBinding()]
-	Param (
-		# Word COM object table reference
-		[Parameter(Mandatory=$true, ValueFromPipeline=$true, Position=0)] [ValidateNotNullOrEmpty()] $Table,
-		# Alternate row background color
-		[Parameter(Mandatory=$true, Position=1)] [ValidateNotNull()] [int] $BackgroundColor,
-		# Alternate row starting seed
-		[Parameter(ValueFromPipelineByPropertyName=$true, Position=2)] [ValidateSet('First','Second')] [string] $Seed = 'First'
-	)
-
-	Process 
-	{
-		$StartDateTime = Get-Date;
-		Write-Debug ("{0}: `t`tSetting alternate table row colors.." -f $StartDateTime);
-
-		## Determine the row seed (only really need to check for 'Second' and default to 'First' otherwise
-		If($Seed.ToLower() -eq 'second') 
-		{ 
-			$StartRowIndex = 2; 
-		}
-		Else 
-		{ 
-			$StartRowIndex = 1; 
-		}
-
-		For($AlternateRowIndex = $StartRowIndex; $AlternateRowIndex -lt $Table.Rows.Count; $AlternateRowIndex += 2) 
-		{ 
-			$Table.Rows.Item($AlternateRowIndex).Shading.BackgroundPatternColor = $BackgroundColor;
-		}
-
-		## I've put verbose calls in here we can see how expensive this functionality actually is.
-		$EndDateTime = Get-Date;
-		$ExecutionTime = New-TimeSpan -Start $StartDateTime -End $EndDateTime;
-		Write-Debug ("{0}: `t`tDone setting alternate row style color in '{1}' seconds" -f $EndDateTime, $ExecutionTime.TotalSeconds);
-	}
-}
-#endregion
-
-#region general script functions
-Function ShowScriptOptions
-{
-	Write-Verbose "$(Get-Date): "
-	Write-Verbose "$(Get-Date): "
-	Write-Verbose "$(Get-Date): Company Name : $($Script:CoName)"
-	Write-Verbose "$(Get-Date): Cover Page   : $($CoverPage)"
-	Write-Verbose "$(Get-Date): User Name    : $($UserName)"
-	Write-Verbose "$(Get-Date): Save As PDF  : $($PDF)"
-	Write-Verbose "$(Get-Date): Save As TEXT : $($TEXT)"
-	Write-Verbose "$(Get-Date): Save As WORD : $($MSWORD)"
-	Write-Verbose "$(Get-Date): Save As HTML : $($HTML)"
-	Write-Verbose "$(Get-Date): Add DateTime : $($AddDateTime)"
-	Write-Verbose "$(Get-Date): HW Inventory : $($Hardware)"
-	Write-Verbose "$(Get-Date): Filename1    : $($Script:FileName1)"
-	If($PDF)
-	{
-		Write-Verbose "$(Get-Date): Filename2    : $($Script:FileName2)"
-	}
-	Write-Verbose "$(Get-Date): OS Detected  : $($RunningOS)"
-	Write-Verbose "$(Get-Date): PSUICulture  : $($PSUICulture)"
-	Write-Verbose "$(Get-Date): PSCulture    : $($PSCulture)"
-	Write-Verbose "$(Get-Date): Word version : $($Script:WordProduct)"
-	Write-Verbose "$(Get-Date): Word language: $($Script:WordLanguageValue)"
-	Write-Verbose "$(Get-Date): PoSH version : $($Host.Version)"
-	Write-Verbose "$(Get-Date): "
-	Write-Verbose "$(Get-Date): Script start : $($Script:StartTime)"
-	Write-Verbose "$(Get-Date): "
-	Write-Verbose "$(Get-Date): "
-}
-
-Function validStateProp( [object] $object, [string] $topLevel, [string] $secondLevel )
-{
-	#function created 8-jan-2014 by Michael B. Smith
-	if( $object )
-	{
-		If( ( gm -Name $topLevel -InputObject $object ) )
-		{
-			If( ( gm -Name $secondLevel -InputObject $object.$topLevel ) )
-			{
-				Return $True
-			}
-		}
-	}
-	Return $False
-}
-
-Function SaveandCloseDocumentandShutdownWord
-{
-	#bug fix 1-Apr-2014
-	#reset Grammar and Spelling options back to their original settings
-	$Script:Word.Options.CheckGrammarAsYouType = $Script:CurrentGrammarOption
-	$Script:Word.Options.CheckSpellingAsYouType = $Script:CurrentSpellingOption
-
-	Write-Verbose "$(Get-Date): Save and Close document and Shutdown Word"
-	If($Script:WordVersion -eq $wdWord2010)
-	{
-		#the $saveFormat below passes StrictMode 2
-		#I found this at the following two links
-		#http://blogs.technet.com/b/bshukla/archive/2011/09/27/3347395.aspx
-		#http://msdn.microsoft.com/en-us/library/microsoft.office.interop.word.wdsaveformat(v=office.14).aspx
-		If($PDF)
-		{
-			Write-Verbose "$(Get-Date): Saving as DOCX file first before saving to PDF"
-		}
-		Else
-		{
-			Write-Verbose "$(Get-Date): Saving DOCX file"
-		}
-		If($AddDateTime)
-		{
-			$Script:FileName1 += "_$(Get-Date -f yyyy-MM-dd_HHmm).docx"
-			If($PDF)
-			{
-				$Script:FileName2 += "_$(Get-Date -f yyyy-MM-dd_HHmm).pdf"
-			}
-		}
-		Write-Verbose "$(Get-Date): Running Word 2010 and detected operating system $($RunningOS)"
-		$saveFormat = [Enum]::Parse([Microsoft.Office.Interop.Word.WdSaveFormat], "wdFormatDocumentDefault")
-		$Script:Doc.SaveAs([REF]$Script:FileName1, [ref]$SaveFormat)
-		If($PDF)
-		{
-			Write-Verbose "$(Get-Date): Now saving as PDF"
-			$saveFormat = [Enum]::Parse([Microsoft.Office.Interop.Word.WdSaveFormat], "wdFormatPDF")
-			$Script:Doc.SaveAs([REF]$Script:FileName2, [ref]$saveFormat)
-		}
-	}
-	ElseIf($Script:WordVersion -eq $wdWord2013)
-	{
-		If($PDF)
-		{
-			Write-Verbose "$(Get-Date): Saving as DOCX file first before saving to PDF"
-		}
-		Else
-		{
-			Write-Verbose "$(Get-Date): Saving DOCX file"
-		}
-		If($AddDateTime)
-		{
-			$Script:FileName1 += "_$(Get-Date -f yyyy-MM-dd_HHmm).docx"
-			If($PDF)
-			{
-				$Script:FileName2 += "_$(Get-Date -f yyyy-MM-dd_HHmm).pdf"
-			}
-		}
-		Write-Verbose "$(Get-Date): Running Word 2013 and detected operating system $($RunningOS)"
-		$Script:Doc.SaveAs2([REF]$Script:FileName1, [ref]$wdFormatDocumentDefault)
-		If($PDF)
-		{
-			Write-Verbose "$(Get-Date): Now saving as PDF"
-			$Script:Doc.SaveAs([REF]$Script:FileName2, [ref]$wdFormatPDF)
-		}
-	}
-
-	Write-Verbose "$(Get-Date): Closing Word"
-	$Script:Doc.Close()
-	$Script:Word.Quit()
-	If($PDF)
-	{
-		Write-Verbose "$(Get-Date): Deleting $($Script:FileName1) since only $($Script:FileName2) is needed"
-		Remove-Item $Script:FileName1 4>$Null
-	}
-	Write-Verbose "$(Get-Date): System Cleanup"
-	[System.Runtime.Interopservices.Marshal]::ReleaseComObject($Script:Word) | Out-Null
-	If(Test-Path variable:global:word)
-	{
-		Remove-Variable -Name word -Scope Global 4>$Null
-	}
-	$SaveFormat = $Null
-	[gc]::collect() 
-	[gc]::WaitForPendingFinalizers()
-}
-
-Function SaveandCloseTextDocument
-{
-	If($AddDateTime)
-	{
-		$Script:FileName1 += "_$(Get-Date -f yyyy-MM-dd_HHmm).txt"
-	}
-
-	Write-Output $Global:Output | Out-File $Script:Filename1 4>$Null
-}
-
-Function SaveandCloseHTMLDocument
-{
-    #echo "<p></p></body></html>" >> $FileName1
-	out-file -FilePath $Script:FileName1 -Append -InputObject "<p></p></body></html>" 4>$Null
-}
-
-Function SetFileName1andFileName2
-{
-	Param([string]$OutputFileName)
-	$pwdpath = $pwd.Path
-
-	If($pwdpath.EndsWith("\"))
-	{
-		#remove the trailing \
-		$pwdpath = $pwdpath.SubString(0, ($pwdpath.Length - 1))
-	}
-
-	#set $filename1 and $filename2 with no file extension
-	If($AddDateTime)
-	{
-		[string]$Script:FileName1 = "$($pwdpath)\$($OutputFileName)"
-		If($PDF)
-		{
-			[string]$Script:FileName2 = "$($pwdpath)\$($OutputFileName)"
-		}
-	}
-
-	If($MSWord -or $PDF)
-	{
-		CheckWordPreReq
-
-		If(!$AddDateTime)
-		{
-			[string]$Script:FileName1 = "$($pwdpath)\$($OutputFileName).docx"
-			If($PDF)
-			{
-				[string]$Script:FileName2 = "$($pwdpath)\$($OutputFileName).pdf"
-			}
-		}
-
-		SetupWord
-	}
-	ElseIf($Text)
-	{
-		If(!$AddDateTime)
-		{
-			[string]$Script:FileName1 = "$($pwdpath)\$($OutputFileName).txt"
-		}
-	}
-	ElseIf($HTML)
-	{
-		If(!$AddDateTime)
-		{
-			[string]$Script:FileName1 = "$($pwdpath)\$($OutputFileName).html"
-		}
-       SetupHTML
-	}
-}
-
-Function TestComputerName
-{
-	Param([string]$Cname)
-	If(![String]::IsNullOrEmpty($CName)) 
-	{
-		#get computer name
-		#first test to make sure the computer is reachable
-		Write-Verbose "$(Get-Date): Testing to see if $($CName) is online and reachable"
-		If(Test-Connection -ComputerName $CName -quiet)
-		{
-			Write-Verbose "$(Get-Date): Server $($CName) is online."
-		}
-		Else
-		{
-			Write-Verbose "$(Get-Date): Computer $($CName) is offline"
-			$ErrorActionPreference = $SaveEAPreference
-			Write-Error "`n`n`t`tComputer $($CName) is offline.`nScript cannot continue.`n`n"
-			Exit
-		}
-	}
-
-	#if computer name is localhost, get actual computer name
-	If($CName -eq "localhost")
-	{
-		$CName = $env:ComputerName
-		Write-Verbose "$(Get-Date): Computer name has been renamed from localhost to $($CName)"
-		Return $CName
-	}
-
-	#if computer name is an IP address, get host name from DNS
-	#http://blogs.technet.com/b/gary/archive/2009/08/29/resolve-ip-addresses-to-hostname-using-powershell.aspx
-	#help from Michael B. Smith
-	$ip = $CName -as [System.Net.IpAddress]
-	If($ip)
-	{
-		$Result = [System.Net.Dns]::gethostentry($ip)
-		
-		If($? -and $Result -ne $Null)
-		{
-			$CName = $Result.HostName
-			Write-Verbose "$(Get-Date): Computer name has been renamed from $($ip) to $($CName)"
-			Return $CName
-		}
-		Else
-		{
-			Write-Warning "Unable to resolve $($CName) to a hostname"
-		}
-	}
-	Else
-	{
-		#computer is online but for some reason $ComputerName cannot be converted to a System.Net.IpAddress
-	}
-	Return $CName
-}
-
-Function ProcessDocumentOutput
-{
-	If($MSWORD -or $PDF)
-	{
-		SaveandCloseDocumentandShutdownWord
-	}
-	ElseIf($Text)
-	{
-		SaveandCloseTextDocument
-	}
-	ElseIf($HTML)
-	{
-		SaveandCloseHTMLDocument
-	}
-
-	If($PDF)
-	{
-		If(Test-Path "$($Script:FileName2)")
-		{
-			Write-Verbose "$(Get-Date): $($Script:FileName2) is ready for use"
-		}
-		Else
-		{
-			Write-Warning "$(Get-Date): Unable to save the output file, $($Script:FileName2)"
-			Write-Error "Unable to save the output file, $($Script:FileName2)"
-		}
-	}
-	Else
-	{
-		If(Test-Path "$($Script:FileName1)")
-		{
-			Write-Verbose "$(Get-Date): $($Script:FileName1) is ready for use"
-		}
-		Else
-		{
-			Write-Warning "$(Get-Date): Unable to save the output file, $($Script:FileName1)"
-			Write-Error "Unable to save the output file, $($Script:FileName1)"
-		}
-	}
-}
-
-Function AbortScript
-{
-	If($MSWord -or $PDF)
-	{
-		$Script:Word.quit()
-		Write-Verbose "$(Get-Date): System Cleanup"
-		[System.Runtime.Interopservices.Marshal]::ReleaseComObject($Script:Word) | Out-Null
-		If(Test-Path variable:global:word)
-		{
-			Remove-Variable -Name word -Scope Global
-		}
-	}
-	[gc]::collect() 
-	[gc]::WaitForPendingFinalizers()
-	Write-Verbose "$(Get-Date): Script has been aborted"
-	$ErrorActionPreference = $SaveEAPreference
-	Exit
-}
-#endregion
-
-#region script setup function
-Function ProcessScriptSetup
-{
-	$script:startTime = Get-Date
-
-	$ComputerName = TestComputerName $ComputerName
-}
-#endregion
-
-#region script core
-#Script begins
-
-ProcessScriptSetup
-
-
-###REPLACE AFTER THIS SECTION WITH YOUR SCRIPT###
-
-###The function SetFileName1andFileName2 needs your script output filename###
-SetFileName1andFileName2 'InventoryScript'
-
-###change title for your report###
-[string]$Script:Title = 'System Center 2012 R2 Configuration Manager Documentation Script for {0}' -f $CompanyName;
-
-###REPLACE AFTER THIS SECTION WITH YOUR SCRIPT###
 
 Function Read-ScheduleToken {
   
@@ -2454,92 +760,12 @@ Function Get-SiteCode
   }
   return $SiteCode
 }
+####################################################################################################################################################################
+####################################################################################################################################################################
+#####################################################################Starting#######################################################################################
+####################################################################################################################################################################
+####################################################################################################################################################################
 
-function Get-ExecuteWqlQuery
-{
-  param
-  (
-    [System.Object]
-    $siteServerName,
-    
-    [System.Object]
-    $query
-  )
-  
-  $returnValue = $null
-  $connectionManager = New-Object Microsoft.ConfigurationManagement.ManagementProvider.WqlQueryEngine.WqlConnectionManager
-  
-  if($connectionManager.Connect($siteServerName))
-  {
-    $result = $connectionManager.QueryProcessor.ExecuteQuery($query)
-    
-    foreach($i in $result.GetEnumerator())
-    {
-      $returnValue = $i
-      break
-    }
-    
-    $connectionManager.Dispose() 
-  }
-  
-  $returnValue
-}
-
-function Get-ApplicationObjectFromServer
-{
-  param
-  (
-    [System.Object]
-    $appName,
-    
-    [System.Object]
-    $siteServerName
-  )
-  
-  $resultObject = Get-ExecuteWqlQuery $siteServerName 'select thissitecode from sms_identification' 
-  $siteCode = $resultObject['thissitecode'].StringValue
-  
-  $path = [string]::Format('\\{0}\ROOT\sms\site_{1}', $siteServerName, $siteCode)
-  $scope = New-Object System.Management.ManagementScope -ArgumentList $path
-  
-  $query = [string]::Format("select * from sms_application where LocalizedDisplayName='{0}' AND ISLatest='true'", $appName.Trim())
-  
-  $oQuery = New-Object System.Management.ObjectQuery -ArgumentList $query
-  $obectSearcher = New-Object System.Management.ManagementObjectSearcher -ArgumentList $scope,$oQuery
-  $applicationFoundInCollection = $obectSearcher.Get()    
-  $applicationFoundInCollectionEnumerator = $applicationFoundInCollection.GetEnumerator()
-  
-  if($applicationFoundInCollectionEnumerator.MoveNext())
-  {
-    $returnValue = $applicationFoundInCollectionEnumerator.Current
-    $getResult = $returnValue.Get()        
-    $sdmPackageXml = $returnValue.Properties['SDMPackageXML'].Value.ToString()
-    [Microsoft.ConfigurationManagement.ApplicationManagement.Serialization.SccmSerializer]::DeserializeFromString($sdmPackageXml)
-  }
-}
-
-function Load-ConfigMgrAssemblies()
-{
-  
-  $AdminConsoleDirectory = Split-Path $env:SMS_ADMIN_UI_PATH -Parent
-  $filesToLoad = 'Microsoft.ConfigurationManagement.ApplicationManagement.dll','AdminUI.WqlQueryEngine.dll', 'AdminUI.DcmObjectWrapper.dll' 
-  
-  Set-Location $AdminConsoleDirectory
-  [System.IO.Directory]::SetCurrentDirectory($AdminConsoleDirectory)
-  
-  foreach($fileName in $filesToLoad)
-  {
-    $fullAssemblyName = [System.IO.Path]::Combine($AdminConsoleDirectory, $fileName)
-    if([System.IO.File]::Exists($fullAssemblyName ))
-    {   
-      $FileLoaded = [Reflection.Assembly]::LoadFrom($fullAssemblyName )
-    }
-    else
-    {
-      Write-Output ([System.String]::Format('File not found {0}',$fileName )) -backgroundcolor 'red'
-    }
-  }
-}
 
 $SiteCode = Get-SiteCode
 
@@ -2547,12 +773,15 @@ Write-Verbose "$(Get-Date): Start writing report data"
 
 $LocationBeforeExecution = Get-Location
 
-$Script:selection.InsertNewPage() | Out-Null
+Write-HTMLHeader -Title $Title -File $FilePath
+Write-HTMLCoverPage -Title $Title -Author $Author -Vendor $Vendor -Org $CompanyName -ImagePath $CompanyLogo -File $FilePath
 
-#Import the CM12 Powershell cmdlets
+
+
+#Import the CM Powershell cmdlets
 if (-not (Test-Path -Path $SiteCode))
 {
-  Write-Verbose "$(Get-Date):   CM12 module has not been imported yet, will import it now."
+  Write-Verbose "$(Get-Date):   CM PowerShell module has not been imported yet, will import it now."
   Import-Module ($env:SMS_ADMIN_UI_PATH.Substring(0,$env:SMS_ADMIN_UI_PATH.Length – 5) + '\ConfigurationManager.psd1') | Out-Null
 }
 #CM12 cmdlets need to be run from the CM12 drive
@@ -2566,7 +795,8 @@ if (-not (Get-PSDrive -Name $SiteCode))
 #### Administration
 #### Site Configuration
 
-WriteWordLine 1 0 'Summary of all Sites in this Hierarchy'
+Write-HTMLHeading -Text 'Table of Contents' -Level 1 -PageBreak -ExcludeTOC -File $FilePath
+Write-HTMLHeading -Text 'Summary of all Sites in this Hierarchy' -Level 1 -PageBreak -File $FilePath
 Write-Verbose "$(Get-Date):   Getting Site Information"
 $CMSites = Get-CMSite
 
@@ -2578,28 +808,13 @@ $SecondarySites         = $CMSites | Where-Object {$_.Type -eq 1}
 #region CAS
 if (-not [string]::IsNullOrEmpty($CAS))
 {
-  WriteWordLine 0 1 'The following Central Administration Site is installed:'
-  $CAS = @{'Site Name' = $CAS.SiteName; 'Site Code' = $CAS.SiteCode; Version = $CAS.Version };
+  Write-HTMLParagraph -Text 'The following Central Administration Site is installed:' -level 1 -File $FilePath
+  $CAS = New-Object -TypeName psobject -Property @{'Site Name' = $CAS.SiteName; 'Site Code' = $CAS.SiteCode; Version = $CAS.Version };
   
-  $Table = AddWordTable -Hashtable $CAS -Format -155 -AutoFit $wdAutoFitFixed;
-  
-  ## Set first column format
-  SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-  
-  ## IB - set column widths without recursion
-  $Table.Columns.Item(1).Width = 100;
-  $Table.Columns.Item(2).Width = 170;
-  
-  $Table.Rows.SetLeftIndent($Indent1TabStops,$wdAdjustProportional)
-  $Table.AutoFitBehavior($wdAutoFitFixed)
-  
-  FindWordDocumentEnd
-  $Table = $Null
+  Write-HtmlTable -InputObject $CAS -Border 1 -Level 1 -File $FilePath
 }
 else {
-    WriteWordLine 0 1 'No' -nonewline
-    WriteWordLine 0 0 ' CAS' -boldface $true -nonewline
-    WriteWordLine 0 1 ' detected. Continue with Primary Sites.'
+  Write-HTMLParagraph -Text 'No <b>CAS</b> detected. continue with Primary Sites.' -level 1 -File $FilePath
 }
 #endregion CAS
 
@@ -2607,181 +822,188 @@ else {
 if (-not [string]::IsNullOrEmpty($ChildPrimarySites))
 {
   Write-Verbose "$(Get-Date):   Enumerating all child Primary Site."
-  WriteWordLine 0 1 'The following child Primary Sites are installed:'
-  $StandAlonePrimarySite = @{'Site Name' = $ChildPrimarySites.SiteName; 'Site Code' = $ChildPrimarySites.SiteCode; Version = $ChildPrimarySites.Version };
+  Write-HTMLParagraph -Text 'The following child Primary Sites are installed:' -level 1 -File $FilePath
+  $ChildSite = New-Object -TypeName psobject -Property @{'Site Name' = $ChildPrimarySites.SiteName; 'Site Code' = $ChildPrimarySites.SiteCode; Version = $ChildPrimarySites.Version };
   
-  $Table = AddWordTable -Hashtable $ChildPrimarySites -Format -155 -AutoFit $wdAutoFitFixed;
-  
-  ## Set first column format
-  SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-  
-  ## IB - set column widths without recursion
-  $Table.Columns.Item(1).Width = 100;
-  $Table.Columns.Item(2).Width = 170;
-  
-  $Table.Rows.SetLeftIndent($Indent1TabStops,$wdAdjustProportional)
-  $Table.AutoFitBehavior($wdAutoFitFixed)
-  
-  FindWordDocumentEnd
-  $Table = $Null
+  Write-HtmlTable -InputObject $ChildSite -Border 1 -Level 1 -File $FilePath
 }
 #endregion Child Primary Sites
+
 
 #region Standalone Primary
 if (-not [string]::IsNullOrEmpty($StandAlonePrimarySite))
 {
   Write-Verbose "$(Get-Date):   Enumerating a standalone Primary Site."
-  WriteWordLine 0 1 'The following Primary Site is installed:'
-  $SiteCULevel = (Invoke-Command -ComputerName $(Get-CMSiteRole -RoleName 'SMS Site Server').NALPath.tostring().split('\\')[2] -ScriptBlock {Get-ItemProperty -Path registry::hklm\software\microsoft\sms\setup | Select-Object CULevel} -ErrorAction SilentlyContinue ).CULevel
-  $StandAlonePrimarySite = @{'Site Name' = $StandAlonePrimarySite.SiteName; 'Site Code' = $StandAlonePrimarySite.SiteCode; Version = $StandAlonePrimarySite.Version; 'CU Installed' = $SiteCULevel };
+  Write-HTMLParagraph -Text 'The following Primary Site is installed:' -level 1 -File $FilePath
+  $CMSiteID = Get-WmiObject -Class SMS_Identification -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider| where {$_.ThisSiteCode -eq "$SiteCode"}
+  $ReleaseVersion = $CMSiteID.MonthlyReleaseVersion
+  $StandAlonePrimarySite = New-Object -TypeName psobject -Property @{'Site Name' = $StandAlonePrimarySite.SiteName; 'Site Code' = $StandAlonePrimarySite.SiteCode; Version = $StandAlonePrimarySite.Version; 'Build' = $StandAlonePrimarySite.BuildNumber; 'Release Version' = $ReleaseVersion};
   
-  $Table = AddWordTable -Hashtable $StandAlonePrimarySite -Format -155 -AutoFit $wdAutoFitFixed;
-  
-  ## Set first column format
-  SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-  
-  ## IB - set column widths without recursion
-  $Table.Columns.Item(1).Width = 100;
-  $Table.Columns.Item(2).Width = 170;
-  
-  $Table.Rows.SetLeftIndent($Indent1TabStops,$wdAdjustProportional)
-  $Table.AutoFitBehavior($wdAutoFitFixed)
-  
-  FindWordDocumentEnd
-  $Table = $Null
+  $StandAlonePrimarySite = $StandAlonePrimarySite |select 'Site Name','Site Code','Release Version',Version,Build
+  Write-HtmlTable -InputObject $StandAlonePrimarySite -Border 1 -Level 1 -File $FilePath
 }
-
 #endregion Standalone Primary
 
 #region Secondary Sites
 if (-not [string]::IsNullOrEmpty($SecondarySites))
 {
   Write-Verbose "$(Get-Date):   Enumerating all secondary sites."
-  WriteWordLine 0 1 'The following Secondary Sites are installed:'
-  $SecondarySites = @{'Site Name' = $SecondarySites.SiteName; 'Site Code' = $SecondarySites.SiteCode; Version = $SecondarySites.Version };
+  Write-HTMLParagraph -Text 'The following Secondary Sites are installed:' -level 1 -File $FilePath
+  $SecondarySites = New-Object -TypeName psobject -Property @{'Site Name' = $SecondarySites.SiteName; 'Site Code' = $SecondarySites.SiteCode; Version = $SecondarySites.Version };
   
-  $Table = AddWordTable -Hashtable $SecondarySites -Format -155 -AutoFit $wdAutoFitFixed;
-  
-  ## Set first column format
-  SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-  
-  ## IB - set column widths without recursion
-  $Table.Columns.Item(1).Width = 100;
-  $Table.Columns.Item(2).Width = 170;
-  
-  $Table.Rows.SetLeftIndent($Indent1TabStops,$wdAdjustProportional)
-  $Table.AutoFitBehavior($wdAutoFitFixed)
-  
-  FindWordDocumentEnd
-  $Table = $Null
+  Write-HtmlTable -InputObject $SecondarySites -Border 1 -Level 1 -File $FilePath
 }
 #endregion Secondary Sites
 
-#region Site Configuration report
 
+#region Site Configuration report
 foreach ($CMSite in $CMSites)
 {  
   Write-Verbose "$(Get-Date):   Checking each site's configuration."
-  WriteWordLine 1 0 "Configuration Summary for Site $($CMSite.SiteCode)"
-  WriteWordLine 0 0 ''   
+  Write-HTMLHeading -Text "Configuration Summary for Site $($CMSite.SiteCode)" -level 1 -File $FilePath
  
-  $SiteRoleWordTable = @()  
+  $SiteRolesTable = @()  
   $SiteRoles = Get-CMSiteRole -SiteCode $CMSite.SiteCode | Select-Object -Property NALPath, rolename
 
-  WriteWordLine 2 0 'Site Roles'
-  WriteWordLine 0 1 'The following Site Roles are installed in this site:'
+  Write-HTMLHeading -Text "Site Roles" -Level 2 -File $FilePath
+  Write-HTMLParagraph  -Text "The following Site Roles are installed in this site:" -Level 2 -File $FilePath
   foreach ($SiteRole in $SiteRoles) {
     if (-not (($SiteRole.rolename -eq 'SMS Component Server') -or ($SiteRole.rolename -eq 'SMS Site System'))) {
-        $SiteRoleRowHash = @{'Server Name' = ($SiteRole.NALPath).ToString().Split('\\')[2]; 'Role' = $SiteRole.RoleName}
-        $SiteRoleWordTable += $SiteRoleRowHash
+        $SiteRoleobject = New-Object -TypeName PSObject -Property @{'Server Name' = ($SiteRole.NALPath).ToString().Split('\\')[2]; 'Role' = $SiteRole.RoleName}
+        $SiteRolesTable += $SiteRoleobject
     }
   }
-  
-  $Table = AddWordTable -Hashtable $SiteRoleWordTable -Format -155 -AutoFit $wdAutoFitContent
-  
-  ## Set first column format
-  SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray1 -Underline -Italic
-  
-  FindWordDocumentEnd
-  $Table = $Null
+  Write-HtmlTable -InputObject $SiteRolesTable -Border 1 -Level 2 -File $FilePath
 
-  $SiteMaintenanceTaskWordTable = @()
+  $SiteMaintenanceTaskTable = @()
   $SiteMaintenanceTasks = Get-CMSiteMaintenanceTask -SiteCode $CMSite.SiteCode
-  WriteWordLine 2 0 "Site Maintenance Tasks for Site $($CMSite.SiteCode)"
+  Write-HTMLHeading -Text "Site Maintenance Tasks for Site $($CMSite.SiteCode)" -Level 2 -File $FilePath
   
   foreach ($SiteMaintenanceTask in $SiteMaintenanceTasks) {
-    $SiteMaintenanceTaskRowHash = @{'Task Name' = $SiteMaintenanceTask.TaskName; Enabled = $SiteMaintenanceTask.Enabled};
-    $SiteMaintenanceTaskWordTable += $SiteMaintenanceTaskRowHash;
+    $SiteMaintenanceTaskRowHash = New-Object -TypeName PSObject -Property @{'Task Name' = $SiteMaintenanceTask.TaskName; Enabled = $SiteMaintenanceTask.Enabled};
+    $SiteMaintenanceTaskTable += $SiteMaintenanceTaskRowHash;
   }
+
+  $SiteMaintenanceTaskTable = $SiteMaintenanceTaskTable|Select 'Task Name',Enabled
+  Write-HtmlTable -InputObject $SiteMaintenanceTaskTable -Border 1 -Level 2 -File $FilePath
   
-  $Table = AddWordTable -Hashtable $SiteMaintenanceTaskWordTable -Format -155 -AutoFit $wdAutoFitContent;
+  #region Site SQL Info
+  Write-HTMLHeading -Text "Summary of SQL database info for Site $($CMSite.SiteCode)" -PageBreak -Level 2 -File $FilePath
+  $SiteDef = Get-CMSiteDefinition -SiteCode $($CMSite.SiteCode)
+  $SQLServer = $SiteDef.SQLServerName
+  $CMDatabase = $SiteDef.SQLDatabaseName
+  $SQLInfo = @("Site SQL Server: <b>$SQLServer</b>","Site Database Name: <b>$CMDatabase</b>")
+  Write-HtmlList -InputObject $SQLInfo -Level 2 -File $FilePath
+  #Write-HTMLParagraph -Text "$($SQLInfo)" -Level 2 -File $FilePath
   
-  ## Set first column format
-  SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-  <#
-  ## IB - set column widths without recursion
-  $Table.Columns.Item(1).Width = 100;
-  $Table.Columns.Item(2).Width = 170;
-  
-  $Table.Rows.SetLeftIndent($Indent1TabStops,$wdAdjustProportional)
-  $Table.AutoFitBehavior($wdAutoFitFixed)
-  #>
-  FindWordDocumentEnd
-  $Table = $Null
-  
+  Write-Verbose "$(Get-Date):   Getting SQL detailed info."
+  $SQLVersion = Invoke-SqlDataReader -ServerInstance $SQLServer -Database Master -Query "SELECT SERVERPROPERTY (`'edition`') Edition, SERVERPROPERTY(`'productversion`') Version, SERVERPROPERTY (`'productlevel`') SP"
+  $SQLConfig = Invoke-SqlDataReader -ServerInstance $SQLServer -Database Master -Query "SELECT name ServerSetting,value_in_use Value FROM sys.configurations where configuration_id = 1543 OR configuration_id = 1544 OR configuration_id = 1539"
+  $DatabaseFiles = Invoke-SqlDataReader -ServerInstance $SQLServer -Database Master -Query "SELECT db.name `'DatabaseName`',type_desc `'FileType`',physical_name `'FilePath`',mf.state_desc `'Status`',size*8/1024 `'FileSizeMB`',max_size `'MaximumSize`',growth `'GrowthRate`',(CASE WHEN is_percent_growth = 1 THEN `'Percent`' ELSE `'MB`' END) `'GrowthUnit`',create_date `'DateCreated`',compatibility_level `'DBLevel`',user_access_desc `'AccessMode`',recovery_model_desc `'RecoveryModel`' FROM sys.master_files mf INNER JOIN sys.databases db ON db.database_id = mf.database_id where db.name = `'$CMDatabase`'"
+  $SQLVersion = $SQLVersion | Select Edition,Version,SP
+  $SQLConfig = $SQLConfig | Select @{Name='Server Setting';Expression={$_.ServerSetting}},Value
+  $DatabaseFiles = $DatabaseFiles | Select @{Name='File Type';Expression={$_.FileType}},@{Name='File Path';Expression={$_.FilePath}},Status,@{Name='File Size MB';Expression={'{0:N0}' -f $_.FileSizeMB}},@{Name='Maximum Size';Expression={$(IF($_.MaximumSize -eq -1){"Unlimited"}else{'{0:N0}' -f ($_.MaximumSize/128)})}},@{Name='Growth Rate';Expression={"$(IF($_.GrowthUnit -eq "Percent"){"$($_.GrowthRate)%"}Else{"$($_.GrowthRate/128)MB"})"}},@{Name='Recovery Model';Expression={$_.RecoveryModel}}
+  $IndexFragmentation = Invoke-SqlDataReader -ServerInstance $SQLServer -Database $CMDatabase -Query "SELECT SUM(CASE WHEN indexstats.avg_fragmentation_in_percent > 75 THEN  1 ELSE 0 END) [Over 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 50 AND indexstats.avg_fragmentation_in_percent <= 75) THEN  1 ELSE 0 END) [Over 50],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 25 AND indexstats.avg_fragmentation_in_percent <= 50) THEN  1 ELSE 0 END) [Over 25],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 1 AND indexstats.avg_fragmentation_in_percent <= 25) THEN  1 ELSE 0 END) [Under 25],SUM(CASE WHEN indexstats.avg_fragmentation_in_percent < 1 THEN  1 ELSE 0 END) [Not Fragmented] FROM sys.dm_db_index_physical_stats (DB_ID(), NULL, NULL, NULL, NULL) AS indexstats JOIN sys.tables dbtables on dbtables.[object_id] = indexstats.[object_id] WHERE indexstats.database_id = DB_ID()"
+  $IndexFragmentation = $IndexFragmentation | Select 'Over 75','Over 50','Over 25','Under 25','Not Fragmented'
+  Write-HTMLParagraph -Text "SQL instance version information:" -Level 2 -File $FilePath
+  Write-HtmlTable -InputObject $SQLVersion -Border 1 -Level 3 -File $FilePath
+  Write-HTMLParagraph -Text "The following are important global settings on the SQL server.  Typically, this SQL server should be dedicated to Configuration Manager." -Level 2 -File $FilePath
+  Write-HtmlTable -InputObject $SQLConfig -Border 1 -Level 3 -File $FilePath
+  Write-HTMLParagraph -Text "Below are the database files for the site database ($CMDatabase):" -Level 2 -File $FilePath
+  Write-HtmlTable -InputObject $DatabaseFiles -Border 1 -Level 3 -File $FilePath
+  Write-HTMLParagraph -Text "Below is a fragmentation summary (%) for indexes on the site database ($CMDatabase):" -Level 2 -File $FilePath
+  Write-HtmlTable -InputObject $IndexFragmentation -Border 1 -Level 3 -File $FilePath
+  Write-Verbose "$(Get-Date):   SQL detailed info complete."
+  #endregion Getting Site SQL Info
+
   $CMManagementPoints = Get-CMManagementPoint -SiteCode $CMSite.SiteCode
-  WriteWordLine 2 1 "Summary of Management Points for Site $($CMSite.SiteCode)"
+  Write-HTMLHeading -Text "Summary of Management Points for Site $($CMSite.SiteCode)" -PageBreak -Level 2 -File $FilePath
   foreach ($CMManagementPoint in $CMManagementPoints)
   {
-    Write-Verbose "$(Get-Date):   Management Point: $($CMManagementPoint)"
-    $CMMPServerName = $CMManagementPoint.NetworkOSPath.Split('\\')[2]
-    WriteWordLine 0 1 "$($CMMPServerName)"
+    $MPText = @()
+    #Write-Verbose "$(Get-Date):   Management Point: $($CMManagementPoint)"
+    $MPName = $CMManagementPoint.NetworkOSPath.Split('\\')[2]
+    Write-Verbose "$(Get-Date):   Management Point Name: $MPName"
+    [bool]$SSLENabled = if($CMManagementPoint.SslState -eq 0){$false}else{$true}
+    $MPText += "SSL Enabled: $SSLENabled"
+    $UseSiteDB = ($CMManagementPoint.props|Where{$_.PropertyName -like "UseSiteDatabase"}).value
+    [bool]$UseSiteDB = if($UseSiteDB -eq 1) {$true}else{$false}
+    $MPText += "Using Site Database: $UseSiteDB"
+    $MPIntranet = ($CMManagementPoint.props|Where{$_.PropertyName -like "MPIntranetFacing"}).value
+    $MPInternet = ($CMManagementPoint.props|Where{$_.PropertyName -like "MPInternetFacing"}).value
+    Write-Verbose "$(Get-Date): Internet: $MPInternet Intranet: $MPIntranet"
+    If (!($MPIntranet) -and !($MPInternet)) {[bool]$MPIntranet = $true; [bool]$MPInternet = $false}
+    Else {
+        [bool]$MPIntranet = If($MPIntranet -eq 1){$true}else{$false}
+        [bool]$MPInternet = If($MPInternet -eq 1){$true}else{$false}
+    }
+    $MPText += "Intranet Clients: $MPIntranet"
+    $MPText += "Internet Clients: $MPInternet"
+    Write-HtmlList -InputObject $MPText -Title "Management Point Name: <B>$MPName</B>" -Level 2 -File $FilePath
+    Remove-Variable MPIntranet
+    Remove-Variable MPInternet
+    Write-Verbose "$(Get-Date):   Test-Path -Path `"filesystem::\\$MPName\C$`""
+    $local1 = (Get-Location).path
+    Set-Location C:
+    $PathTest = Test-Path -Path "filesystem::\\$MPName\C$"
+    Write-Verbose "$(Get-Date):   Testing Access to Management Point: $MPName -- $PathTest"
+    If (Test-Path -Path "filesystem::\\$MPName\C$") {$CMMPServerName=$MPName}
+    Set-Location $local1
   }
+
+  Write-Verbose "$(Get-Date):   Default Management Point: $CMMPServerName"
   
-  WriteWordLine 2 1 "Summary of Distribution Points for Site $($CMSite.SiteCode)"
+  #region Distribution Point details
+  Write-HTMLHeading -Text "Summary of Distribution Points for Site $($CMSite.SiteCode)" -Level 2 -PageBreak -File $FilePath
   $CMDistributionPoints = Get-CMDistributionPoint -SiteCode $CMSite.SiteCode
   
   foreach ($CMDistributionPoint in $CMDistributionPoints)
   {
     $CMDPServerName = $CMDistributionPoint.NetworkOSPath.Split('\\')[2]
     Write-Verbose "$(Get-Date):   Found DP: $($CMDPServerName)"
-    WriteWordLine 0 1 "$($CMDPServerName)" -boldface $true
+    Write-HTMLHeading -Text "$CMDPServerName" -Level 3 -File $FilePath
     Write-Verbose "Trying to ping $($CMDPServerName)"
-    $PingResult = Test-NetConnection -ComputerName $CMDPServerName
-    if (-not ($PingResult.PingSucceeded))
+    $PingResult = Ping-Host $CMDPServerName
+    if (-not ($PingResult))
     {
-      WriteWordLine 0 2 "The Distribution Point $($CMDPServerName) is not reachable. Check connectivity."
+      Write-Verbose "Ping Failed: $($CMDPServerName)"
+      Write-HTMLParagraph -Text "The Distribution Point $($CMDPServerName) is not reachable. Check connectivity." -Level 3 -File $FilePath
     }
     else
     {
-      WriteWordLine 0 2 'Disk information:'
+      Write-Verbose "Ping Succeeded: $($CMDPServerName)"
+      Write-HTMLParagraph -Text "Disk Information:" -Level 4 -File $FilePath
       $CMDPDrives = (Get-WmiObject -Class SMS_DistributionPointDriveInfo -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider).Where({$PSItem.NALPath -like "*$CMDPServerName*"})
       foreach ($CMDPDrive in $CMDPDrives)
       {
-        WriteWordLine 0 2 "Partition $($CMDPDrive.Drive):" -boldface $true
+        $DPText = "<b>Partition $($CMDPDrive.Drive):</b>"
         $Size = ''
         $Size = $CMDPDrive.BytesTotal / 1024 / 1024
         $Freesize = ''
         $Freesize = $CMDPDrive.BytesFree / 1024 / 1024
         
-        WriteWordLine 0 3 "$([MATH]::Round($Size,2)) GB Size in total"
-        WriteWordLine 0 3 "$([MATH]::Round($Freesize,2)) GB Free Space"
-        WriteWordLine 0 3 "Still $($CMDPDrive.PercentFree) percent free."
-        WriteWordLine 0 0 ''
+        $HTMLList = "<UL><LI>$([MATH]::Round($Size,2)) GB Size in total</LI><LI>$([MATH]::Round($Freesize,2)) GB Free Space</LI><LI>Still $($CMDPDrive.PercentFree) percent free.</LI></UL>"
+        $DPText = $DPText + $HTMLList
+        Write-HTMLParagraph -Text $DPText -Level 4 -File $FilePath
       }
       
-      WriteWordLine -style 0 -tabs 2 -value 'Hardware Info:' -boldface $true
+      $DPText = "<B>Hardware Info:</B>"
       try {
           $Capacity = 0
           Get-WmiObject -Class win32_physicalmemory -ComputerName $CMDPServerName | ForEach-Object {[int64]$Capacity = $Capacity + [int64]$_.Capacity}
           $TotalMemory = $Capacity / 1024 / 1024 / 1024
-            WriteWordLine 0 3 "This server has a total of $($TotalMemory) GB RAM."
+          $CPUs = Get-WmiObject -Class win32_processor
+          [int]$Cores=0
+          foreach ($CPU in $CPUs) {$Cores = $Cores + $CPU.NumberOfCores}
+          $CPUModel = $CPU.Name
+          $DPText = $DPText + "<BR /><UL><LI>$CPUModel</LI><LI>$Cores Cores</LI><LI>$($TotalMemory) GB RAM</LI></UL>"
       }
       catch {
-        WriteWordLine 0 3 "Failed to access server $CMDPServerName." 
+        $DPText = $DPText + "<BR />Failed to access server $CMDPServerName.<BR /><BR />" 
         }
     }
-    
+    Write-HTMLParagraph -Text "$DPText" -Level 4 -File $FilePath
+    $DPText = "<B>Additional Configuration:</B><ul>"
     $DPInfo = $CMDistributionPoint.Props
     $IsPXE = ($DPInfo.Where({$_.PropertyName -eq 'IsPXE'})).Value
     $UnknownMachines = ($DPInfo.Where({$_.PropertyName -eq 'SupportUnknownMachines'})).Value
@@ -2789,95 +1011,154 @@ foreach ($CMSite in $CMSites)
     {
       1 
       {
-        WriteWordLine 0 2 'PXE Enabled'
+        $DPText = $DPText + "<li>PXE Enabled</li>"
         switch ($UnknownMachines)
         {
-          1 { WriteWordLine 0 2 'Supports unknown machines: true' }
-          0 { WriteWordLine 0 2 'Supports unknown machines: false' }
+          1 { $DPText = $DPText + "<li>Supports unknown machines: true</li>" }
+          0 { $DPText = $DPText + "<li>Supports unknown machines: false</li>" }
         }
       }
       0
       {
-        WriteWordLine 0 2 'PXE disabled'
+        $DPText = $DPText + "<li>PXE Disabled</li>"
       }
     }
-    
+    $DPText = $DPText + "</ul>"
+    Write-HTMLParagraph -Text $DPText -Level 4 -File $FilePath
     $DPGroupMembers = $Null
     $DPGroupIDs = $Null
-    $DPGroupMembers = (Get-WmiObject -class SMS_DPGroupMembers -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider).Where({$_.DPNALPath -ilike "*$($CMDPServerName)*"});
+    $DPGroupMembers = (Get-WmiObject -class SMS_DPGroupMembers -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider) | Where {$_.DPNALPath -ilike "*$($CMDPServerName)*"}
     if (-not [string]::IsNullOrEmpty($DPGroupMembers))
     {
       $DPGroupIDs = $DPGroupMembers.GroupID
     }
     
     #enumerating DP Group Membership
+    $DPText = "<B>Distribution Point Group Membership:</B>"
     if (-not [string]::IsNullOrEmpty($DPGroupIDs))
     {
-      WriteWordLine 0 1 'This Distribution Point is a member of the following DP Groups:'
+      $GroupList = "<UL>"
       foreach ($DPGroupID in $DPGroupIDs)
       {
         $DPGroupName = (Get-CMDistributionPointGroup -Id "$($DPGroupID)").Name
-        WriteWordLine 0 2 "$($DPGroupName)"
+        $GroupList = $GroupList + "<LI>$DPGroupName</LI>"
       }
+      $DPText = $DPText + $GroupList + "</UL>"
     }
     else
     {
-      WriteWordLine 0 1 'This Distribution Point is not a member of any DP Group.'
+      $DPText = $DPText + "<ul><li>This Distribution Point is not a member of any DP Group.</li></ul>"
+    }
+    Write-HTMLParagraph -Text $DPText -Level 4 -File $FilePath
+  }
+  #endregion Distribution Point details
+
+  #region enumerating Software Update Points and Configuration
+  Write-HTMLHeading -Text "Software Update configuration for Site $($CMSite.SiteCode)" -Level 2 -PageBreak -File $FilePath
+  
+  Write-HTMLHeading -Text "Software Update Point Component Settings for Site $($CMSite.SiteCode)" -Level 3 -File $FilePath
+  Write-HTMLParagraph -Text "This is a list of all of the software update classifications and products that are syncronized into the site as well as some of the general site configuration settings." -Level 3 -File $FilePath
+
+  $cats=Get-CMSoftwareUpdateCategory
+  $UpdatesClassifications = $cats|where {$_.CategoryTypeName -eq "UpdateClassification" -and $_.AllowSubscription -eq $true}
+  $SubscribedUpdatesClassifications = $UpdatesClassifications|where {$_.IsSubscribed -eq $true}
+  $Products = $cats|where {$_.CategoryTypeName -eq "Product" -and $_.AllowSubscription -eq $true}
+  $SubscribedProducts = $Products|where {$_.IsSubscribed -eq $true}
+  $SupProperties = (Get-CMSoftwareUpdatePointComponent).props
+
+  $SUPPropertyList = @()
+  $SUPPropertyList += "Synchronizing $($SubscribedUpdatesClassifications.Count) of $($UpdatesClassifications.Count) update classifications."
+  $SUPPropertyList += "Synchronizing $($SubscribedProducts.count) of $($Products.count) products."
+  Foreach ($SupProp in $SupProperties){
+    Switch ($SupProp.PropertyName){
+        'Call WSUS Cleanup'{
+            if ($SupProp.value -eq 1){
+                $SUPPropertyList += "Run WSUS cleanup wizard: Enabled"
+            }Elseif ($SupProp.value -eq 0){
+                $SUPPropertyList += "Run WSUS cleanup wizard: Disabled"
+            }
+        }
+        'Sync Supersedence Age'{
+            $SUPPropertyList += "months to wait before a superseded software update is expired: $($SupProp.value)"
+        }
+        'Sync Supersedence Mode'{
+            switch ($SupProp.value){
+                1{$SUPPropertyList += "Do not expire a superseded software update until the software update is superseded for a specified period"}
+                0{$SUPPropertyList += "Immediately expire a superseded software update (ignore `'months to wait before a superseded software update is expired`')"}
+            }
+        }
+        'SupportedUpdateLanguages'{
+            $SUPPropertyList += "Software Update File languages: $($SupProp.Value2)"
+        }
+        'SupportedTitleLanguages'{
+            $SUPPropertyList += "Update Summary Details languages: $($SupProp.Value2)"
+        }
     }
   }
-  #enumerating Software Update Points
+
+  
+  Write-HTMLHeading -Text "Software Update Point Base Settings" -Level 4 -File $FilePath
+  Write-HtmlList -InputObject $SUPPropertyList -Level 4 -File $FilePath
+  Write-HTMLHeading -Text "Selected Software Update Classifications" -Level 4 -File $FilePath
+  Write-HtmlList -InputObject ($SubscribedUpdatesClassifications.LocalizedCategoryInstanceName) -Level 4 -File $FilePath
+  Write-HTMLHeading -Text "Selected Software Update Point Software Products" -Level 4 -File $FilePath
+  Write-HtmlList -InputObject ($SubscribedProducts.LocalizedCategoryInstanceName) -Level 4 -File $FilePath
+
+
   Write-Verbose "$(Get-Date):   Enumerating all Software Update Points"
-  WriteWordLine 2 1 "Summary of Software Update Point Servers for Site $($CMSite.SiteCode)"
+  Write-HTMLHeading -Text "Software Update Point Servers for Site $($CMSite.SiteCode)" -Level 3 -File $FilePath
+  Write-Verbose "Get-WmiObject -Class sms_sci_sysresuse -Namespace root\sms\site_$($CMSite.SiteCode) -ComputerName $CMMPServerName | Where-Object {$_.rolename -eq `'SMS Software Update Point`'}"
   $CMSUPs = Get-WmiObject -Class sms_sci_sysresuse -Namespace root\sms\site_$($CMSite.SiteCode) -ComputerName $CMMPServerName | Where-Object {$_.rolename -eq 'SMS Software Update Point'}
   #$CMSUPs = (Get-CMSoftwareUpdatePoint).Where({$_.SiteCode -eq "$($CMSite.SiteCode)"})
   if (-not [string]::IsNullOrEmpty($CMSUPs))
   {
     foreach ($CMSUP in $CMSUPs) {
-      $SUPHashTable = @();
+      $SUPPropertyTable = @();
       $CMSUPServerName = $CMSUP.NetworkOSPath.split('\\')[2]
       Write-Verbose "$(Get-Date):   Found SUP: $($CMSUPServerName)"
-      WriteWordLine 0 1 "$($CMSUPServerName)"
-      foreach ($SUPProp in $CMSUP.Props) {
-        $SUPHash = @{Value2 = $SUPProp.Value2; Value1 = $SUPProp.Value1; Value = $SUPProp.Value; 'Property Name' = $SUPProp.PropertyName};
-        $SUPHashTable += $SUPHash;
+      Write-HTMLHeading -Text "$($CMSUPServerName)" -Level 4 -File $FilePath
+      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'WSUS IIS Port'; Value = (($CMSUP.props|select Propertyname,Value,Value1,Value2| where {$_.PropertyName -like 'WSUSIISPORT'}).value)}
+      #8530
+      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'Database'; Value = (($CMSUP.props|select Propertyname,Value,Value1,Value2| where {$_.PropertyName -like 'DBServerName'}).value2)}
+      #soup-cm1.soup.steamedsoup.com\MICROSOFT##WID
+      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'Access Account'; Value = (($CMSUP.props|select Propertyname,Value,Value1,Value2| where {$_.PropertyName -like 'WSUSAccessAccount'}).value2)}
+      #soup.steamedsoup.com\SVC-SCCM-RAA
+      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'SSL Enabled'; Value = (($CMSUP.props|select Propertyname,Value,Value1,Value2| where {$_.PropertyName -like 'SSLWSUS'}).value)}
+      #0
+      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'SSL Port'; Value = (($CMSUP.props|select Propertyname,Value,Value1,Value2| where {$_.PropertyName -like 'WSUSIISSSLPORT'}).value)}
+      #8531
+      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'SUP Enabled'; Value = (($CMSUP.props|select Propertyname,Value,Value1,Value2| where {$_.PropertyName -like 'Enabled'}).value)}
+      #1
+      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'Proxy Enabled'; Value = (($CMSUP.props|select Propertyname,Value,Value1,Value2| where {$_.PropertyName -like 'UseProxy'}).value)}
+      #0
+      $SUPPropertyTable = $SUPPropertyTable|Select Name,Value
+      Write-HtmlTable -InputObject $SUPPropertyTable -Border 1 -Level 4 -File $FilePath
       }
-      $Table = AddWordTable -Hashtable $SUPHashTable -Format -155 -AutoFit $wdAutoFitFixed;
-      
-      ## Set first column format
-      SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-      
-      ## IB - set column widths without recursion
-      $Table.Columns.Item(1).Width = 100;
-      $Table.Columns.Item(2).Width = 170;
-      
-      $Table.Rows.SetLeftIndent($Indent1TabStops,$wdAdjustProportional)
-      $Table.AutoFitBehavior($wdAutoFitFixed)
-      
-      FindWordDocumentEnd
-      $Table = $Null
-    }
   }
   else
   {
-    WriteWordLine 0 1 'This site has no Software Update Points installed.'
+    Write-HTMLParagraph -Text "This site has no Software Update Points installed." -Level 3 -File $FilePath
   }
 }
 
+#endregion enumerating Software Update Points and Configuration
+
 ##### Hierarchy wide configuration
-WriteWordLine 1 0 'Summary of Hierarchy Wide Configuration'
+Write-HTMLHeading -Level 1 -PageBreak -Text "Summary of Hierarchy Wide Configuration" -File $FilePath
 
 #region enumerating Boundaries
 Write-Verbose "$(Get-Date): Enumerating all Site Boundaries"
-WriteWordLine 2 0 'Summary of Site Boundaries'
+Write-HTMLHeading -Level 2 -Text "Summary of Site Boundaries" -File $FilePath
 
 $Boundaries = Get-CMBoundary
     if (-not [string]::IsNullOrEmpty($Boundaries))
 {
-  $SubnetHashTable  = @();
-  $ADHashTable      = @();
-  $IPv6HashTable    = @();
-  $IPRangeHashTable = @();
+  $SubnetBoundaryTable = @();
+  $ADBoundaryTable = @();
+  $IPv6BoundaryTable = @();
+  $IPRangeTable = @();
   
+  ##Boundary Site Types: 0=IP Subnet; 1=AD Site; 2=IPv6 Prefix; 3=IP Address Range
   foreach ($Boundary in $Boundaries) {       
     if ($Boundary.BoundaryType -eq 0) {
       $BoundaryType = 'IP Subnet';
@@ -2890,13 +1171,13 @@ $Boundaries = Get-CMBoundary
       {
         $NamesOfBoundarySiteSystems = 'n/a'
       } 
-      $SubnetHash = @{'Boundary Type' = $BoundaryType; 
-                    'Default Site Code' = "$($Boundary.DefaultSiteCode)"
+      $Subnet = New-Object -TypeName psobject -Property @{'Boundary Type' = $BoundaryType; 
+                    'Default Site Code' = "$($Boundary.DefaultSiteCode)";
                     'Associated Site Systems' = "$NamesOfBoundarySiteSystems"
                     Description = $Boundary.DisplayName;
                     Value = $Boundary.Value;
                     }
-      $SubnetHashTable += $SubnetHash;
+      $SubnetBoundaryTable += $Subnet;
     }
     elseif ($Boundary.BoundaryType -eq 1) { 
       $BoundaryType = 'Active Directory Site';
@@ -2909,13 +1190,13 @@ $Boundaries = Get-CMBoundary
       {
         $NamesOfBoundarySiteSystems = 'n/a'
       } 
-      $ADHash = @{'Boundary Type' = $BoundaryType; 
-                    'Default Site Code' = "$($Boundary.DefaultSiteCode)"
+      $ADBoundary = New-Object -TypeName psobject -Property @{'Boundary Type' = $BoundaryType; 
+                    'Default Site Code' = "$($Boundary.DefaultSiteCode)";
                     'Associated Site Systems' = "$NamesOfBoundarySiteSystems";
                     Description = $Boundary.DisplayName;
                     Value = $Boundary.Value;
                     }
-      $ADHashTable += $ADHash;
+      $ADBoundaryTable += $ADBoundary;
     }
     elseif ($Boundary.BoundaryType -eq 2) { 
       $BoundaryType = 'IPv6 Prefix';
@@ -2928,13 +1209,13 @@ $Boundaries = Get-CMBoundary
       {
         $NamesOfBoundarySiteSystems = 'n/a'
       } 
-      $IPv6Hash = @{'Boundary Type' = $BoundaryType; 
-                    'Default Site Code' = "$($Boundary.DefaultSiteCode)"
+      $IPv6Boundary = New-Object -TypeName psobject -Property @{'Boundary Type' = $BoundaryType; 
+                    'Default Site Code' = "$($Boundary.DefaultSiteCode)";
                     'Associated Site Systems' = "$NamesOfBoundarySiteSystems";
                     Description = $Boundary.DisplayName;
                     Value = $Boundary.Value;
                     }
-      $IPv6HashTable += $IPv6Hash;
+      $IPv6BoundaryTable += $IPv6Boundary;
     }
     elseif ($Boundary.BoundaryType -eq 3) 
     { 
@@ -2948,181 +1229,233 @@ $Boundaries = Get-CMBoundary
       {
         $NamesOfBoundarySiteSystems = 'n/a'
       } 
-      $IPRangeHash = @{'Boundary Type' = $BoundaryType
-                    'Default Site Code' = "$($Boundary.DefaultSiteCode)"
-                    'Associated Site Systems' = "$NamesOfBoundarySiteSystems"
-                    Description = $Boundary.DisplayName
-                    Value = $Boundary.Value
+      $IPRangeBoundary = New-Object -TypeName psobject -Property @{'Boundary Type' = $BoundaryType;
+                    'Default Site Code' = "$($Boundary.DefaultSiteCode)";
+                    'Associated Site Systems' = "$NamesOfBoundarySiteSystems";
+                    Description = $Boundary.DisplayName;
+                    Value = $Boundary.Value;
                     }
-      $IPRangeHashTable += $IPRangeHash
+      $IPRangeTable += $IPRangeBoundary
     }
   }
 }
-          
+
 #region IPv6 Boundaries Table
-      $Table = AddWordTable -Hashtable $IPv6HashTable -Format -155 -AutoFit $wdAutoFitContent;
-      
-      ## Set first column format
-      SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray1
-      $Table.Rows.SetLeftIndent($Indent1TabStops,$wdAdjustProportional) 
-      FindWordDocumentEnd
-      $Table = $Null
+      Write-HTMLHeading -Level 3 -Text "IPv6 Boundaries" -File $FilePath
+      If ($IPv6BoundaryTable){
+          $IPv6BoundaryTable = $IPv6BoundaryTable|select @{Name='Name';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
+          Write-HtmlTable -InputObject $IPv6BoundaryTable -Level 3 -Border 1 -File $FilePath
+      } Else {
+          Write-HTMLParagraph -Text "No IPv6 boundaries defined." -Level 3 -File $FilePath
+      }
 #endregion IPv6 Boundaries Table
-WriteWordLine 0 0 ''
-WriteWordLine 0 0 ''
+      Write-HTMLParagraph -Text '&nbsp;' -File $FilePath
 
 #region IP Subnet Boundaries Table
-      $Table = AddWordTable -Hashtable $SubnetHashTable -Format -155 -AutoFit $wdAutoFitContent
-      
-      ## Set first column format
-      SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15
-      $Table.Rows.SetLeftIndent($Indent1TabStops,$wdAdjustProportional) 
-      FindWordDocumentEnd
-      $Table = $Null
+      Write-HTMLHeading -Level 3 -Text "IP Subnet Boundaries" -File $FilePath
+      If ($SubnetBoundaryTable){
+          $SubnetBoundaryTable = $SubnetBoundaryTable|select @{Name='Name';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
+          Write-HtmlTable -InputObject $SubnetBoundaryTable -Level 3 -Border 1 -File $FilePath
+      } Else {
+          Write-HTMLParagraph -Text "No IP subnet boundaries defined." -Level 3 -File $FilePath
+      }
 #endregion IP Subnet Boundaries Table
-
-WriteWordLine 0 0 ''
-WriteWordLine 0 0 ''
+      Write-HTMLParagraph -Text '&nbsp;' -File $FilePath
 
 #region IP Range Boundaries Table
-      $Table = AddWordTable -Hashtable $IPRangeHashTable -Format -155 -AutoFit $wdAutoFitContent ;
-      
-      ## Set first column format
-      SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-      $Table.Rows.SetLeftIndent($Indent1TabStops,$wdAdjustProportional) 
-      FindWordDocumentEnd
-      $Table = $Null
+      Write-HTMLHeading -Level 3 -Text "IP Range Boundaries" -File $FilePath
+      If ($IPRangeTable){
+          $IPRangeTable = $IPRangeTable|select @{Name='Name';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
+          Write-HtmlTable -InputObject $IPRangeTable -Level 3 -Border 1 -File $FilePath
+      } Else {
+          Write-HTMLParagraph -Text "No IP Range boundaries defined." -Level 3 -File $FilePath
+      }
 #endregion IP Range Boundaries Table
-
-WriteWordLine 0 0 ''
-WriteWordLine 0 0 ''
+      Write-HTMLParagraph -Text '&nbsp;' -File $FilePath
 
 #region AD Site Boundaries Table
-      $Table = AddWordTable -Hashtable $ADHashTable -Format -155 -AutoFit $wdAutoFitContent;
-      
-      ## Set first column format
-      SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-      $Table.Rows.SetLeftIndent($Indent1TabStops,$wdAdjustProportional) 
-
-      FindWordDocumentEnd
-      $Table = $Null
+      Write-HTMLHeading -Level 3 -Text "AD Site Boundaries" -File $FilePath
+      If ($ADBoundaryTable){
+          $ADBoundaryTable = $ADBoundaryTable|select @{Name='Name';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
+          Write-HtmlTable -InputObject $ADBoundaryTable -Level 3 -Border 1 -File $FilePath
+      } Else {
+          Write-HTMLParagraph -Text "No AD Site boundaries defined." -Level 3 -File $FilePath
+      }
 #endregion AD Site Boundaries Table
-
-WriteWordLine 0 0 ''
-WriteWordLine 0 0 ''
+      Write-HTMLParagraph -Text '&nbsp;' -File $FilePath
 
 #endregion enumerating Boundaries
 
+
 #region enumerating all Boundary Groups and their members
+
+Write-HTMLHeading -Level 2 -Text "Site Boundary Groups" -PageBreak -File $FilePath
+
+#User Defined Boundary Groups
 Write-Verbose "$(Get-Date):   Enumerating all Boundary Groups and their members"
 
 $BoundaryGroups = Get-CMBoundaryGroup
-WriteWordLine 2 0 'Summary of Site Boundary Groups'
+Write-HTMLHeading -Level 3 -Text "User Defined Boundary Groups" -File $FilePath
 
-$BoundaryGroupHashTable = @();
+$BoundaryGroupTable = @();
 if (-not [string]::IsNullOrEmpty($BoundaryGroups))
 {
   foreach ($BoundaryGroup in $BoundaryGroups) {
+    $BGSystems = @()
     $MemberNames = @();
     if ($BoundaryGroup.SiteSystemCount -gt 0)
     {
-      $MemberIDs = (Get-WmiObject -Class SMS_BoundaryGroupMembers -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider | Where-Object -FilterScript {$_.GroupID -eq "$($BoundaryGroup.GroupID)"}).BoundaryID
+        $CMSiteSystems = Get-WmiObject -Class SMS_BoundaryGroupSiteSystems -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider | Where {$_.GroupID -eq "$($BoundaryGroup.GroupID)"}
+        foreach($SS in $CMSiteSystems){
+            $BGSystems +=[regex]::Match($SS.ServerNALPath,'\[\"Display=\\\\(.*)\\\"\]MSWNET').Groups[1].value
+        }
+        $BoundaryGroupSiteSystems = $BGSystems -join '--CRLF--'
+    }
+    Else
+    {
+        $BoundaryGroupSiteSystems = "None"
+    }
+    $MemberIDs = (Get-WmiObject -Class SMS_BoundaryGroupMembers -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider | Where-Object -FilterScript {$_.GroupID -eq "$($BoundaryGroup.GroupID)"}).BoundaryID
+    if ($MemberIDs)
+    {
       foreach ($MemberID in $MemberIDs)
       {
-        $MemberName = (Get-CMBoundary -Id $MemberID).DisplayName
-        $MemberNames += "$MemberName (ID: $MemberID); "
-        Write-Verbose "Member names: $($MemberName)"
+        $MemberName = (Get-CMBoundary -Id $MemberID).Value
+        $MemberNames += "$MemberName (ID: $MemberID)"
+        Write-Verbose "Member name: $($MemberName)"
       }
     }
     else
     {
-      $MemberNames += 'There are no Site Systems associated to this Boundary Group.'
-      Write-Verbose 'There are no Site Systems associated to this Boundary Group.'
+      $MemberNames += 'No associated boundaries'
+      Write-Verbose 'There are no boundaries associated with this Boundary Group.'
     }
-    $BoundaryGroupRow = @{Name = $BoundaryGroup.Name; Description = $BoundaryGroup.Description; 'Boundary members' = "$MemberNames"};
-    $BoundaryGroupHashTable += $BoundaryGroupRow;
+    $BoundaryMembers = $MemberNames -join "--CRLF--"
+    $BoundaryGroupRow = New-Object -TypeName psobject -Property @{Name = $BoundaryGroup.Name; Description = $BoundaryGroup.Description; 'Boundary Members' = "$BoundaryMembers"; 'Site Systems' = $BoundaryGroupSiteSystems};
+    $BoundaryGroupTable += $BoundaryGroupRow
   }
   
-  $Table = AddWordTable -Hashtable $BoundaryGroupHashTable -Format -155 -AutoFit $wdAutoFitContent
-  #-Columns Name, Description, 'Boundary Members' -Headers Name, Description, 'Boundary Members'
-  ## Set first column format
-  SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15
-  
-  FindWordDocumentEnd
-  $Table = $Null
+  $BoundaryGroupTable = $BoundaryGroupTable|select 'Name','Description','Boundary Members','Site Systems'
+  Write-HtmlTable -InputObject $BoundaryGroupTable -Level 4 -Border 1 -File $FilePath
 }
 else
 {
-  WriteWordLine 0 1 'There are no Boundary Groups configured. It is mandatory to configure a Boundary Group in order for CM12 to work properly.'
+  Write-HTMLParagraph -Level 3 -Text "There are no Boundary Groups configured. It is mandatory to configure a Boundary Group for Configuration Manger to work properly." -File $FilePath
 }
+#End User Defined Boundary Groups
+
+#Default Boundary Group
+Write-HTMLHeading -Level 3 -Text "Default Boundary Group" -File $FilePath
+
+$DefaultBG = Get-CMDefaultBoundaryGroup
+$DefaultBGID = $DefaultBG.GroupID
+$BGSystems = @()
+if ($DefaultBG.SiteSystemCount -gt 0)
+{
+    $CMSiteSystems = Get-WmiObject -Class SMS_BoundaryGroupSiteSystems -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider | Where {$_.GroupID -eq "$DefaultBGID"}
+    foreach($SS in $CMSiteSystems){
+        $BGSystems +=[regex]::Match($SS.ServerNALPath,'\[\"Display=\\\\(.*)\\\"\]MSWNET').Groups[1].value
+    }
+    $BoundaryGroupSiteSystems = $BGSystems -join '--CRLF--'
+}
+Else
+{
+    $BoundaryGroupSiteSystems = "None"
+}
+$DefaultBGRelationship = Get-WmiObject -Class SMS_BoundaryGroupRelationships -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider | Where {($_.SourceGroupID -eq "$DefaultBGID") -and ($_.DestinationGroupID -eq "$DefaultBGID")}
+$FallbackSUP = $DefaultBGRelationship.FallbackSUP
+$FallbackDP = $DefaultBGRelationship.FallbackDP
+IF ($FallbackSUP -eq -1) {$FallbackSUP = "Never"}else{$FallbackSUP = "$FallbackSUP mins"}
+IF ($FallbackDP -eq -1) {$FallbackDP = "Never"}else{$FallbackDP = "$FallbackDP mins"}
+
+
+$DefaultBoundaryGroupRow = New-Object -TypeName psobject -Property @{Name = $DefaultBG.Name; 'Site Systems' = $BoundaryGroupSiteSystems; 'DP Fallback Time' = $FallbackDP; 'SUP Fallback Time' = $FallbackSUP};
+$DefaultBoundaryGroupRow = $DefaultBoundaryGroupRow|select 'Name','Site Systems','DP Fallback Time','SUP Fallback Time'
+Write-HtmlTable -InputObject $DefaultBoundaryGroupRow -Level 4 -Border 1 -File $FilePath
+
+#End Default Boundary Group
 
 #endregion enumerating all Boundary Groups and their members
 
+
 #region enumerating Client Policies
 Write-Verbose "$(Get-Date):   Enumerating all Client/Device Settings"
-WriteWordLine 2 0 'Summary of Custom Client Device Settings'
+Write-HTMLHeading -Level 2 -PageBreak -Text 'Summary of Custom Client Device Settings' -File $FilePath
 
 $AllClientSettings = Get-CMClientSetting | Where-Object -FilterScript {$_.SettingsID -ne '0'}
+
 foreach ($ClientSetting in $AllClientSettings)
 {
-  WriteWordLine 0 1 "Client Settings Name: $($ClientSetting.Name)" -bold
-  WriteWordLine 0 2 "Client Settings Description: $($ClientSetting.Description)"
-  WriteWordLine 0 2 "Client Settings ID: $($ClientSetting.SettingsID)"
-  WriteWordLine 0 2 "Client Settings Priority: $($ClientSetting.Priority)"
+  $SettingInfo = @()
+  $SettingInfo += "Client Settings Description: $($ClientSetting.Description)"
+  $SettingInfo += "Client Settings ID: $($ClientSetting.SettingsID)"
+  $SettingInfo += "Client Settings Priority: $($ClientSetting.Priority)"
   if ($ClientSetting.Type -eq '1')
   {
-    WriteWordLine 0 2 'This is a custom client Device Setting.'
+    $SettingDescription = 'This is a custom client Device Setting.'
   }
   else
   {
-    WriteWordLine 0 2 'This is a custom client User Setting.'
+    $SettingDescription = 'This is a custom client User Setting.'
   }
-  WriteWordLine 0 1 'Configurations'
+  Write-HTMLHeading -Level 3 -Text "Client Settings Name: $($ClientSetting.Name)" -File $FilePath
+  Write-HtmlList -InputObject $SettingInfo -Description $SettingDescription -Level 2 -File $FilePath
+  Write-HTMLParagraph -Level 3 -Text "<u><b>Setting Configuration</b></u>:" -File $FilePath
   foreach ($AgentConfig in $ClientSetting.AgentConfigurations)
   {
     try
     {
       switch ($AgentConfig.AgentID)
       {
-        1
-        {
-          WriteWordLine 0 2 'Compliance Settings'
-          WriteWordLine 0 2 "Enable compliance evaluation on clients: $($AgentConfig.Enabled)"
-          WriteWordLine 0 2 "Enable user data and profiles: $($AgentConfig.EnableUserStateManagement)"
-          WriteWordLine 0 0 ''
-          WriteWordLine 0 0 '---------------------'
+        1{
+          $Config = 'Compliance Settings'
+          $KnownProps = @("AgentID","Enabled","EnableUserStateManagement","EvaluationSchedule","PerProviderTimeout","PerScanDefaultPriority","PerScanTimeout","PerScanTTL","PSComputerName","PSShowComputerName","SmsProviderObjectPath")
+          $ConfigList = @()
+          $ConfigList += "Enable compliance evaluation on clients: $($AgentConfig.Enabled)"
+          $ConfigList += "Enable user data and profiles: $($AgentConfig.EnableUserStateManagement)"
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
         }
-        2
-        {
-          WriteWordLine 0 2 'Software Inventory'
-          WriteWordLine 0 2 "Enable software inventory on clients: $($AgentConfig.Enabled)"
-          WriteWordLine 0 2 'Schedule software inventory and file collection: ' -nonewline
+        2{
+          $Config = 'Software Inventory'
+          $KnownProps = @("AgentID","CollectableFileExclude","CollectableFileMaxSize","CollectableFilePaths","CollectableFiles","CollectableFileSubdirectories","Enabled","Exclude","ExcludeWindirAndSubfolders","InventoriableTypes","Path","PSComputerName","PSShowComputerName","QueryTimeout","ReportOptions","ReportTimeout","ScanInterval","Schedule","SmsProviderObjectPath","Subdirectories")
+          $ConfigList = @()
+          $ConfigList += "Enable software inventory on clients: $($AgentConfig.Enabled)"
           $Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.Schedule
           if ($Schedule.DaySpan -gt 0)
           {
-            WriteWordLine 0 0 " Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
+            $ConfigList += "Schedule: Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.HourSpan -gt 0)
           {
-            WriteWordLine 0 0 " Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
+            $ConfigList += "Schedule: Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.MinuteSpan -gt 0)
           {
-            WriteWordLine 0 0 " Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
+            $ConfigList += "Schedule: Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.ForNumberOfWeeks)
           {
-            WriteWordLine 0 0 " Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
+            $ConfigList += "Schedule: Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.ForNumberOfMonths)
           {
             if ($Schedule.MonthDay -gt 0)
             {
-              WriteWordLine 0 0 " Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+              $ConfigList += "Schedule: Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
             }
             elseif ($Schedule.MonthDay -eq 0)
             {
-              WriteWordLine 0 0 " Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+              $ConfigList += "Schedule: Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
             }
             elseif ($Schedule.WeekOrder -gt 0)
             {
@@ -3134,113 +1467,164 @@ foreach ($ClientSetting in $AllClientSettings)
                 3 {$order = 'third'}
                 4 {$order = 'fourth'}
               }
-              WriteWordLine 0 0 " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+              $ConfigList += "Schedule: Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
             }
           }
-          WriteWordLine 0 2 'Inventory reporting detail: ' -nonewline
           switch ($AgentConfig.ReportOptions)
           {
-            1 { WriteWordLine 0 0 'Product only' }
-            2 { WriteWordLine 0 0 'File only' }
-            7 { WriteWordLine 0 0 'Full details' }
+            1 { $InvDetail = 'Product only' }
+            2 { $InvDetail = 'File only' }
+            7 { $InvDetail = 'Full details' }
           }
-          
-          WriteWordLine 0 2 'Inventory these file types: '
+          $ConfigList += "Inventory reporting detail: $InvDetail"
+
           if ($AgentConfig.InventoriableTypes)
           {
-            WriteWordLine 0 3 "$($AgentConfig.InventoriableTypes)"
+            $counter = 0
+            $InvFiles = @()
+            Foreach ($type in $AgentConfig.InventoriableTypes) {
+                $InvFilePath = $AgentConfig.Path[$counter]
+                $InvFileSubF = If($AgentConfig.Subdirectories[$counter] -eq "true"){"Yes"}Else{"No"}
+                $InvFileWinD = If($AgentConfig.ExcludeWindirAndSubfolders[$counter] -eq "true"){"Windows"}Else{""}
+                $InvFileComp = If($AgentConfig.Exclude[$counter] -eq "true"){"Compressed"}Else{""}
+                $InvFileExcl = ("$InvFileWinD,$InvFileComp").Trim(',')
+                $InvFiles +=  New-Object -TypeName psobject -Property @{'Name' = "$type"; 'Path' = "$InvFilePath"; 'Subfolders' = "$InvFileSubF"; 'Exclude' =  "$InvFileExcl"}
+                $counter++
+            }
           }
-          if ($AgentConfig.Path)
-          {                               
-            WriteWordLine 0 3 "$($AgentConfig.Path)"
+          if ($AgentConfig.CollectableFiles) {
+            $counter = 0
+            $CollectedFiles = @()
+            Foreach ($CollFile in $AgentConfig.CollectableFiles) {
+                $CollFileName = $AgentConfig.CollectableFiles[$counter]
+                $CollFilePath = $AgentConfig.CollectableFilePaths[$counter]
+                $CollFileSubF = If($AgentConfig.CollectableFileSubdirectories[$counter] -eq "true"){"Yes"}Else{"No"}
+                $CollFileSize = $AgentConfig.CollectableFileMaxSize[$counter]
+                $CollFileExclude = If($AgentConfig.CollectableFileExclude[$counter] -eq "true"){"Compressed"}Else{"None"}
+                $CollectedFiles +=  New-Object -TypeName psobject -Property @{'Name' = "$CollFileName"; 'Path' = "$CollFilePath"; 'Subfolders' = "$CollFileSubF"; 'Size' = "$CollFileSize"; 'Exclude' =  "$CollFileExclude"}
+                $counter++
+            }
           }
-          if (($AgentConfig.InventoriableTypes) -and ($AgentConfig.ExcludeWindirAndSubfolders -eq 'true'))
-          {
-            WriteWordLine 0 3 'Exclude WinDir and Subfolders'
+          $InvFiles = $InvFiles | Select-Object Name,Path,Subfolders,Exclude
+          $CollectedFiles = $CollectedFiles | Select-Object Name,Path,Subfolders,Size,Exclude
+          if ($InvFiles.count -gt 0) {
+              $ConfigList += 'Inventory these file types:'
+              Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+              Write-HtmlTable -InputObject $InvFiles -Level 7 -Border 1 -File $FilePath
+          } else {
+              $ConfigList += 'Inventory these file types: None'
+              Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
           }
-          else 
-          {
-            WriteWordLine 0 3 'Do not exclude WinDir and Subfolders'
+          if ($CollectedFiles.count -gt 0) {
+              Write-HtmlList -InputObject 'Collect Files:' -Level 3 -File $FilePath
+              Write-HtmlTable -InputObject $CollectedFiles -Level 7 -Border 1 -File $FilePath
+          } else {
+              Write-HtmlList -InputObject 'Collect Files: None' -Level 3 -File $FilePath
           }
-          
-          WriteWordLine 0 0 ''
-          WriteWordLine 0 0 '---------------------'
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
         }
-        3
-        {
-          WriteWordLine 0 2 'Remote Tools'
-          WriteWordLine 0 2 'Enable Remote Control on clients: ' -nonewline
+        3{
+          $KnownProps = @("AccessLevel","AgentID","AllowClientChange","AllowLocalAdminToDoRemoteControl","AllowRAUnsolicitedControl","AllowRAUnsolicitedView","AllowRemCtrlToUnattended","AudibleSignal","ClipboardAccessPermissionRequired","Enabled","EnableRA","EnableTS","EnforceRAandTSSettings","FirewallExceptionProfiles","ManageRA","ManageTS","PermissionRequired","PermittedViewers","PSComputerName","PSShowComputerName","RemCtrlConnectionBar","RemCtrlTaskbarIcon","SmsProviderObjectPath","TSUserAuthentication")
+          $Config = 'Remote Tools'
+          $ConfigList = @()
+          #Remote Control enabled or not?  And are firewall exceptions configured?
           switch ($AgentConfig.FirewallExceptionProfiles)
           {
-            0 { WriteWordLine 0 0 'Disabled' }
-            8 { WriteWordLine 0 0 'Enabled: No Firewall Profile.' }
-            9 { WriteWordLine 0 2 'Enabled: Public.' }
-            10 { WriteWordLine 0 2 'Enabled: Private.' }
-            11 { WriteWordLine 0 2 'Enabled: Private, Public.' }
-            12 { WriteWordLine 0 2 'Enabled: Domain.' }
-            13 { WriteWordLine 0 2 'Enabled: Domain, Public.' }
-            14 { WriteWordLine 0 2 'Enabled: Domain, Private.' }
-            15 { WriteWordLine 0 2 'Enabled: Domain, Private, Public.' }
+            0 { $RCState = 'Disabled' }
+            8 { $RCState = 'Enabled - Firewall Profiles Configured: None' }
+            9 { $RCState = 'Enabled - Firewall Profiles Configured: Public' }
+            10 { $RCState = 'Enabled - Firewall Profiles Configured: Private' }
+            11 { $RCState = 'Enabled - Firewall Profiles Configured: Private, Public' }
+            12 { $RCState = 'Enabled - Firewall Profiles Configured: Domain' }
+            13 { $RCState = 'Enabled - Firewall Profiles Configured: Domain, Public' }
+            14 { $RCState = 'Enabled - Firewall Profiles Configured: Domain, Private' }
+            15 { $RCState = 'Enabled - Firewall Profiles Configured: Domain, Private, Public' }
           }
-          WriteWordLine 0 2 "Users can change policy or notification settings in Software Center: $($AgentConfig.AllowClientChange)"
-          WriteWordLine 0 2 "Allow Remote Control of an unattended computer: $($AgentConfig.AllowRemCtrlToUnattended)"
-          WriteWordLine 0 2 "Prompt user for Remote Control permission: $($AgentConfig.PermissionRequired)"
-          WriteWordLine 0 2 "Grant Remote Control permission to local Administrators group: $($AgentConfig.AllowLocalAdminToDoRemoteControl)"
-          WriteWordLine 0 2 'Access level allowed: ' -nonewline
+          $ConfigList += "Enable Remote Control on clients: $RCState"
+          $ConfigList += "Users can change policy or notification settings in Software Center: $($AgentConfig.AllowClientChange)"
+          $ConfigList += "Allow Remote Control of an unattended computer: $($AgentConfig.AllowRemCtrlToUnattended)"
+          $ConfigList += "Prompt user for Remote Control permission: $($AgentConfig.PermissionRequired)"
+          $ConfigList += "Prompt user for permission to transfer content from shared clipboard: $($AgentConfig.ClipboardAccessPermissionRequired)"
+          $ConfigList += "Grant Remote Control permission to local Administrators group: $($AgentConfig.AllowLocalAdminToDoRemoteControl)"
           switch ($AgentConfig.AccessLevel)
           {
-            0 { WriteWordLine 0 0 'No access' }
-            1 { WriteWordLine 0 0 'View only' }
-            2 { WriteWordLine 0 0 'Full Control' }
+            0 { $accesslevel = 'No access' }
+            1 { $accesslevel = 'View only' }
+            2 { $accesslevel = 'Full Control' }
           }
-          WriteWordLine 0 2 'Permitted viewers of Remote Control and Remote Assistance:'
-          foreach ($Viewer in $AgentConfig.PermittedViewers)
-          {
-            WriteWordLine 0 3 "$($Viewer)"
+          $ConfigList += "Access level allowed: $accesslevel"
+          if ($AgentConfig.PermittedViewers.count -gt 0) {
+            $viewers = Write-HtmlList -InputObject ($AgentConfig.PermittedViewers)
+            $ConfigList += "Permitted viewers of Remote Control and Remote Assistance: $viewers"
+          } Else {
+            $ConfigList += "Permitted viewers of Remote Control and Remote Assistance: None"
           }
-          WriteWordLine 0 2 "Show session notification icon on taskbar: $($AgentConfig.RemCtrlTaskbarIcon)"
-          WriteWordLine 0 2 "Show session connection bar: $($AgentConfig.RemCtrlConnectionBar)"
-          WriteWordLine 0 2 'Play a sound on client: ' -nonewline
+          $ConfigList += "Show session notification icon on taskbar: $($AgentConfig.RemCtrlTaskbarIcon)"
+          $ConfigList += "Show session connection bar: $($AgentConfig.RemCtrlConnectionBar)"
           Switch ($AgentConfig.AudibleSignal)
           {
-            0 { WriteWordLine 0 0 'None.' }
-            1 { WriteWordLine 0 0 'Beginning and end of session.' }
-            2 { WriteWordLine 0 0 'Repeatedly during session.' }
+            0 { $ClientSound = 'None.' }
+            1 { $ClientSound = 'Beginning and end of session.' }
+            2 { $ClientSound = 'Repeatedly during session.' }
           }
-          WriteWordLine 0 2 "Manage unsolicited Remote Assistance settings: $($AgentConfig.ManageRA)"
-          WriteWordLine 0 2 "Manage solicited Remote Assistance settings: $($AgentConfig.EnforceRAandTSSettings)"
-          WriteWordLine 0 2 'Level of access for Remote Assistance: ' -nonewline
+          $ConfigList += "Play a sound on client: $ClientSound"
+          $ConfigList += "Manage unsolicited Remote Assistance settings: $($AgentConfig.ManageRA)"
+          $ConfigList += "Manage solicited Remote Assistance settings: $($AgentConfig.EnforceRAandTSSettings)"
+          #Level of access for Remote Assistance:
           if (($AgentConfig.AllowRAUnsolicitedView -ne 'True') -and ($AgentConfig.AllowRAUnsolicitedControl -ne 'True'))
           {
-            WriteWordLine 0 0 'None.'
+            $RALevel = 'None'
           }
           elseif (($AgentConfig.AllowRAUnsolicitedView -eq 'True') -and ($AgentConfig.AllowRAUnsolicitedControl -ne 'True'))
           {
-            WriteWordLine 0 0 'Remote viewing.'
+            $RALevel = 'Remote viewing'
           }
           elseif (($AgentConfig.AllowRAUnsolicitedView -eq 'True') -and ($AgentConfig.AllowRAUnsolicitedControl -eq 'True'))
           {
-            WriteWordLine 0 0 'Full Control.'
+            $RALevel = 'Full Control'
           }
-          WriteWordLine 0 2 "Manage Remote Desktop settings: $($AgentConfig.ManageTS)"
+          $ConfigList += "Level of access for Remote Assistance: $RALevel"
+          $ConfigList += "Manage Remote Desktop settings: $($AgentConfig.ManageTS)"
           if ($AgentConfig.ManageTS -eq 'True')
           {
-            WriteWordLine 0 2 "Allow permitted viewers to connect by using Remote Desktop connection: $($AgentConfig.EnableTS)"
-            WriteWordLine 0 2 "Require network level authentication on computers that run Windows Vista operating system and later versions: $($AgentConfig.TSUserAuthentication)"
+            $ConfigList += "Allow permitted viewers to connect by using Remote Desktop connection: $($AgentConfig.EnableTS)"
+            $ConfigList += "Require network level authentication on computers that run Windows Vista operating system and later versions: $($AgentConfig.TSUserAuthentication)"
           }
-          WriteWordLine 0 0 ''
-          WriteWordLine 0 0 '---------------------'
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
         }
-        4
-        {
-          WriteWordLine 0 2 'Computer Agent'
-          WriteWordLine 0 2 "Deployment deadline greater than 24 hours, remind user every (hours): $([string]($AgentConfig.ReminderInterval) / 60 / 60)"
-          WriteWordLine 0 2 "Deployment deadline less than 24 hours, remind user every (hours): $([string]($AgentConfig.DayReminderInterval) / 60 / 60)"
-          WriteWordLine 0 2 "Deployment deadline less than 1 hour, remind user every (minutes): $([string]($AgentConfig.HourReminderInterval) / 60)"
-          WriteWordLine 0 2 "Default application catalog website point: $($AgentConfig.PortalUrl)"
-          WriteWordLine 0 2 "Add default Application Catalog website to Internet Explorer trusted sites zone: $($AgentConfig.AddPortalToTrustedSiteList)"
-          WriteWordLine 0 2 "Allow Silverlight applications to run in elevated trust mode: $($AgentConfig.AllowPortalToHaveElevatedTrust)"
-          WriteWordLine 0 2 "Organization name displayed in Software Center: $($AgentConfig.BrandingTitle)"
+        4{
+          $KnownProps = @("AddPortalToTrustedSiteList","AgentID","AllowPortalToHaveElevatedTrust","BrandingTitle","DayReminderInterval","DisplayNewProgramNotification","EnableHealthAttestation","EnableThirdPartyOrchestration","GracePeriodHours","HourReminderInterval","InstallRestriction","OnPremHAServiceUrl","OSDBrandingSubTitle","PortalUrl","PowerShellExecutionPolicy","PSComputerName","PSShowComputerName","ReminderInterval","SmsProviderObjectPath","SUMBrandingSubTitle","SuspendBitLocker","SWDBrandingSubTitle","SystemRestartTurnaroundTime","UseNewSoftwareCenter","UseOnPremHAService")
+          $Config = 'Computer Agent'
+          $ConfigList = @()
+          $ConfigList += "Deployment deadline greater than 24 hours, remind user every (hours): $([string]($AgentConfig.ReminderInterval) / 60 / 60)"
+          $ConfigList += "Deployment deadline less than 24 hours, remind user every (hours): $([string]($AgentConfig.DayReminderInterval) / 60 / 60)"
+          $ConfigList += "Deployment deadline less than 1 hour, remind user every (minutes): $([string]($AgentConfig.HourReminderInterval) / 60)"
+          $ConfigList += "Default application catalog website point: $($AgentConfig.PortalUrl)"
+          $ConfigList += "Add default Application Catalog website to Internet Explorer trusted sites zone: $($AgentConfig.AddPortalToTrustedSiteList)"
+          $ConfigList += "Allow Silverlight applications to run in elevated trust mode: $($AgentConfig.AllowPortalToHaveElevatedTrust)"
+          $ConfigList += "Organization name displayed in Software Center: $($AgentConfig.BrandingTitle)"
+          $ConfigList += "Use New Software Center: $($AgentConfig.UseNewSoftwareCenter)"
+          $ConfigList += "Enable communication with Health Attestation Service: $($AgentConfig.EnableHealthAttestation)"
+          $ConfigList += "Use on-premises Health Attestation Service: $($AgentConfig.UseOnPremHAService)"
           switch ($AgentConfig.InstallRestriction)
           {
             0 { $InstallRestriction = 'All Users' }
@@ -3248,120 +1632,90 @@ foreach ($ClientSetting in $AllClientSettings)
             3 { $InstallRestriction = 'Only Administrators and primary Users'}
             4 { $InstallRestriction = 'No users' }
           }
-          WriteWordLine 0 2 "Install Permissions: $($InstallRestriction)"
+          $ConfigList += "Install Permissions: $($InstallRestriction)"
           Switch ($AgentConfig.SuspendBitLocker)
           {
             0 { $SuspendBitlocker = 'Never' }
             1 { $SuspendBitlocker = 'Always' }
           }
-          WriteWordLine 0 2 "Suspend Bitlocker PIN entry on restart: $($SuspendBitlocker)"
+          $ConfigList += "Suspend Bitlocker PIN entry on restart: $($SuspendBitlocker)"
           Switch ($AgentConfig.EnableThirdPartyOrchestration)
           {
             0 { $EnableThirdPartyTool = 'No' }
             1 { $EnableThirdPartyTool = 'Yes' }
           }
-          WriteWordLine 0 2 "Additional software manages the deployment of applications and software updates: $($EnableThirdPartyTool)"
+          $ConfigList += "Additional software manages the deployment of applications and software updates: $($EnableThirdPartyTool)"
           Switch ($AgentConfig.PowerShellExecutionPolicy)
           {
             0 { $ExecutionPolicy = 'All signed' }
             1 { $ExecutionPolicy = 'Bypass' }
             2 { $ExecutionPolicy = 'Restricted' }
           }
-          WriteWordLine 0 2 "Powershell execution policy: $($ExecutionPolicy)"
+          $ConfigList += "Powershell execution policy: $($ExecutionPolicy)"
           switch ($AgentConfig.DisplayNewProgramNotification)
           {
             False { $DisplayNotifications = 'No' }
             True { $DisplayNotifications = 'Yes' }
           }
-          WriteWordLine 0 2 "Show notifications for new deployments: $($DisplayNotifications)"
-          switch ($AgentConfig.DisableGlobalRandomization)
-          {
-            False { $DisableGlobalRandomization = 'No' }
-            True { $DisableGlobalRandomization = 'Yes' }
-          }
-          WriteWordLine 0 2 "Disable deadline randomization: $($DisableGlobalRandomization)"
-          WriteWordLine 0 0 '---------------------'
-        }
-        5
-        {
-          WriteWordLine 0 2 'Network Access Protection (NAP)'
-          WriteWordLine 0 2 "Enable Network Access Protection on clients: $($AgentConfig.Enabled)"
-          WriteWordLine 0 2 "Use UTC (Universal Time Coordinated) for evaluation time: $($AgentConfig.EffectiveTimeinUTC)"
-          WriteWordLine 0 2 "Require a new scan for each evaluation: $($AgentConfig.ForceScan)"
-          WriteWordLine 0 2 'NAP re-evaluation schedule:' -nonewline
-          $Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.ComputeComplianceSchedule
-          if ($Schedule.DaySpan -gt 0)
-          {
-            WriteWordLine 0 0 " Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
-          }
-          elseif ($Schedule.HourSpan -gt 0)
-          {
-            WriteWordLine 0 0 " Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
-          }
-          elseif ($Schedule.MinuteSpan -gt 0)
-          {
-            WriteWordLine 0 0 " Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
-          }
-          elseif ($Schedule.ForNumberOfWeeks)
-          {
-            WriteWordLine 0 0 " Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
-          }
-          elseif ($Schedule.ForNumberOfMonths)
-          {
-            if ($Schedule.MonthDay -gt 0)
-            {
-              WriteWordLine 0 0 " Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+          $ConfigList += "Show notifications for new deployments: $($DisplayNotifications)"
+          #The deadline randomization setting now appears in AgentID 25.  But since in GUI under 'Computer Agent', we will loop the config to find agent 25 and get the setting here.
+          foreach ($AC in $ClientSetting.AgentConfigurations){
+            If ($AC.AgentID -eq 25) {
+                  switch ($AC.DisableGlobalRandomization)
+                  {
+                    False { $DisableGlobalRandomization = 'No' }
+                    True { $DisableGlobalRandomization = 'Yes' }
+                  }
             }
-            elseif ($Schedule.MonthDay -eq 0)
-            {
-              WriteWordLine 0 0 " Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-            }
-            elseif ($Schedule.WeekOrder -gt 0)
-            {
-              switch ($Schedule.WeekOrder)
-              {
-                0 {$order = 'last'}
-                1 {$order = 'first'}
-                2 {$order = 'second'}
-                3 {$order = 'third'}
-                4 {$order = 'fourth'}
+          }
+          $ConfigList += "Disable deadline randomization: $($DisableGlobalRandomization)"
+          $ConfigList += "Grace period for enforcement after deployment deadline (hours): $($AgentConfig.GracePeriodHours)"
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
               }
-              WriteWordLine 0 0 " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-            }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
           }
-          WriteWordLine 0 0 '---------------------'
         }
-        8
-        {
-          WriteWordLine 0 2 'Software Metering'
-          WriteWordLine 0 2 "Enable software metering on clients: $($AgentConfig.Enabled)"
-          WriteWordLine 0 2 'Schedule data collection: ' -nonewline
+        5{
+        #AgentID 5 is for Network Access Protection (NAP) and is no longer part of the product.
+        }
+        8{
+          $KnownProps = @("AgentID","DataCollectionSchedule","Enabled","LastUpdateTimeOfRules","MaximumUsageInstancesPerReport","MeterRuleIDList","MRUAgeLimitInDays","MRURefreshInMinutes","PSComputerName","PSShowComputerName","ReportTimeout","SmsProviderObjectPath")
+          $Config = 'Software Metering'
+          $ConfigList = @()
+          $ConfigList += "Enable software metering on clients: $($AgentConfig.Enabled)"
           $Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.DataCollectionSchedule
           if ($Schedule.DaySpan -gt 0)
           {
-            WriteWordLine 0 0 " Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
+            $DCSched = " Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.HourSpan -gt 0)
           {
-            WriteWordLine 0 0 " Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
+            $DCSched = " Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.MinuteSpan -gt 0)
           {
-            WriteWordLine 0 0 " Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
+            $DCSched = " Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.ForNumberOfWeeks)
           {
-            WriteWordLine 0 0 " Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
+            $DCSched = " Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.ForNumberOfMonths)
           {
             if ($Schedule.MonthDay -gt 0)
             {
-              WriteWordLine 0 0 " Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+              $DCSched = " Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
             }
             elseif ($Schedule.MonthDay -eq 0)
             {
-              WriteWordLine 0 0 " Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+              $DCSched = " Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
             }
             elseif ($Schedule.WeekOrder -gt 0)
             {
@@ -3373,43 +1727,54 @@ foreach ($ClientSetting in $AllClientSettings)
                 3 {$order = 'third'}
                 4 {$order = 'fourth'}
               }
-              WriteWordLine 0 0 " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+              $DCSched = " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
             }
           }
-          WriteWordLine 0 0 ''
-          WriteWordLine 0 0 '---------------------'
+          $ConfigList += "Schedule data collection: $DCSched"
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
         }
-        9
-        {
-          WriteWordLine 0 2 'Software Updates'
-          WriteWordLine 0 2 "Enable software updates on clients: $($AgentConfig.Enabled)"
-          WriteWordLine 0 2 'Software Update scan schedule: ' -nonewline
+        9{
+          $KnownProps = @("AgentID","AlternateContentProviders","AssignmentBatchingTimeout","BrandingSubTitle","BrandingTitle","ContentDownloadTimeout","ContentLocationTimeout","DayReminderInterval","Enabled","EnableExpressUpdates","EvaluationSchedule","ExpressUpdatesPort","HourReminderInterval","MaxRandomDelayMinutes","MaxScanRetryCount","O365Management","PerDPInactivityTimeout","PSComputerName","PSShowComputerName","ReminderInterval","ScanRetryDelay","ScanSchedule","SmsProviderObjectPath","TotalInactivityTimeout","UpdateStatusRefreshIntervalDays","UserExperience","UserJobPerDPInactivityTimeout","UserJobTotalInactivityTimeout","WSUSLocationTimeout","WSUSScanRetryCodes","WUAMaxRebootsWhenOnInternet","WUASuccessCodes","WUfBEnabled")
+          $Config = 'Software Updates'
+          $ConfigList = @()
+          $ConfigList += "Enable software updates on clients: $($AgentConfig.Enabled)"
+          ##Software Update scan schedule:
           $Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.ScanSchedule
           if ($Schedule.DaySpan -gt 0)
           {
-            WriteWordLine 0 0 " Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
+            $SoftScanSched = " Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.HourSpan -gt 0)
           {
-            WriteWordLine 0 0 " Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
+            $SoftScanSched = " Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.MinuteSpan -gt 0)
           {
-            WriteWordLine 0 0 " Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
+            $SoftScanSched = " Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.ForNumberOfWeeks)
           {
-            WriteWordLine 0 0 " Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
+            $SoftScanSched = " Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.ForNumberOfMonths)
           {
             if ($Schedule.MonthDay -gt 0)
             {
-              WriteWordLine 0 0 " Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+              $SoftScanSched = " Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
             }
             elseif ($Schedule.MonthDay -eq 0)
             {
-              WriteWordLine 0 0 " Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+              $SoftScanSched = " Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
             }
             elseif ($Schedule.WeekOrder -gt 0)
             {
@@ -3421,36 +1786,37 @@ foreach ($ClientSetting in $AllClientSettings)
                 3 {$order = 'third'}
                 4 {$order = 'fourth'}
               }
-              WriteWordLine 0 0 " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+              $SoftScanSched = " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
             }
           }
-          WriteWordLine 0 2 'Schedule deployment re-evaluation: ' -nonewline
+          $ConfigList += "Software Update scan schedule: $SoftScanSched"
+          ##Schedule deployment re-evaluation:
           $Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.EvaluationSchedule
           if ($Schedule.DaySpan -gt 0)
           {
-            WriteWordLine 0 0 " Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
+            $SoftReevalSched = " Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.HourSpan -gt 0)
           {
-            WriteWordLine 0 0 " Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
+            $SoftReevalSched = " Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.MinuteSpan -gt 0)
           {
-            WriteWordLine 0 0 " Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
+            $SoftReevalSched = " Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.ForNumberOfWeeks)
           {
-            WriteWordLine 0 0 " Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
+            $SoftReevalSched = " Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.ForNumberOfMonths)
           {
             if ($Schedule.MonthDay -gt 0)
             {
-              WriteWordLine 0 0 " Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+              $SoftReevalSched = " Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
             }
             elseif ($Schedule.MonthDay -eq 0)
             {
-              WriteWordLine 0 0 " Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+              $SoftReevalSched = " Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
             }
             elseif ($Schedule.WeekOrder -gt 0)
             {
@@ -3462,116 +1828,202 @@ foreach ($ClientSetting in $AllClientSettings)
                 3 {$order = 'third'}
                 4 {$order = 'fourth'}
               }
-              WriteWordLine 0 0 " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+              $SoftReevalSched = " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
             }
           }
-          WriteWordLine 0 2 'When any software update deployment deadline is reached, install all other software update deployments with deadline coming within a specified period of time: ' -nonewline
+          $ConfigList += "Schedule deployment re-evaluation: $SoftReevalSched"
           if ($AgentConfig.AssignmentBatchingTimeout -eq '0')
           {
-            WriteWordLine 0 0 'No.'
+            $ConfigList += "When any software update deployment deadline is reached, install all other software update deployments with deadline coming within a specified period of time: No"
           }
           else 
           {
-            WriteWordLine 0 0 'Yes.'    
-            WriteWordLine 0 2 'Period of time for which all pending deployments with deadline in this time will also be installed: ' -nonewline
+            $ConfigList += "When any software update deployment deadline is reached, install all other software update deployments with deadline coming within a specified period of time: Yes"
+            
             if ($AgentConfig.AssignmentBatchingTimeout -le '82800')
             {
               $hours = [string]$AgentConfig.AssignmentBatchingTimeout / 60 / 60 
-              WriteWordLine 0 0 "$($hours) hours"
+              $gracetime = "$($hours) hours"
             }
             else 
             {
               $days = [string]$AgentConfig.AssignmentBatchingTimeout / 60 / 60 / 24
-              WriteWordLine 0 0 "$($days) days"
+              $gracetime = "$($days) days"
             }
+            $ConfigList += "Period of time for which all pending deployments with deadline in this time will also be installed: $gracetime"
           }
-          
-          WriteWordLine 0 0 ''
-          WriteWordLine 0 0 '---------------------'
-        }
-        10
-        {
-          WriteWordLine 0 2 'User and Device Affinity'
-          WriteWordLine 0 2 "User device affinity usage threshold (minutes): $($AgentConfig.ConsoleMinutes)"
-          WriteWordLine 0 2 "User device affinity usage threshold (days): $($AgentConfig.IntervalDays)"
-          WriteWordLine 0 2 'Automatically configure user device affinity from usage data: ' -nonewline 
-          if ($AgentConfig.AutoApproveAffinity -eq '0')
+          if($AgentConfig.EnableExpressUpdates -eq $False)
           {
-            WriteWordLine 0 0 'No'
+              $ConfigList += "Enable installation of Express installation files on clients: No"
           }
           else
           {
-            WriteWordLine 0 0 'Yes'
+              $ConfigList += "Enable installation of Express installation files on clients: Yes"
+              $ConfigList += "Port used to download content for Express installation files: $($AgentConfig.ExpressUpdatesPort)"
           }
-          WriteWordLine 0 0 ''
-          WriteWordLine 0 0 '---------------------'
-        }
-        11
-        {
-          WriteWordLine 0 2 'Background Intelligent Transfer'
-          WriteWordLine 0 2 "Limit the maximum network bandwidth for BITS background transfers: $($AgentConfig.EnableBitsMaxBandwidth)"
-          WriteWordLine 0 2 "Throttling window start time: $($AgentConfig.MaxBandwidthValidFrom)"
-          WriteWordLine 0 2 "Throttling window end time: $($AgentConfig.MaxBandwidthValidTo)"
-          WriteWordLine 0 2 "Maximum transfer rate during throttling window (kbps): $($AgentConfig.MaxTransferRateOnSchedule)"
-          WriteWordLine 0 2 "Allow BITS downloads outside the throttling window: $($AgentConfig.EnableDownloadOffSchedule)"
-          WriteWordLine 0 2 "Maximum transfer rate outside the throttling window (Kbps): $($AgentConfig.MaxTransferRateOffSchedule)"
-          WriteWordLine 0 0 ''
-          WriteWordLine 0 0 '---------------------'
-        }
-        12
-        {
-          WriteWordLine 0 2 'Enrollment'
-          WriteWordLine 0 2 'Allow users to enroll mobile devices and Mac computers: ' -nonewline
-          if ($AgentConfig.EnableDeviceEnrollment -eq '0')
+          If($AgentConfig.O365Management -eq 1)
           {
-            WriteWordLine 0 0 'No'
+              $ConfigList += "Enable management of the Office 365 Client Agent: Yes"
           }
           else
           {
-            WriteWordLine 0 0 'Yes'
+              $ConfigList += "Enable management of the Office 365 Client Agent: No"
           }
-          WriteWordLine 0 0 ''
-          WriteWordLine 0 0 '---------------------'
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
         }
-        13
-        {
-          WriteWordLine 0 2 'Client Policy'
-          WriteWordLine 0 2 "Client policy polling interval (minutes): $($AgentConfig.PolicyRequestAssignmentTimeout)"
-          WriteWordLine 0 2 "Enable user policy on clients: $($AgentConfig.PolicyEnableUserPolicyPolling)"
-          WriteWordLine 0 2 "Enable user policy requests from Internet clients: $($AgentConfig.PolicyEnableUserPolicyOnInternet)"
-          WriteWordLine 0 0 ''
-          WriteWordLine 0 0 '---------------------'
+        10{
+          $KnownProps = @("AgentID","AllowUserAffinity","AllowUserAffinityAfterMinutes","AutoApproveAffinity","ConsoleMinutes","IntervalDays","PSComputerName","PSShowComputerName","SmsProviderObjectPath")
+          $Config = 'User and Device Affinity'
+          $ConfigList = @()
+          if ($ClientSetting.Type -eq '1'){
+              $ConfigList += "User device affinity usage threshold (minutes): $($AgentConfig.ConsoleMinutes)"
+              $ConfigList += "User device affinity usage threshold (days): $($AgentConfig.IntervalDays)"
+              if ($AgentConfig.AutoApproveAffinity -eq '0')
+              {
+                $AAAffinity = 'No'
+              }
+              else
+              {
+                $AAAffinity = 'Yes'
+              }
+              $ConfigList += "Automatically configure user device affinity from usage data: $AAAffinity"
+          }Else{
+              IF ($($AgentConfig.AllowUserAffinity) -eq '1'){
+                $UserDefinedAffinity = 'Yes'
+              }Else{
+                $UserDefinedAffinity = 'No'
+              }
+              $ConfigList += "Allow user to define their primary devices: $UserDefinedAffinity"
+          }
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
         }
-        15
-        {
-          WriteWordLine 0 2 'Hardware Inventory'
-          WriteWordLine 0 2 "Enable hardware inventory on clients: $($AgentConfig.Enabled)"
+        11{
+          $KnownProps = @("AgentID","ApplyToAllClients","EnableBitsMaxBandwidth","EnableDownloadOffSchedule","MaxBandwidthValidFrom","MaxBandwidthValidTo","MaxTransferRateOffSchedule","MaxTransferRateOnSchedule","PSComputerName","PSShowComputerName","SmsProviderObjectPath")
+          $Config = 'Background Intelligent Transfer'
+          $ConfigList = @()
+          $ConfigList += "Limit the maximum network bandwidth for BITS background transfers: $($AgentConfig.EnableBitsMaxBandwidth)"
+          $ConfigList += "Throttling window start time: $($AgentConfig.MaxBandwidthValidFrom)"
+          $ConfigList += "Throttling window end time: $($AgentConfig.MaxBandwidthValidTo)"
+          $ConfigList += "Maximum transfer rate during throttling window (kbps): $($AgentConfig.MaxTransferRateOnSchedule)"
+          $ConfigList += "Allow BITS downloads outside the throttling window: $($AgentConfig.EnableDownloadOffSchedule)"
+          $ConfigList += "Maximum transfer rate outside the throttling window (Kbps): $($AgentConfig.MaxTransferRateOffSchedule)"
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
+        }
+        12{
+          $KnownProps = @("AgentID","DeviceEnrollmentProfileID","EnableDeviceEnrollment","EnableFileCollection","EnableHardwareInventory","EnableModernDeviceEnrollment","EnableSoftwareDistribution","EnableSoftwareInventory","FailureRetryCount","FailureRetryInterval","FileCollectionExcludeCompressed","FileCollectionExcludeEncrypted","FileCollectionFilter","FileCollectionInterval","FileCollectionPath","FileCollectionSubdirectories","HardwareInventoryInterval","MDMPollInterval","ModernDeviceEnrollmentProfileID","PollingInterval","PollServer","PSComputerName","PSShowComputerName","SmsProviderObjectPath","SoftwareInventoryExcludeCompressed","SoftwareInventoryExcludeEncrypted","SoftwareInventoryFilter","SoftwareInventoryInterval","SoftwareInventoryPath","SoftwareInventorySubdirectories")
+          $Config = 'Enrollment'
+          $ConfigList = @()
+          if ($ClientSetting.Type -eq '1'){
+              $ConfigList += "Polling interval for modern devices (minutes): $($AgentConfig.MDMPollInterval)"
+          } Else {
+              If ($AgentConfig.EnableDeviceEnrollment -eq '1'){
+                $ConfigList += 'Allow users to enroll mobile devices and Mac computers: Yes'
+                $MacDEID = "$($AgentConfig.DeviceEnrollmentProfileID)"
+                $MacDEName = (Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -Query "Select * from SMS_DeviceEnrollmentProfile where ProfileID = `'$($AgentConfig.DeviceEnrollmentProfileID)`'").Name
+                $ConfigList += "Enrollment Profile: $MacDEName (ID: $MacDEID)"
+              }else{
+                $ConfigList += 'Allow users to enroll mobile devices and Mac computers: Yes'
+              }
+              If ($AgentConfig.EnableModernDeviceEnrollment -eq '1'){
+                $ConfigList += "Allow users to enroll modern devices: Yes"
+                $ModernDEID = "$($AgentConfig.ModernDeviceEnrollmentProfileID)"
+                $ConfigList += "Modern device enrollment profile: $ModernDEID"
+              }else{
+                $ConfigList += "Allow users to enroll modern devices: No"
+              }
+          }
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
+        }
+        13{
+          $KnownProps = @("AgentID","PolicyDownloadMethod","PolicyEnableUserAuthForAllUserPolicies","PolicyEnableUserGroupSupport","PolicyEnableUserPolicyOnInternet","PolicyEnableUserPolicyPolling","PolicyRequestAssignmentTimeout","PolicyTimeDelayBeforeUserPolicyRefreshAtLogonOrUnlock","PolicyTimeUntilAck","PolicyTimeUntilExpire","PolicyTimeUntilUpdateActualConfig","PSComputerName","PSShowComputerName","SmsProviderObjectPath")
+          $Config = 'Client Policy'
+          $ConfigList = @()
+          $ConfigList += "Client policy polling interval (minutes): $($AgentConfig.PolicyRequestAssignmentTimeout)"
+          $ConfigList += "Enable user policy on clients: $($AgentConfig.PolicyEnableUserPolicyPolling)"
+          $ConfigList += "Enable user policy requests from Internet clients: $($AgentConfig.PolicyEnableUserPolicyOnInternet)"
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
+        }
+        15{
+          $KnownProps = @("AgentID","Enabled","InventoryReportID","LastUpdateTime","Max3rdPartyMIFSize","MaxRandomDelayMinutes","MIFCollection","ProviderTimeout","PSComputerName","PSShowComputerName","Schedule","SmsProviderObjectPath")
+          $Config = 'Hardware Inventory'
+          $ConfigList = @()
+          $ConfigList += "Enable hardware inventory on clients: $($AgentConfig.Enabled)"
           $Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.Schedule
           if ($Schedule.DaySpan -gt 0)
           {
-            WriteWordLine 0 2 "Hardware inventory schedule: Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
+            $ConfigList += "Hardware inventory schedule: Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.HourSpan -gt 0)
           {
-            WriteWordLine 0 2 "Hardware inventory schedule: Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
+            $ConfigList += "Hardware inventory schedule: Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.MinuteSpan -gt 0)
           {
-            WriteWordLine 0 2 "Hardware inventory schedule: Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
+            $ConfigList += "Hardware inventory schedule: Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.ForNumberOfWeeks)
           {
-            WriteWordLine 0 2 "Hardware inventory schedule: Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
+            $ConfigList += "Hardware inventory schedule: Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.ForNumberOfMonths)
           {
             if ($Schedule.MonthDay -gt 0)
             {
-              WriteWordLine 0 2 "Hardware inventory schedule: Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+              $ConfigList += "Hardware inventory schedule: Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
             }
             elseif ($Schedule.MonthDay -eq 0)
             {
-              WriteWordLine 0 2 "Hardware inventory schedule: Occurs on last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+              $ConfigList += "Hardware inventory schedule: Occurs on last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
             }
             elseif ($Schedule.WeekOrder -gt 0)
             {
@@ -3583,48 +2035,69 @@ foreach ($ClientSetting in $AllClientSettings)
                 3 {$order = 'third'}
                 4 {$order = 'fourth'}
               }
-              WriteWordLine 0 2 "Hardware inventory schedule: Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+              $ConfigList += "Hardware inventory schedule: Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
             }
           }
-          WriteWordLine 0 0 ''
-          WriteWordLine 0 0 '---------------------'
+          $ConfigList += "Maximum random delay (minutes): $($AgentConfig.MaxRandomDelayMinutes)"
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
         }
-        16 
-        {
-          WriteWordLine 0 2 'State Messaging'
-          WriteWordLine 0 2 "State message reporting cycle (minutes): $($AgentConfig.BulkSendInterval)"
-          WriteWordLine 0 0 ''
-          WriteWordLine 0 0 '---------------------'
+        16{
+          $KnownProps = @("AgentID","BulkSendInterval","BulkSendIntervalHigh","BulkSendIntervalLow","CacheCleanoutInterval","CacheMaxAge","PSComputerName","PSShowComputerName","SmsProviderObjectPath")
+          $Config = 'State Messaging'
+          $ConfigList = @()
+          $ConfigList += "State message reporting cycle (minutes): $($AgentConfig.BulkSendInterval)"
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
         }
-        17
-        {
-          WriteWordLine 0 2 'Software Deployment'
+        17{
+          $KnownProps = @("AgentID","AlternateContentProviders","AppXInplaceUpgradeEnabled","Enabled","EvaluationSchedule","PSComputerName","PSShowComputerName","SmsProviderObjectPath")
+          $Config = 'Software Deployment'
+          $ConfigList = @()
           $Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.EvaluationSchedule
           if ($Schedule.DaySpan -gt 0)
           {
-            WriteWordLine 0 2 "Schedule re-evaluation for deployments: Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
+            $ConfigList += "Schedule re-evaluation for deployments: Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.HourSpan -gt 0)
           {
-            WriteWordLine 0 2 "Schedule re-evaluation for deployments: Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
+            $ConfigList += "Schedule re-evaluation for deployments: Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.MinuteSpan -gt 0)
           {
-            WriteWordLine 0 2 "Schedule re-evaluation for deployments: Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
+            $ConfigList += "Schedule re-evaluation for deployments: Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.ForNumberOfWeeks)
           {
-            WriteWordLine 0 2 "Schedule re-evaluation for deployments: Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
+            $ConfigList += "Schedule re-evaluation for deployments: Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
           }
           elseif ($Schedule.ForNumberOfMonths)
           {
             if ($Schedule.MonthDay -gt 0)
             {
-              WriteWordLine 0 2 "Schedule re-evaluation for deployments: Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+              $ConfigList += "Schedule re-evaluation for deployments: Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
             }
             elseif ($Schedule.MonthDay -eq 0)
             {
-              WriteWordLine 0 2 "Schedule re-evaluation for deployments: Occurs on last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+              $ConfigList += "Schedule re-evaluation for deployments: Occurs on last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
             }
             elseif ($Schedule.WeekOrder -gt 0)
             {
@@ -3636,87 +2109,233 @@ foreach ($ClientSetting in $AllClientSettings)
                 3 {$order = 'third'}
                 4 {$order = 'fourth'}
               }
-              WriteWordLine 0 2 "Schedule re-evaluation for deployments: Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+              $ConfigList += "Schedule re-evaluation for deployments: Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
             }
           }
-          WriteWordLine 0 0 ''
-          WriteWordLine 0 0 '---------------------'
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
         }
-        18
-        {
-          WriteWordLine 0 2 'Power Management'
-          WriteWordLine 0 2 "Allow power management of clients: $($AgentConfig.Enabled)"
-          WriteWordLine 0 2 "Allow users to exclude their device from power management: $($AgentConfig.AllowUserToOptOutFromPowerPlan)"
-          WriteWordLine 0 2 "Enable wake-up proxy: $($AgentConfig.EnableWakeupProxy)"
+        18{
+          $KnownProps = @("AgentID","AllowUserToOptOutFromPowerPlan","Enabled","EnableP2PWakeupSolution","EnableUserIdleMonitoring","EnableWakeupProxy","MaxCPU","MaxMachinesPerManager","MinimumServersNeeded","NumOfDaysToKeep","NumOfMonthsToKeep","Port","PSComputerName","PSShowComputerName","SmsProviderObjectPath","WakeupProxyDirectAccessPrefixList","WakeupProxyFirewallFlags","WolPort")
+          $Config = 'Power Management'
+          $ConfigList = @()
+          $ConfigList += "Allow power management of clients: $($AgentConfig.Enabled)"
+          $ConfigList += "Allow users to exclude their device from power management: $($AgentConfig.AllowUserToOptOutFromPowerPlan)"
+          $ConfigList += "Enable wake-up proxy: $($AgentConfig.EnableWakeupProxy)"
           if ($AgentConfig.EnableWakeupProxy -eq 'True')
           {
-            WriteWordLine 0 2 "Wake-up proxy port number (UDP): $($AgentConfig.Port)"
-            WriteWordLine 0 2 "Wake On LAN port number (UDP): $($AgentConfig.WolPort)"
-            WriteWordLine 0 2 'Windows Firewall exception for wake-up proxy: ' -nonewline
+            $ConfigList += "Wake-up proxy port number (UDP): $($AgentConfig.Port)"
+            $ConfigList += "Wake On LAN port number (UDP): $($AgentConfig.WolPort)"
             switch ($AgentConfig.WakeupProxyFirewallFlags)
             {
-              0 { WriteWordLine 0 2 'disabled' }
-              9 { WriteWordLine 0 2 'Enabled: Public.' }
-              10 { WriteWordLine 0 2 'Enabled: Private.' }
-              11 { WriteWordLine 0 2 'Enabled: Private, Public.' }
-              12 { WriteWordLine 0 2 'Enabled: Domain.' }
-              13 { WriteWordLine 0 2 'Enabled: Domain, Public.' }
-              14 { WriteWordLine 0 2 'Enabled: Domain, Private.' }
-              15 { WriteWordLine 0 2 'Enabled: Domain, Private, Public.' }
+              0 { $FirewallCfg = 'Disabled' }
+              9 { $FirewallCfg = 'Enabled: Public.' }
+              10 { $FirewallCfg = 'Enabled: Private.' }
+              11 { $FirewallCfg = 'Enabled: Private, Public.' }
+              12 { $FirewallCfg = 'Enabled: Domain.' }
+              13 { $FirewallCfg = 'Enabled: Domain, Public.' }
+              14 { $FirewallCfg = 'Enabled: Domain, Private.' }
+              15 { $FirewallCfg = 'Enabled: Domain, Private, Public.' }
             }
-            WriteWordLine 0 2 "IPv6 prefixes if required for DirectAccess or other intervening network devices. Use a comma to specifiy multiple entries: $($AgentConfig.WakeupProxyDirectAccessPrefixList)"
+            $ConfigList += "Windows Firewall exception for wake-up proxy: $FirewallCfg"
+            If ($AgentConfig.WakeupProxyDirectAccessPrefixList -eq ""){
+                $v6Prefixes = "None"
+            }Else{
+                $v6Prefixes = "$($AgentConfig.WakeupProxyDirectAccessPrefixList)"
+            }
+            $ConfigList += "IPv6 prefixes if required for DirectAccess or other intervening network devices. Use a comma to specifiy multiple entries: $v6Prefixes"
           }
-          WriteWordLine 0 0 ''
-          WriteWordLine 0 0 '---------------------'
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
         }
-        20
-        {
-          WriteWordLine 0 2 'Endpoint Protection'
-          WriteWordLine 0 2 "Manage Endpoint Protection client on client computers: $($AgentConfig.EnableEP)"
-          WriteWordLine 0 2 "Install Endpoint Protection client on client computers: $($AgentConfig.InstallSCEPClient)"
-          WriteWordLine 0 2 "Automatically remove previously installed antimalware software before Endpoint Protection is installed: $($AgentConfig.Remove3rdParty)"
-          WriteWordLine 0 2 "Allow Endpoint Protection client installation and restarts outside maintenance windows. Maintenance windows must be at least 30 minutes long for client installation: $($AgentConfig.OverrideMaintenanceWindow)"
-          WriteWordLine 0 2 "For Windows Embedded devices with write filters, commit Endpoint Protection client installation (requires restart): $($AgentConfig.PersistInstallation)"
-          WriteWordLine 0 2 "Suppress any required computer restarts after the Endpoint Protection client is installed: $($AgentConfig.SuppressReboot)"
-          WriteWordLine 0 2 "Allowed period of time users can postpone a required restart to complete the Endpoint Protection installation (hours): $($AgentConfig.ForceRebootPeriod)"
-          WriteWordLine 0 2 "Disable alternate sources (such as Microsoft Windows Update, Microsoft Windows Server Update Services, or UNC shares) for the initial definition update on client computers: $($AgentConfig.DisableFirstSignatureUpdate)"
-          WriteWordLine 0 0 ''
-          WriteWordLine 0 0 '---------------------'
+        20{
+          $KnownProps = @("AgentID","DisableFirstSignatureUpdate","EnableBlueProvider","EnableEP","ForceRebootPeriod","InstallRetryPeriod","InstallSCEPClient","LicenseAgreed","OverrideMaintenanceWindow","PersistInstallation","PolicyEnforcePeriod","PSComputerName","PSShowComputerName","Remove3rdParty","SmsProviderObjectPath","SuppressReboot")
+          $Config = 'Endpoint Protection'
+          $ConfigList = @()
+          $ConfigList += "Manage Endpoint Protection client on client computers: $($AgentConfig.EnableEP)"
+          $ConfigList += "Install Endpoint Protection client on client computers: $($AgentConfig.InstallSCEPClient)"
+          $ConfigList += "Automatically remove previously installed antimalware software before Endpoint Protection is installed: $($AgentConfig.Remove3rdParty)"
+          $ConfigList += "Allow Endpoint Protection client installation and restarts outside maintenance windows. Maintenance windows must be at least 30 minutes long for client installation: $($AgentConfig.OverrideMaintenanceWindow)"
+          $ConfigList += "For Windows Embedded devices with write filters, commit Endpoint Protection client installation (requires restart): $($AgentConfig.PersistInstallation)"
+          $ConfigList += "Suppress any required computer restarts after the Endpoint Protection client is installed: $($AgentConfig.SuppressReboot)"
+          If($AgentConfig.SuppressReboot -eq $false){
+            $ConfigList += "Allowed period of time users can postpone a required restart to complete the Endpoint Protection installation (hours): $($AgentConfig.ForceRebootPeriod)"
+          }Else{
+            $ConfigList += "Allowed period of time users can postpone a required restart to complete the Endpoint Protection installation (hours): N/A"
+          }
+          $ConfigList += "Disable alternate sources (such as Microsoft Windows Update, Microsoft Windows Server Update Services, or UNC shares) for the initial definition update on client computers: $($AgentConfig.DisableFirstSignatureUpdate)"
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
         }
-        21
-        {
-          WriteWordLine 0 2 'Computer Restart'
-          WriteWordLine 0 2 "Display a temporary notification to the user that indicates the interval before the user is logged of or the computer restarts (minutes): $($AgentConfig.RebootLogoffNotificationCountdownDuration)"
-          WriteWordLine 0 2 "Display a dialog box that the user cannot close, which displays the countdown interval before the user is logged of or the computer restarts (minutes): $([string]$AgentConfig.RebootLogoffNotificationFinalWindow / 60)"
-          WriteWordLine 0 0 ''
-          WriteWordLine 0 0 '---------------------'
+        21{
+          $KnownProps = @("AgentID","PSComputerName","PSShowComputerName","RebootLogoffNotificationCountdownDuration","RebootLogoffNotificationFinalWindow","SmsProviderObjectPath")
+          $Config = 'Computer Restart'
+          $ConfigList = @()
+          $ConfigList += "Display a temporary notification to the user that indicates the interval before the user is logged of or the computer restarts (minutes): $($AgentConfig.RebootLogoffNotificationCountdownDuration)"
+          $ConfigList += "Display a dialog box that the user cannot close, which displays the countdown interval before the user is logged of or the computer restarts (minutes): $([string]$AgentConfig.RebootLogoffNotificationFinalWindow / 60)"
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
         }
-        22
-        {
-          WriteWordLine 0 2 'Cloud Services'
-          WriteWordLine 0 2 "Allow access to Cloud Distribution Point: $($AgentConfig.AllowCloudDP)"
-          WriteWordLine 0 0 ''
-          WriteWordLine 0 0 '---------------------'
+        22{
+          $KnownProps = @("AADAuthFlags","AgentID","AllowCloudDP","AllowCMG","AutoAADJoin","AutoMDMEnrollment","CoManagementFlags","PSComputerName","PSShowComputerName","SmsProviderObjectPath")
+          $Config = 'Cloud Services'
+          $ConfigList = @()
+          $ConfigList += "Allow access to Cloud Distribution Point: $($AgentConfig.AllowCloudDP)"
+          $ConfigList += "Automatically register new Windows 10 domain joined devices with Azure Active Directory: $($AgentConfig.AutoAADJoin)"
+          $ConfigList += "Enable clients to use a cloud management gateway: $($AgentConfig.AllowCMG)"
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
         }
-        23
-        {
-          WriteWordLine 0 2 'Metered Internet Connections'
+        23{
+          $KnownProps = @("AgentID","MeteredNetworkUsage","PSComputerName","PSShowComputerName","SmsProviderObjectPath")
+          $Config = 'Metered Internet Connections'
+          $ConfigList = @()
           switch ($AgentConfig.MeteredNetworkUsage)
           {
             1 { $Usage = 'Allow' }
             2 { $Usage = 'Limit' }
             4 { $Usage = 'Block' }
           }
-          WriteWordLine 0 2 "Specifiy how clients communicate on metered network connections: $($Usage)"
-          WriteWordLine 0 0 ''
+          $ConfigList += "Specifiy how clients communicate on metered network connections: $($Usage)"
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
         }
-        
+        25{
+          #The deadline randomization setting now appears in AgentID 25.  But since in GUI under 'Computer Agent' (4), we will loop that into configuration agent 4.
+        }
+        27{
+          $KnownProps = @("AgentID","BranchCacheEnabled","BroadcastPort","CachePartialContent","CanBeSuperPeer","ConfigureBranchCache","ConfigureCacheSize","HttpPort","HttpsEnabled","MaxAvgDiskQueueLength","MaxBranchCacheSizePercent","MaxCacheSizeMB","MaxCacheSizePercent","MaxConnectionCountOnClients","MaxConnectionCountOnServers","MaxPercentProcessorTime","PSComputerName","PSShowComputerName","RejectWhenBatteryLow","SmsProviderObjectPath","UsePartialSource")
+          $Config = 'Client Cache Settings'
+          $ConfigList = @()
+          $ConfigList += "Configure BranchCache: $($AgentConfig.ConfigureBranchCache)"
+          $ConfigList += "Enable BranchCache: $($AgentConfig.BranchCacheEnabled)"
+          $ConfigList += "Maximum BranchCache cache size (percentage of disk): $($AgentConfig.MaxBranchCacheSizePercent)"
+          $ConfigList += "Configure client cache size: $($AgentConfig.ConfigureCacheSize)"
+          $ConfigList += "Maximum cache size (MB): $($AgentConfig.MaxCacheSizeMB)"
+          $ConfigList += "Maximum cache size (percentage of disk): $($AgentConfig.MaxCacheSizePercent)"
+          $ConfigList += "Enable Configuration Manager client in full OS to share content: $($AgentConfig.CanBeSuperPeer)"
+          $ConfigList += "Port for initial network broadcast: $($AgentConfig.BroadcastPort)"
+          $ConfigList += "Enable HTTPS for client peer communication: $($AgentConfig.HttpsEnabled)"
+          $ConfigList += "Port for content download from peer (HTTP/HTTPS): $($AgentConfig.HttpPort)"
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
+        }
+        29{
+          $KnownProps = @("AgentID","PSComputerName","PSShowComputerName","SmsProviderObjectPath","WACommercialID","WAEnable","WAIEOptInlevel","WAOptInDownlevel","WATelLevel")
+          $Config = 'Windows Analytics'
+          $ConfigList = @()
+          If ($AgentConfig.WAEnable -eq 1){
+            $WAEnabled = 'Yes'
+          }Else{
+            $WAEnabled = 'No'
+          }
+          $ConfigList += "Manage Windows telemetry settings with Configuration Manager: $WAEnabled"
+          If ($WAEnabled -eq 'Yes'){
+              $ConfigList += "Commercial ID key: $($AgentConfig.WACommercialID)"
+              switch ($AgentConfig.WATelLevel)
+              {
+                1 { $Level = 'Basic' }
+                2 { $Level = 'Enhanced' }
+                3 { $Level = 'Full' }
+              }
+              $ConfigList += "Windows 10 telemetry: $Level"
+              switch ($AgentConfig.WAOptInDownlevel)
+              {
+                0 { $Level = 'Disabled' }
+                1 { $Level = 'Enable' }
+              }
+              $ConfigList += "Windows 8.1 and earlier telemetry: $Level"
+              switch ($AgentConfig.WAIEOptInlevel)
+              {
+                0 { $Level = 'Disabled' }
+                1 { $Level = 'Enable for local internet, trusted sites, and machine Local only' }
+                2 { $Level = 'Enable for Internet and restricted sites only' }
+                3 { $Level = 'Enable for all zones' }
+              }
+              $ConfigList += "Windows 8.1 and earlier Internet Explorer data collection: $Level"
+          }
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
+        }
       }
     }
     catch [System.Management.Automation.PropertyNotFoundException] 
     {
-      WriteWordLine 0 0 ''
+      Write-Verbose "$(Get-Date):   Client Settings Property not found."
     }
+
   }
 }
 #endregion enumerating Client Policies
@@ -3724,12 +2343,13 @@ foreach ($ClientSetting in $AllClientSettings)
 #region Security
 
 Write-Verbose "$(Get-Date):   Collecting all administrative users"
-WriteWordLine 2 0 'Administrative Users'
+Write-HTMLHeading -Level 2 -PageBreak -Text 'Administrative Users' -File $FilePath
+
 $Admins = Get-CMAdministrativeUser
 
-WriteWordLine 0 1 'Enumerating administrative users:'
+Write-HTMLParagraph -Text 'Details on all administative accounts in the site:' -Level 2 -File $FilePath
 
-$AdminHashArray = @();
+$AdminArray = @();
 
 foreach ($Admin in $Admins) 
 {
@@ -3739,31 +2359,22 @@ foreach ($Admin in $Admins)
     1 { $AccountType = 'Group' }
     2 { $AccountType = 'Machine' } 
   } 
-  
-  $AdminRow = @{Name = $Admin.LogonName; 'Account Type' = $AccountType; 'Security Roles' = "$($Admin.RoleNames)"; 'Security Scopes' = "$($Admin.CategoryNames)"; Collections = "$($Admin.CollectionNames)";}
-  $AdminHashArray += $AdminRow;
+  $AdminArray +=  New-Object -TypeName psobject -Property @{Name = $Admin.LogonName; 'Account Type' = $AccountType; 'Security Roles' = "$($($Admin.RoleNames) -join '--CRLF--')"; 'Security Scopes' = "$($($Admin.CategoryNames) -join '--CRLF--')"; Collections = "$($($Admin.CollectionNames) -join '--CRLF--')";}
 }
-
-$Table = AddWordTable -Hashtable $AdminHashArray -Columns Name, 'Account Type', 'Security Roles', 'Security Scopes', Collections -Headers Name, 'Account Type', 'Security Roles', 'Security Scopes', Collections -Format -155 -AutoFit $wdAutoFitContent;
-  
-## Set first column format
-SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-
-  
-FindWordDocumentEnd
-$Table = $Null
-
+$AdminArray = $AdminArray| Select-Object -Property 'Name','Account Type','Security Roles','Security Scopes','Collections'
+Write-HtmlTable -InputObject $AdminArray -Border 1 -Level 3 -File $FilePath
 #endregion Security
+
 
 #region enumerating all custom Security roles
 Write-Verbose "$(Get-Date):   enumerating all custom build security roles"
-WriteWordLine 2 0 'Custom Security Roles'
+Write-HTMLHeading -Level 2 -Text 'Custom Security Roles' -File $FilePath
 $SecurityRoles = Get-CMSecurityRole | Where-Object -FilterScript {-not $_.IsBuiltIn}
 if (-not [string]::IsNullOrEmpty($SecurityRoles))
 {
-  $SRHashArray = @();
+  $SecRoleArray = @();
   
-  WriteWordLine 0 1 'Enumerating all custom build security roles:'
+  Write-HTMLParagraph -Text 'Details on all custom security roles in the site:' -Level 2 -File $FilePath
   
   foreach ($SecurityRole in $SecurityRoles)
   {
@@ -3771,181 +2382,212 @@ if (-not [string]::IsNullOrEmpty($SecurityRoles))
     {
       $Members = $(Get-CMAdministrativeUser | Where-Object -FilterScript {$_.Roles -ilike "$($SecurityRole.RoleID)"}).LogonName
     }
-    $SRRow = @{Name = $SecurityRole.RoleName; Description = $SecurityRole.RoleDescription; 'Copied From' = $((Get-CMSecurityRole -Id $SecurityRole.CopiedFromID).RoleName); Members = "$Members"; 'Role ID' = $SecurityRole.RoleID;}
-    $SRHashArray += $SRRow;
+    $SecRoleArray += New-Object -TypeName psobject -Property @{Name = $SecurityRole.RoleName; Description = $SecurityRole.RoleDescription; 'Copied From' = $((Get-CMSecurityRole -Id $SecurityRole.CopiedFromID).RoleName); Members = "$($Members -join '--CRLF--')"; 'Role ID' = $SecurityRole.RoleID;}
   }
-  
-  $Table = AddWordTable -Hashtable $SRHashArray -Columns Name, Description, 'Copied From', Members -Headers Name, Description, 'Copied From', Members -Format -155 -AutoFit $wdAutoFitContent;
-  
-  ## Set first column format
-  SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-  
-  FindWordDocumentEnd
-  $Table = $Null
-  
+  $SecRoleArray = $SecRoleArray | Select-Object -Property 'Name','Description','Copied From','Members','Role ID'
+  Write-HtmlTable -InputObject $SecRoleArray -Border 1 -Level 3 -File $FilePath  
 }
 else
 {
-  WriteWordLine 0 1 'There are no custom built security roles.'
+  Write-HTMLParagraph -Text 'There are no custom built security roles.' -Level 2 -File $FilePath
 }
-
 #endregion enumerating all custom Security roles
 
-#region Used Accounts
+
+#region System Used Accounts
 
 Write-Verbose "$(Get-Date):   Enumerating all used accounts"
-WriteWordLine 2 0 'Configured Accounts'
+Write-HTMLHeading -Level 2 -Text 'Configured Accounts' -File $FilePath
 $Accounts = Get-CMAccount
-WriteWordLine 0 1 'Enumerating all accounts used for specific tasks.'
+Write-HTMLParagraph -Text 'List of all accounts used for specific tasks in the site:' -Level 2 -File $FilePath
 
-$AccountsHashArray = @();
+$AccountsArray = @();
 
 foreach ($Account in $Accounts)
 {
-  $AccountRow = @{'User Name'= $Account.UserName; 'Account Usage' = if ([string]::IsNullOrEmpty($Account.AccountUsage)) {'not assigned'} else {"$($Account.AccountUsage)"}; 'Site Code' = $Account.SiteCode};
-  $AccountsHashArray += $AccountRow;
+  $AccountsArray += New-Object -TypeName psobject -Property @{'User Name'= $Account.UserName; 'Account Usage' = if ([string]::IsNullOrEmpty($Account.AccountUsage)) {'not assigned'} else {"$($Account.AccountUsage)"}; 'Site Code' = $Account.SiteCode};
 }
 
-$Table = AddWordTable -Hashtable $AccountsHashArray -Columns 'User Name', 'Account Usage', 'Site Code' -Headers 'User Name', 'Account Usage', 'Site Code' -Format -155 -AutoFit $wdAutoFitContent;
-  
-## Set first column format
-SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-  
-FindWordDocumentEnd
-$Table = $Null
+$AccountsArray = $AccountsArray | Select-Object -Property 'User Name','Account Usage','Site Code'
+Write-HtmlTable -InputObject $AccountsArray -Border 1 -Level 3 -File $FilePath
+#endregion System Used Accounts
 
-#endregion Used Accounts
 
 ####
 #region Assets and Compliance
 ####
 Write-Verbose "$(Get-Date):   Done with Administration, next Assets and Compliance"
-WriteWordLine 1 0 'Assets and Compliance'
+Write-HTMLHeading -Level 1 -PageBreak -Text 'Assets and Compliance' -File $FilePath
 
 #region enumerating all User Collections
-WriteWordLine 2 0 'Summary of User Collections'
+Write-HTMLHeading -Level 2 -Text 'Summary of User Collections' -File $FilePath
 $UserCollections = Get-CMUserCollection
+$BuiltinUserCollections = $UserCollections|where {$_.CollectionID -like "SMS*"}
+$CustomUserCollections = $UserCollections|where {$_.CollectionID -notlike "SMS*"}
 if ($ListAllInformation)
 {
-  $UserCollHashArray = @();
-  
-  foreach ($UserCollection in $UserCollections)
+  $CustomUCArray = @();
+  $BuiltInUCArray = @();
+  Write-HTMLParagraph -Text "Configuration Manager comes with a few built-in user collections.  Any number of custom collections can be defined in the console.  Below is a summary of both types." -Level 2 -File $FilePath
+  Write-HTMLHeading -Level 3 -Text 'Built-In User Collections' -File $FilePath
+  Write-HTMLParagraph -Text "There are $($BuiltinUserCollections.count) built-in default user collections.  Their names and member counts are listed below:" -Level 3 -File $FilePath
+  foreach ($UserCollection in $BuiltinUserCollections)
   {
-    Write-Verbose "$(Get-Date):   Found User Collection: $($UserCollection.Name)"
-    
-    $UserCollRow = @{'Collection Name' = $UserCollection.Name; 'Collection ID' = $UserCollection.CollectionID; 'Member Count' = $UserCollection.MemberCount; 'Limited To' = "$($UserCollection.LimitToCollectionName) / $($UserCollection.LimitToCollectionID)";};
-    $UserCollHashArray += $UserCollRow;
+    Write-Verbose "$(Get-Date):   Found Built-in User Collection: $($UserCollection.Name)"
+    $BuiltInUCArray += New-Object -TypeName psobject -Property @{'Collection Name' = $UserCollection.Name; 'Collection ID' = $UserCollection.CollectionID; 'Member Count' = $UserCollection.MemberCount;};
   }
-  $Table = AddWordTable -Hashtable $UserCollHashArray -Columns 'Collection Name', 'Collection ID', 'Member Count', 'Limited To' -Headers 'Collection Name', 'Collection ID', 'Member Count', 'Limited To' -Format -155 -AutoFit $wdAutoFitContent;
-  
-  ## Set first column format
-  SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15
-  
-  FindWordDocumentEnd
-  $Table = $Null
+  $BuiltInUCArray = $BuiltInUCArray | Select-Object -Property 'Collection Name','Collection ID','Member Count'
+  Write-HtmlTable -InputObject $BuiltInUCArray -Border 1 -Level 4 -File $FilePath
+
+  Write-HTMLHeading -Level 3 -Text 'User Defined User Collections' -File $FilePath
+  foreach ($UserCollection in $CustomUserCollections)
+  {
+    Write-Verbose "$(Get-Date):   Found Custom User Collection: $($UserCollection.Name)"
+    $CustomUCArray += New-Object -TypeName psobject -Property @{'Collection Name' = $UserCollection.Name; 'Collection ID' = $UserCollection.CollectionID; 'Member Count' = $UserCollection.MemberCount;};
+  }
+  if($CustomUCArray.Count -gt 0){
+      Write-HTMLParagraph -Text "There are $($CustomUserCollections.count) user defined user collections.  Their names and member counts are listed below:" -Level 3 -File $FilePath
+      $CustomUCArray = $CustomUCArray | Select-Object -Property 'Collection Name','Collection ID','Member Count'
+      Write-HtmlTable -InputObject $CustomUCArray -Border 1 -Level 4 -File $FilePath
+  }else{
+      Write-HTMLParagraph -Text "There are no user defined user collection." -Level 3 -File $FilePath
+  }
 }
 else
 {
-  WriteWordLine 0 1 "There are $($UserCollections.count) User Collections." 
+  Write-HTMLParagraph -Text "There are $($CustomUserCollections.count) User Defined User Collections.  These are in addition to the $($BuiltinUserCollections.count) built-in default user collections." -Level 2 -File $FilePath
 }
 
 #endregion enumerating all User Collections
 
+
 #region enumerating all Device Collections
-WriteWordLine 2 0 'Summary of Device Collections'
+Write-Verbose "$(Get-Date):   Getting Device Collections."
+Write-HTMLHeading -Level 2 -PageBreak -Text 'Summary of Device Collections' -File $FilePath
+Write-HTMLParagraph -Text 'This section contains a brief summary of built-in device collections as well as a more detailed summary of custom device collections.' -Level 3 -File $FilePath
 $DeviceCollections = Get-CMDeviceCollection
+$BuiltInDeviceCollections = $DeviceCollections | where {$_.IsBuiltIn -eq $true}
+$CustomDeviceCollections = $DeviceCollections | where {$_.IsBuiltIn -eq $false}
+$IncUpCollCount = ($CustomDeviceCollections|where {($_.RefreshType -eq 4) -or ($_.RefreshType -eq 6)}).count
+$ServiceWindowCollections = $CustomDeviceCollections|where {$_.ServiceWindowsCount -gt 0}
+Write-HtmlList -InputObject "$IncUpCollCount of $($CustomDeviceCollections.Count) have incremental updates Enabled." -Description "Incremental Update Summary:" -Level 3 -File $FilePath
 if ($ListAllInformation)
 {
-  foreach ($DeviceCollection in $DeviceCollections)
+  Write-HTMLHeading -Level 3 -Text 'Built-In Device Collections' -File $FilePath
+  $DevCols = @()
+  foreach ($DeviceCollection in $BuiltInDeviceCollections)
   {
-    Write-Verbose "$(Get-Date):   Found Device Collection: $($DeviceCollection.Name)"
-    WriteWordLine 0 1 "Collection Name: $($DeviceCollection.Name)" -boldface $true
-    WriteWordLine 0 1 "Collection ID: $($DeviceCollection.CollectionID)"
-    WriteWordLine 0 1 "Total count of members: $($DeviceCollection.MemberCount)"
-    WriteWordLine 0 1 "Limited to Device Collection: $($DeviceCollection.LimitToCollectionName) / $($DeviceCollection.LimitToCollectionID)"
-    $CollSettings = Get-WmiObject -Class SMS_CollectionSettings -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider | Where-Object {$_.CollectionID -eq "$($DeviceCollection.CollectionID)"}
-    if (-not [String]::IsNullOrEmpty($CollSettings))
-        {
-            $CollSettings = [wmi]$CollSettings.__PATH
-            $ServiceWindows = $($CollSettings.ServiceWindows)
-            if (-not [string]::IsNullOrEmpty($ServiceWindows))
-                {
-                    #$ServiceWindows
-                    WriteWordLine 0 2 'Checking Maintenance Windows on Collection:' 
-                    #$ServiceWindows = [wmi]$ServiceWindows.__PATH
-                        
-                    foreach ($ServiceWindow in $ServiceWindows)
-                        {
-                
-                            $ScheduleString = Read-ScheduleToken
-                            $startTime = $ScheduleString.TokenData.starttime
-                            $startTime = Convert-NormalDateToConfigMgrDate -starttime $startTime
-                            WriteWordLine 0 3 "Maintenance window name: $($ServiceWindow.Name)"
-                            switch ($ServiceWindow.ServiceWindowType)
+    Write-Verbose "$(Get-Date):   Found Built-in Device Collection: $($DeviceCollection.Name)"
+    $DevCols += New-Object -TypeName psobject -Property @{'Name' = "$($DeviceCollection.Name)"; 'Collection ID' = "$($DeviceCollection.CollectionID)"; 'Member Count' = "$($DeviceCollection.MemberCount)";}
+  }
+  $DevCols = $DevCols | Select-Object 'Name','Collection ID','Member Count'
+  Write-HTMLParagraph -Level 4 -File $FilePath -Text 'Summary of membership of the built-in device collections:'
+  Write-HtmlTable -InputObject $DevCols -Border 1 -Level 5 -File $FilePath
+  Write-HTMLHeading -Level 3 -Text 'User Defined Device Collections' -File $FilePath
+  Write-HTMLParagraph -Level 3 -File $FilePath -Text "There are $($CustomDeviceCollections.count) custom defined collections in this site."
+  Write-HTMLParagraph -Level 3 -File $FilePath -Text "There are $($ServiceWindowCollections.count) custom collections with defined service windows.  These are listed below:"
+  $SWCollections = @()
+  foreach ($collection in $ServiceWindowCollections){
+    $SWCollections += "$($Collection.Name) ($($Collection.CollectionID))"
+  }
+  If($SWCollections.count -eq 0){$SWCollections += "None Found"}
+  Write-HtmlList -InputObject $SWCollections -Level 3 -File $FilePath
+  foreach ($DeviceCollection in $CustomDeviceCollections)
+  {
+    Write-Verbose "$(Get-Date):   Found Custom Device Collection: $($DeviceCollection.Name)"
+    $CollectionInfo = @()
+    $CollectionName = "$($DeviceCollection.Name)"
+    $CollectionDesc = "$($DeviceCollection.Comment)"
+    $CollectionInfo += "Collection ID: $($DeviceCollection.CollectionID)"
+    $CollectionInfo += "Total count of members: $($DeviceCollection.MemberCount)"
+    $CollectionInfo += "Limited to Device Collection: $($DeviceCollection.LimitToCollectionName) ($($DeviceCollection.LimitToCollectionID))"
+    Switch ($DeviceCollection.RefreshType)
+    {
+        1 {$UpdateSchedule = "No schedule configured"}
+        2 {$UpdateSchedule = "Full update schedule only"}
+        4 {$UpdateSchedule = "Incremental update only"}
+        6 {$UpdateSchedule = "Full and Incremental updates configured"}
+    }
+    $CollectionInfo += "Selected Update Schedule: $UpdateSchedule"
+#    If ($DeviceCollection.RefreshType -in @(2,6)){
+#        "Full Update Schedule"
+#    }
+    If ($CollectionDesc){
+        Write-HtmlList -InputObject $CollectionInfo -Title $CollectionName -Description "Description: $CollectionDesc" -Level 3 -File $FilePath
+    }else{
+        Write-HtmlList -InputObject $CollectionInfo -Title $CollectionName -Level 3 -File $FilePath
+    }
+    If ($DeviceCollection.ServiceWindowsCount -gt 0) {
+        $ServiceWindows = Get-CMMaintenanceWindow -CollectionId $DeviceCollection.CollectionID
+        Write-Verbose "$(Get-Date):   Enumerating Maintenance Windows for collection: $($DeviceCollection.Name)"
+        $ServiceWindowArray = @()
+        foreach ($ServiceWindow in $ServiceWindows)
+            {
+                $SWName = $ServiceWindow.Name
+                $Schedule = Convert-CMSchedule -ScheduleString $ServiceWindow.ServiceWindowSchedules
+                $StartTime = $Schedule.StartTime
+                $HourLength = $Schedule.HourDuration
+                $MinuteLength = $Schedule.MinuteDuration
+                $Duration = "$($HourLength):$("{0:D2}" -f $MinuteLength)"
+                switch ($ServiceWindow.IsGMT)
+                    {
+                        true {$UTCTime = 'Yes'}
+                        false {$UTCTime = 'No'}
+                    }
+                switch ($ServiceWindow.ServiceWindowType)
+                    {
+                        0 {$WindowType = 'Task Sequences'}
+                        1 {$WindowType = 'All Deployments'}
+                        4 {$WindowType = 'Software Updates'}
+                    }
+                switch ($ServiceWindow.RecurrenceType)
+                    {
+                        1 {$WindowRecurence = "None"}
+                        2 {
+                            if ($Schedule.DaySpan -eq '1') {
+                                $WindowRecurence = 'Daily'
+                            } else {
+                                $WindowRecurence = "Every $($Schedule.DaySpan) days"
+                            }
+                            }
+                        3 {                                              
+                            $WindowRecurence = "Every $($Schedule.ForNumberofWeeks) week(s) on $(Convert-WeekDay $Schedule.Day)"
+                            }
+                        4 {
+                            switch ($Schedule.weekorder)
                                 {
-                                    0 {WriteWordLine 0 3 'This is a Task Sequence maintenance window'}
-                                    1 {WriteWordLine 0 3 'This is a general maintenance window'}                        
-                                }   
-                            switch ($ServiceWindow.RecurrenceType)
-                                {
-                                    1 {WriteWordLine 0 3 "This maintenance window occurs only once on $($startTime) and lasts for $($ScheduleString.TokenData.HourDuration) hour(s) and $($ScheduleString.TokenData.MinuteDuration) minute(s)."}
-                                    2 
-                                        {
-                                            if ($ScheduleString.TokenData.DaySpan -eq '1')
-                                                {
-                                                    $daily = 'daily'
-                                                }
-                                            else
-                                                {
-                                                    $daily = "every $($ScheduleString.TokenData.DaySpan) days"
-                                                }
-                        
-                                            WriteWordLine 0 3 "This maintenance window occurs $($daily)."
-                                        }
-                                    3 
-                                        {                                              
-                                            WriteWordLine 0 3 "This maintenance window occurs every $($ScheduleString.TokenData.ForNumberofWeeks) week(s) on $(Convert-WeekDay $ScheduleString.TokenData.Day) and lasts $($ScheduleString.TokenData.HourDuration) hour(s) and $($ScheduleString.TokenData.MinuteDuration) minute(s) starting on $($startTime)."
-                                        }
-                                    4 
-                                        {
-                                            switch ($ScheduleString.TokenData.weekorder)
-                                                {
-                                                    0 {$order = 'last'}
-                                                    1 {$order = 'first'}
-                                                    2 {$order = 'second'}
-                                                    3 {$order = 'third'}
-                                                    4 {$order = 'fourth'}
-                                                }
-                                            WriteWordLine 0 3 "This maintenance window occurs every $($ScheduleString.TokenData.ForNumberofMonths) month(s) on every $($order) $(Convert-WeekDay $ScheduleString.TokenData.Day)"
-                                        }
+                                    0 {$order = 'last'}
+                                    1 {$order = 'first'}
+                                    2 {$order = 'second'}
+                                    3 {$order = 'third'}
+                                    4 {$order = 'fourth'}
+                                }
+                            $WindowRecurence = "Every $($Schedule.ForNumberofMonths) month(s) on every $($order) $(Convert-WeekDay $Schedule.Day)"
+                            }
 
-                                    5 
-                                        {
-                                            if ($ScheduleString.TokenData.MonthDay -eq '0')
-                                                { 
-                                                    $DayOfMonth = 'the last day of the month'
-                                                }
-                                            else
-                                                {
-                                                    $DayOfMonth = "day $($ScheduleString.TokenData.MonthDay)"
-                                                }
-                                            WriteWordLine 0 3 "This maintenance window occurs every $($ScheduleString.TokenData.ForNumberofMonths) month(s) on $($DayOfMonth)."
-                                            WriteWordLine 0 3 "It lasts $($ScheduleString.TokenData.HourDuration) hours and $($ScheduleString.TokenData.MinuteDuration) minutes."
-                                        }
-                                }
-                            switch ($ServiceWindow.IsEnabled)
-                                {
-                                    true {WriteWordLine 0 3 'The maintenance window is enabled'}
-                                    false {WriteWordLine 0 3 'The maintenance window is disabled'}
-                                }
-                        }
-                }
-            else
-                {
-                    WriteWordLine 0 2 'No maintenance windows configured on this collection.'
-                }
-        }
-        try {
+                        5 {
+                            if ($Schedule.MonthDay -eq '0'){
+                                $DayOfMonth = 'the last day of the month'
+                            } else {
+                                $DayOfMonth = "day $($Schedule.MonthDay)"
+                            }
+                            $WindowRecurence = "Every $($Schedule.ForNumberofMonths) month(s) on $($DayOfMonth)."
+                            }
+                    }
+                switch ($ServiceWindow.IsEnabled)
+                    {
+                        true {$WindowEnabled = 'Yes'}
+                        false {$WindowEnabled = 'No'}
+                    }
+                $ServiceWindowArray += New-Object -TypeName psobject -Property @{'Name' = $SWName; 'Start Time' = $StartTime; 'UTC' = $UTCTime; 'Duration' = $Duration; 'Recurance' = $WindowRecurence; 'Type' = $WindowType; 'Enabled' = $WindowEnabled}
+            }
+        Write-HTMLParagraph -Level 4 -File $FilePath -Text 'Collection Maintenance Windows:'
+        $ServiceWindowArray = $ServiceWindowArray | Select-Object 'Name','Start Time','UTC','Duration','Recurance','Type','Enabled'
+        Write-HtmlTable -InputObject $ServiceWindowArray -Border 1 -Level 5 -File $FilePath
+    } else {
+        Write-HTMLParagraph -Level 4 -File $FilePath -Text 'No maintenance windows configured on this collection.'
+    }
+<##        try {
             $CollVars = Get-CMDeviceCollectionVariable -CollectionId $DeviceCollection.CollectionID
             if ($CollVars) {
                 $CollVarsHashArray = @();
@@ -3971,12 +2613,14 @@ if ($ListAllInformation)
         catch [System.Management.Automation.PropertyNotFoundException] {
             WriteWordLine 0 0 ''
         }
+##>
         ### enumerating the Collection Membership Rules
+        Write-HTMLParagraph -Level 4 -File $FilePath -Text 'Collection Membership Rules:'
         $QueryRules = $Null
         $DirectRules = $Null
         $IncludeRules = $Null
         $CollectionRules = $DeviceCollection.CollectionRules #just for Direct and Query
-                    
+
         $Collection = Get-WmiObject -Namespace root\sms\site_$SiteCode -Query "SELECT * FROM SMS_Collection WHERE CollectionID = '$($DeviceCollection.CollectionID)'" -ComputerName $SMSProvider
         [wmi]$Collection = $Collection.__PATH
                     
@@ -3985,1065 +2629,1563 @@ if ($ListAllInformation)
             $DirectRules = $CollectionRules | where {$_.ResourceID} -ErrorAction SilentlyContinue
         }
         catch [System.Management.Automation.PropertyNotFoundException] {
-            WriteWordLine 0 0 ''
+            Write-Verbose "$(Get-Date):   Collection Rule info not found"
         }
         try {
             $QueryRules = $CollectionRules | where {$_.QueryExpression} -ErrorAction SilentlyContinue                            
         }
         catch [System.Management.Automation.PropertyNotFoundException] {
-            WriteWordLine 0 0 ''
+            Write-Verbose "$(Get-Date):   Collection Rule info not found"
         }
         try {
             $IncludeRules = $OtherCollectionRules | where {$_.IncludeCollectionID} -ErrorAction SilentlyContinue
         }
         catch [System.Management.Automation.PropertyNotFoundException] {
-                    WriteWordLine 0 0 ''
+            Write-Verbose "$(Get-Date):   Collection Rule info not found"
         }
 
-        if ($QueryRules) {            
-            $QueryRulesHashArray = @();
-
-            foreach ($QueryRule in $QueryRules)
-            {
-                $QueryRuleRow = @{'Query Name'= $QueryRule.RuleName; 'Query Expression' = $QueryRule.QueryExpression; 'Query ID' = $QueryRule.QueryId};
-                $QueryRulesHashArray += $QueryRuleRow;
+        if ($QueryRules) {
+            $QueryRulesArray = @();
+            foreach ($QueryRule in $QueryRules) {
+                $QueryRulesArray += New-Object -TypeName psobject -Property @{'Query Name'= $QueryRule.RuleName; 'Query Expression' = $($QueryRule.QueryExpression -replace ',',', ')}
             }
-
-            $Table = AddWordTable -Hashtable $QueryRulesHashArray -Columns 'Query Name', 'Query Expression', 'Query ID' -Headers 'Query Name', 'Query Expression', 'Query ID' -Format -155 -AutoFit $wdAutoFitContent;
-  
-            ## Set first column format
-            SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-  
-            FindWordDocumentEnd
-            $Table = $Null
+            Write-HtmlTable -InputObject $QueryRulesArray -Border 1 -Level 5 -File $FilePath
         }
         if ($DirectRules) {
-            $DirectRulesHashArray = @();
-
-            foreach ($DirectRule in $DirectRules)
-            {
-                $DirectRuleRow = @{'Resource Name'= $DirectRule.RuleName; 'Resource ID' = $DirectRule.ResourceId};
-                $DirectRulesHashArray += $DirectRuleRow;
+            $DirectRulesArray = @();
+            foreach ($DirectRule in $DirectRules) {
+                $DirectRulesArray += New-Object -TypeName psobject -Property @{'Resource Name'= $DirectRule.RuleName; 'Resource ID' = $DirectRule.ResourceId}
             }
-
-            $Table = AddWordTable -Hashtable $DirectRulesHashArray -Columns 'Resource Name', 'Resource ID' -Headers 'Resource Name', 'Resource ID' -Format -155 -AutoFit $wdAutoFitContent;
-  
-            ## Set first column format
-            SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-
-            FindWordDocumentEnd
-            $Table = $Null           
-        }
-        else {
-            WriteWordLine 0 1 'Enumerating device collection membership rules: No device collection direct membership rules configured!'
+            Write-HtmlTable -InputObject $DirectRulesArray -Border 1 -Level 5 -File $FilePath
         }
         if ($IncludeRules) {
-            $IncludeRulesHashArray = @();
-
-            foreach ($IncludeRule in $IncludeRules)
-            {
-                $IncludeRuleRow = @{'Collection Name'= $IncludeRule.RuleName; 'Collection ID' = $IncludeRule.IncludeCollectionId};
-                $IncludeRulesHashArray += $IncludeRuleRow;
+            $IncludeRulesArray = @()
+            foreach ($IncludeRule in $IncludeRules) {
+                $IncludeRulesArray += New-Object -TypeName psobject -Property @{'Collection Name'= $IncludeRule.RuleName; 'Collection ID' = $IncludeRule.IncludeCollectionId}
             }
-
-            $Table = AddWordTable -Hashtable $IncludeRulesHashArray -Columns 'Collection Name', 'Collection ID' -Headers 'Collection Name', 'Collection ID' -Format -155 -AutoFit $wdAutoFitContent;
-  
-            ## Set first column format
-            SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-  
-            $Table.Rows.SetLeftIndent($Indent1TabStops,$wdAdjustProportional)
-            $Table.AutoFitBehavior($wdAutoFitFixed)
-  
-            FindWordDocumentEnd
-            $Table = $Null  
+            Write-HtmlTable -InputObject $IncludeRulesArray -Border 1 -Level 5 -File $FilePath
         }
-        else {
-            WriteWordLine 0 1 'Enumerating device collection membership rules: No device collection Include Collection membership rules configured!'
+        if ((!$IncludeRules) -and (!$DirectRules) -and (!$QueryRules)){
+        Write-HTMLParagraph -Level 5 -File $FilePath -Text 'No collection membership rules defined.'
         }
     #move to the end of the current document
 	Write-Verbose "$(Get-Date):   move to the end of the current document"
-	$selection.EndKey($wdStory,$wdMove) | Out-Null
-	WriteWordLine 0 0 ''
     }
-    }
+}else{
+  Write-HTMLParagraph -Text "There are $($CustomDeviceCollections.count) User Defined Device collections.  These are in addition to the $($BuiltInDeviceCollections.count) built-in default device collections." -Level 3 -File $FilePath
+}
+#endregion enumerating all Device Collections
 
-else {
-    WriteWordLine 0 1 "There are $($DeviceCollections.count) Device collections."
+
+#region enumerating all Compliance Settings
+Write-Verbose "$(Get-Date):   Working on Compliance Settings"
+Write-HTMLHeading -Level 2 -PageBreak -Text 'Compliance Settings' -File $FilePath
+Write-HTMLParagraph -Text 'This section contains a summary of all configuration items, baselines, Settings, Conditional Access, and other configurable resources.' -Level 3 -File $FilePath
+#region enumerating all Configuration Items and baselines.
+Write-HTMLHeading -Level 3 -Text 'Configuration Items' -File $FilePath
+$CIs = Get-CMConfigurationItem -Fast | Where {$_.IsUserDefined -eq "true"}
+$CIsArray = @()
+foreach ($CI in $CIs){
+    $CIsArray += New-Object -TypeName psobject -Property @{'Name' = $CI.LocalizedDisplayName; 'Last modified' = $CI.DateLastModified; 'Last modified by' = $CI.LastModifiedBy; 'CI ID' = $CI.CI_ID}
+}
+$CIsArray = $CIsArray | Select-Object 'Name','Last modified','Last modified by','CI ID'
+Write-HtmlTable -InputObject $CIsArray -Border 1 -Level 4 -File $FilePath
+Write-HTMLHeading -Level 3 -Text 'Configuration Baselines' -File $FilePath
+$CBs = Get-CMBaseline | Where {$_.IsUserDefined -eq "true"}
+if ($CBs){
+    $CBsArray = @()
+    foreach ($CB in $CBs){
+        $CBsArray += New-Object -TypeName psobject -Property @{'Baseline Name' = $CB.LocalizedDisplayName; 'Last modified' = $CB.DateLastModified; 'Last modified by' = $CB.LastModifiedBy; 'Baseline ID' = $CB.CI_ID}
+    }
+    $CBsArray = $CBsArray|Select-Object 'Baseline Name','Last modified','Last modified by','Baseline ID'
+    Write-HtmlTable -InputObject $CIsArray -Border 1 -Level 4 -File $FilePath
+} else {
+    Write-HTMLParagraph -Text 'There are no Configuration Baselines configured.' -Level 3 -File $FilePath
+}
+#endregion enumerating all Configuration Items and baselines.
+
+#region enumerating Configuration Policies...
+Write-Verbose "$(Get-Date):   Working on Configuration Policies..."
+$CMPolicies=@()
+$CMPolicies=Get-CMConfigurationPolicy -fast | select CategoryInstance_UniqueIDs,LocalizedDisplayName,LocalizedCategoryInstanceNames,CI_ID,LastModifiedBy,DateLastModified,IsAssigned
+Write-Verbose "$(Get-Date):   $($CMPolicies.count) Configuration Policies found."
+
+$ComplianceSettings = @()
+$RemoteSettings = @()
+$UserStateSettings = @()
+$CommSettings = @()
+$TandCSettings = @()
+$EdUpgradeSettings = @()
+$WinHelloSettings = @()
+$WiFiProfileSettings = @()
+$VpnSettings = @()
+$CertSettings = @()
+
+foreach ($CMPolicy in $CMPolicies){
+    Switch ($CMPolicy){
+        {'SettingsAndPolicy:SMS_CompliancePolicySettings' -in $_.CategoryInstance_UniqueIDs}{
+            $ComplianceSettings += New-Object -TypeName psobject -Property @{Name = "$($CMPolicy.LocalizedDisplayName)";'Modified By' = "$($CMPolicy.LastModifiedBy)";'Modified' = "$($CMPolicy.DateLastModified)"; Deployed = "$($CMPolicy.IsAssigned)"}
+        }
+        {'SettingsAndPolicy:SMS_RemoteConnectionSettings' -in $_.CategoryInstance_UniqueIDs}{
+            $RemoteSettings += New-Object -TypeName psobject -Property @{Name = "$($CMPolicy.LocalizedDisplayName)";'Modified By' = "$($CMPolicy.LastModifiedBy)";'Modified' = "$($CMPolicy.DateLastModified)"; Deployed = "$($CMPolicy.IsAssigned)"}
+        }
+        {'SettingsAndPolicy:SMS_UserStateManagementSettings' -in $_.CategoryInstance_UniqueIDs}{
+            $UserStateSettings += New-Object -TypeName psobject -Property @{Name = "$($CMPolicy.LocalizedDisplayName)";'Modified By' = "$($CMPolicy.LastModifiedBy)";'Modified' = "$($CMPolicy.DateLastModified)"; Deployed = "$($CMPolicy.IsAssigned)"}
+        }
+        {'SettingsAndPolicy:SMS_CommunicationsProvisioningSettings' -in $_.CategoryInstance_UniqueIDs}{
+            $CommSettings += New-Object -TypeName psobject -Property @{Name = "$($CMPolicy.LocalizedDisplayName)";'Modified By' = "$($CMPolicy.LastModifiedBy)";'Modified' = "$($CMPolicy.DateLastModified)"; Deployed = "$($CMPolicy.IsAssigned)"}
+        }
+        {'SettingsAndPolicy:SMS_TermsAndConditionsSettings' -in $_.CategoryInstance_UniqueIDs}{
+            $TandCSettings += New-Object -TypeName psobject -Property @{Name = "$($CMPolicy.LocalizedDisplayName)";'Modified By' = "$($CMPolicy.LastModifiedBy)";'Modified' = "$($CMPolicy.DateLastModified)"; Deployed = "$($CMPolicy.IsAssigned)"}
+        }
+        {'SettingsAndPolicy:SMS_EditionUpgradeSettings' -in $_.CategoryInstance_UniqueIDs}{
+            $EdUpgradeSettings += New-Object -TypeName psobject -Property @{Name = "$($CMPolicy.LocalizedDisplayName)";'Modified By' = "$($CMPolicy.LastModifiedBy)";'Modified' = "$($CMPolicy.DateLastModified)"; Deployed = "$($CMPolicy.IsAssigned)"}
+        }
+        {'SettingsAndPolicy:SMS_PassportForWorkProfileSettings' -in $_.CategoryInstance_UniqueIDs}{
+            $WinHelloSettings += New-Object -TypeName psobject -Property @{Name = "$($CMPolicy.LocalizedDisplayName)";'Modified By' = "$($CMPolicy.LastModifiedBy)";'Modified' = "$($CMPolicy.DateLastModified)"; Deployed = "$($CMPolicy.IsAssigned)"}
+        }
+        {'SettingsAndPolicy:SMS_WirelessProfileSettings' -in $_.CategoryInstance_UniqueIDs}{
+            $WiFiProfileSettings += New-Object -TypeName psobject -Property @{Name = "$($CMPolicy.LocalizedDisplayName)";'Modified By' = "$($CMPolicy.LastModifiedBy)";'Modified' = "$($CMPolicy.DateLastModified)"; Deployed = "$($CMPolicy.IsAssigned)"}
+        }
+        {'SettingsAndPolicy:SMS_VpnConnectionSettings' -in $_.CategoryInstance_UniqueIDs}{
+            $VpnSettings += New-Object -TypeName psobject -Property @{Name = "$($CMPolicy.LocalizedDisplayName)";'Modified By' = "$($CMPolicy.LastModifiedBy)";'Modified' = "$($CMPolicy.DateLastModified)"; Deployed = "$($CMPolicy.IsAssigned)"}
+        }
+        {'SettingsAndPolicy:SMS_TrustedRootCertificateSettings' -in $_.CategoryInstance_UniqueIDs}{
+            $CertSettings += New-Object -TypeName psobject -Property @{Name = "$($CMPolicy.LocalizedDisplayName)";'Modified By' = "$($CMPolicy.LastModifiedBy)";'Modified' = "$($CMPolicy.DateLastModified)"; Deployed = "$($CMPolicy.IsAssigned)"}
+        }
+    }
+}
+Write-HTMLHeading -Level 3 -Text 'User Data and Profiles' -File $FilePath
+if ($UserStateSettings.count -gt 0) {
+    $UserStateSettings = $UserStateSettings | Select-Object 'Name','Modified By','Modified','Deployed'
+    Write-HtmlTable -InputObject $UserStateSettings -Border 1 -Level 4 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'No User Data and Profiles defined in site.' -Level 4 -File $FilePath
+}
+Write-HTMLHeading -Level 3 -Text 'Remote Connection Profiles' -File $FilePath
+if ($RemoteSettings.count -gt 0) {
+    $RemoteSettings = $RemoteSettings | Select-Object 'Name','Modified By','Modified','Deployed'
+    Write-HtmlTable -InputObject $RemoteSettings -Border 1 -Level 4 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'No Remote Connection Profiles defined in site.' -Level 4 -File $FilePath
+}
+Write-HTMLHeading -Level 3 -Text 'Compliance Policies' -File $FilePath
+if ($ComplianceSettings.count -gt 0) {
+    $ComplianceSettings = $ComplianceSettings | Select-Object 'Name','Modified By','Modified','Deployed'
+    Write-HtmlTable -InputObject $ComplianceSettings -Border 1 -Level 4 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'No Compliance Policies defined in site.' -Level 4 -File $FilePath
 }
 
-    Write-Verbose "$(Get-Date):   Working on Compliance Settings"
-    WriteWordLine 2 0 'Compliance Settings'
-    WriteWordLine 0 0 ''
-    WriteWordLine 3 0 'Configuration Items'
+Write-HTMLHeading -Level 3 -Text 'Company Resource Access' -File $FilePath
 
-    $CIs = Get-CMConfigurationItem
-    WriteWordLine 0 1 'Enumerating Configuration Items:'
+Write-HTMLHeading -Level 4 -Text 'Certificate Profiles' -File $FilePath
+if ($CertSettings.count -gt 0) {
+    $CertSettings = $CertSettings | Select-Object 'Name','Modified By','Modified','Deployed'
+    Write-HtmlTable -InputObject $CertSettings -Border 1 -Level 5 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'No Certificate Profiles defined in site.' -Level 5 -File $FilePath
+}
+Write-HTMLHeading -Level 4 -Text 'Email Profiles' -File $FilePath
+if ($CommSettings.count -gt 0) {
+    $CommSettings = $CommSettings | Select-Object 'Name','Modified By','Modified','Deployed'
+    Write-HtmlTable -InputObject $CommSettings -Border 1 -Level 5 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'No Email Profiles defined in site.' -Level 5 -File $FilePath
+}
+Write-HTMLHeading -Level 4 -Text 'VPN Profiles' -File $FilePath
+if ($VpnSettings.count -gt 0) {
+    $VpnSettings = $VpnSettings | Select-Object 'Name','Modified By','Modified','Deployed'
+    Write-HtmlTable -InputObject $VpnSettings -Border 1 -Level 5 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'No VPN Profiles defined in site.' -Level 5 -File $FilePath
+}
+Write-HTMLHeading -Level 4 -Text 'Wi-Fi Profiles' -File $FilePath
+if ($WiFiProfileSettings.count -gt 0) {
+    $WiFiProfileSettings = $WiFiProfileSettings | Select-Object 'Name','Modified By','Modified','Deployed'
+    Write-HtmlTable -InputObject $WiFiProfileSettings -Border 1 -Level 5 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'No Wi-Fi Profiles defined in site.' -Level 5 -File $FilePath
+}
+Write-HTMLHeading -Level 4 -Text 'Windows Hello for Business Profiles' -File $FilePath
+if ($WinHelloSettings.count -gt 0) {
+    $WinHelloSettings = $WinHelloSettings | Select-Object 'Name','Modified By','Modified','Deployed'
+    Write-HtmlTable -InputObject $WinHelloSettings -Border 1 -Level 5 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'No Windows Hello for Business Profiles defined in site.' -Level 5 -File $FilePath
+}
+Write-HTMLHeading -Level 3 -Text 'Terms and Conditions' -File $FilePath
+if ($TandCSettings.count -gt 0) {
+    $TandCSettings = $TandCSettings | Select-Object 'Name','Modified By','Modified','Deployed'
+    Write-HtmlTable -InputObject $TandCSettings -Border 1 -Level 4 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'No Terms and Conditions defined in site.' -Level 4 -File $FilePath
+}
+Write-HTMLHeading -Level 3 -Text 'Windows 10 Edition Upgrades' -File $FilePath
+if ($EdUpgradeSettings.count -gt 0) {
+    $EdUpgradeSettings = $EdUpgradeSettings | Select-Object 'Name','Modified By','Modified','Deployed'
+    Write-HtmlTable -InputObject $EdUpgradeSettings -Border 1 -Level 4 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'No Windows 10 Edition Upgrades defined in site.' -Level 4 -File $FilePath
+}
 
-  $CIsHashArray = @();
-  
-  foreach ($CI in $CIs)
-  {
-    $CIRow = @{'Name' = $CI.LocalizedDisplayName; 'Last modified' = $CI.DateLastModified; 'Last modified by' = $CI.LastModifiedBy; 'CI ID' = $CI.CI_ID}
-    $CIsHashArray += $CIRow
-  }
-  $Table = AddWordTable -Hashtable $CIsHashArray -Columns 'Name', 'Last modified', 'Last modified by', 'CI ID' -Headers 'Name', 'Last modified', 'Last modified by', 'CI ID' -Format -155 -AutoFit $wdAutoFitContent;
-  
-  ## Set first column format
-  SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
+#endregion enumerating Configuration Policies.
+#endregion enumerating all Compliance Settings
 
-  FindWordDocumentEnd
-  $Table = $Null
-
-    WriteWordLine 0 0 ''
-
-    WriteWordLine 3 0 'Configuration Baselines'
-    $CBs = Get-CMBaseline
-
-    if ($CBs) {
-
-      $CBsHashArray = @();
-  
-      foreach ($CB in $CBs)
-      {
-        $CBRow = @{'Name' = $CB.LocalizedDisplayName; 'Last modified' = $CB.DateLastModified; 'Last modified by' = $CB.LastModifiedBy; 'CI ID' = $CB.CI_ID}
-        $CBsHashArray += $CBRow
-      }
-      $Table = AddWordTable -Hashtable $CBsHashArray -Columns 'Name', 'Last modified', 'Last modified by', 'CI ID' -Headers 'Name', 'Last modified', 'Last modified by', 'CI ID' -Format -155 -AutoFit $wdAutoFitContent;
-  
-      ## Set first column format
-      SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-  
-      FindWordDocumentEnd
-      $Table = $Null
-
-      WriteWordLine 0 0 ''
-
-    }
-    else {
-        WriteWordLine 0 1 'There are no Configuration Baselines configured.'
-    }
-
-    ### User Data and Profiles
-    Write-Verbose "$(Get-Date):   Working on User Data and Profiles"
-    WriteWordLine 3 0 'User Data and Profiles'
-    $UserDataProfiles = Get-CMUserDataAndProfileConfigurationItem
-
-    if (-not [string]::IsNullOrEmpty($UserDataProfiles)) {
-      $UserDataProfilesHashArray = @();
-  
-      foreach ($UDP in $UserDataProfiles)
-      {
-        $UDPRow = @{'Name' = $UDP.LocalizedDisplayName; 'Last modified' = $UDP.DateLastModified; 'Last modified by' = $UDP.LastModifiedBy; 'CI ID' = $UDP.CI_ID}
-        $UserDataProfilesHashArray += $UDPRow
-      }
-      $Table = AddWordTable -Hashtable $UserDataProfilesHashArray -Columns 'Name', 'Last modified', 'Last modified by', 'CI ID' -Headers 'Name', 'Last modified', 'Last modified by', 'CI ID' -Format -155 -AutoFit $wdAutoFitContent;
-  
-      ## Set first column format
-      SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-
-      FindWordDocumentEnd
-      $Table = $Null
-      WriteWordLine 0 0 ''
-    }
-    else {
-        WriteWordLine 0 1 'There are no User Data and Profile configurations configured.'
-    }
-
-        Write-Verbose "$(Get-Date):   Working on Endpoint Protection"
-        WriteWordLine 2 0 'Endpoint Protection'
-        if (-not ($(Get-CMEndpointProtectionPoint) -eq $Null))
-            {
-                WriteWordLine 3 0 'Antimalware Policies'
-                $AntiMalwarePolicies = Get-CMAntimalwarePolicy
-                if (-not [string]::IsNullOrEmpty($AntiMalwarePolicies))
-                    {
-                        foreach ($AntiMalwarePolicy in $AntiMalwarePolicies)
+#region Endpoint Protection
+Write-Verbose "$(Get-Date):   Working on Endpoint Protection"
+Write-HTMLHeading -Level 2 -PageBreak -Text 'Endpoint Protection' -File $FilePath
+Write-HTMLParagraph -Text 'This section contains a summary of all Endpoint Security configuration settings.  This includes System Center Endpoint Protection (Antimalware), Firewall, Windows Defender ATP, and Device Guard Policies.' -Level 3 -File $FilePath
+#region Antimalware
+Write-HTMLHeading -Level 3 -Text 'Antimalware Policies' -File $FilePath
+if (-not ($(Get-CMEndpointProtectionPoint) -eq $Null)){
+    $AntiMalwarePolicies = Get-CMAntimalwarePolicy
+    if (-not [string]::IsNullOrEmpty($AntiMalwarePolicies)){
+        foreach ($AntiMalwarePolicy in $AntiMalwarePolicies){
+                if ($AntiMalwarePolicy.Name -eq 'Default Client Antimalware Policy'){
+                    $AgentConfig = $AntiMalwarePolicy.AgentConfiguration
+                    Write-HTMLHeading -Level 4 -Text "$($AntiMalwarePolicy.Name)" -File $FilePath
+                    Write-HTMLParagraph -Text "Description: $($AntiMalwarePolicy.Description)" -Level 4 -File $FilePath
+                    $listTitle = 'Scheduled Scans'
+                    $listArray = @()
+                    $listArray += "Run a scheduled scan on client computers: $($AgentConfig.EnableScheduledScan)"
+                    if ($AgentConfig.EnableScheduledScan){
+                        switch ($AgentConfig.ScheduledScanType)
                             {
-                                if ($AntiMalwarePolicy.Name -eq 'Default Client Antimalware Policy')
-                                    {
-                                        $AgentConfig = $AntiMalwarePolicy.AgentConfiguration
-                                        WriteWordLine 0 1 "$($AntiMalwarePolicy.Name)" -boldface $true
-                                        WriteWordLine 0 1 "Description: $($AntiMalwarePolicy.Description)"
-                                        WriteWordLine 0 2 'Scheduled Scans' -boldface $true
-                                        WriteWordLine 0 3 "Run a scheduled scan on client computers: $($AgentConfig.EnableScheduledScan)"
-                                        if ($AgentConfig.EnableScheduledScan)
-                                            {
-                                                switch ($AgentConfig.ScheduledScanType)
-                                                    {
-                                                        1 { $ScheduledScanType = 'Quick Scan' }
-                                                        2 { $ScheduledScanType = 'Full Scan' }
-                                                    }
-                                                WriteWordLine 0 3 "Scan type: $($ScheduledScanType)"
-                                                WriteWordLine 0 3 "Scan day: $(Convert-WeekDay $AgentConfig.ScheduledScanWeekDay)"
-                                                WriteWordLine 0 3 "Scan time: $(Convert-Time -time $AgentConfig.ScheduledScanTime)"
-                                                WriteWordLine 0 3 "Run a daily quick scan on client computers: $($AgentConfig.EnableQuickDailyScan)"
-                                                WriteWordLine 0 3 "Daily quick scan schedule time: $(Convert-Time -time $AgentConfig.ScheduledScanQuickTime)"
-                                                WriteWordLine 0 3 "Check for the latest definition updates before running a scan: $($AgentConfig.CheckLatestDefinition)"
-                                                WriteWordLine 0 3 "Start a scheduled scan only when the computer is idle: $($AgentConfig.ScanWhenClientNotInUse)"
-                                                WriteWordLine 0 3 "Force a scan of the selected scan type if client computer is offline during two or more scheduled scans: $($AgentConfig.EnableCatchupScan)"
-                                                WriteWordLine 0 3 "Limit CPU usage during scans to (%): $($AgentConfig.LimitCPUUsage)"
-                                            }
-                                        WriteWordLine 0 0 ''
-                                        WriteWordLine 0 2 'Scan settings' -boldface $true
-                                        WriteWordLine 0 3 "Scan email and email attachments: $($AgentConfig.ScanEmail)"
-                                        WriteWordLine 0 3 "Scan removable storage devices such as USB drives: $($AgentConfig.ScanRemovableStorage)"
-                                        WriteWordLine 0 3 "Scan network drives when running a full scan: $($AgentConfig.ScanNetworkDrives)"
-                                        WriteWordLine 0 3 "Scan archived files: $($AgentConfig.ScanArchivedFiles)"
-                                        WriteWordLine 0 3 "Allow users to configure CPU usage during scans: $($AgentConfig.AllowClientUserConfigLimitCPUUsage)"
-                                        WriteWordLine 0 3 'User control of scheduled scans: ' -nonewline
-                                        switch ($AgentConfig.ScheduledScanUserControl)
-                                            {
-                                                0 { WriteWordLine 0 0 'No control' }
-                                                1 { WriteWordLine 0 0 'Scan time only' }
-                                                2 { WriteWordLine 0 0 'Full control' }
-                                            }
-                                        WriteWordLine 0 2 'Default Actions' -boldface $true
-                                        WriteWordLine 0 3 'Severe threats: ' -nonewline
-                                        switch ($AgentConfig.DefaultActionSevere)
-                                            {
-                                                0 { WriteWordLine 0 0 'Recommended' }
-                                                2 { WriteWordLine 0 0 'Quarantine' }
-                                                3 { WriteWordLine 0 0 'Remove' }
-                                                6 { WriteWordLine 0 0 'Allow' }
-                                            }
-                                        WriteWordLine 0 3 'High threats: ' -nonewline
-                                        switch ($AgentConfig.DefaultActionSevere)
-                                            {
-                                                0 { WriteWordLine 0 0 'Recommended' }
-                                                2 { WriteWordLine 0 0 'Quarantine' }
-                                                3 { WriteWordLine 0 0 'Remove' }
-                                                6 { WriteWordLine 0 0 'Allow' }
-                                            }
-                                        WriteWordLine 0 3 'Medium threats: ' -nonewline
-                                        switch ($AgentConfig.DefaultActionSevere)
-                                            {
-                                                0 { WriteWordLine 0 0 'Recommended' }
-                                                2 { WriteWordLine 0 0 'Quarantine' }
-                                                3 { WriteWordLine 0 0 'Remove' }
-                                                6 { WriteWordLine 0 0 'Allow' }
-                                            }
-                                        WriteWordLine 0 3 'Low threats: ' -nonewline
-                                        switch ($AgentConfig.DefaultActionSevere)
-                                            {
-                                                0 { WriteWordLine 0 0 'Recommended' }
-                                                2 { WriteWordLine 0 0 'Quarantine' }
-                                                3 { WriteWordLine 0 0 'Remove' }
-                                                6 { WriteWordLine 0 0 'Allow' }
-                                            }
-                                        WriteWordLine 0 2 'Real-time protection' -boldface $true
-                                        WriteWordLine 0 3 "Enable real-time protection: $($AgentConfig.RealtimeProtectionOn)"
-                                        WriteWordLine 0 3 "Monitor file and program activity on your computer: $($AgentConfig.MonitorFileProgramActivity)"
-                                        WriteWordLine 0 3 'Scan system files: ' -nonewline
-                                        switch ($AgentConfig.RealtimeScanOption)
-                                            {
-                                                0 { WriteWordLine 0 0 'Scan incoming and outgoing files' }
-                                                1 { WriteWordLine 0 0 'Scan incoming files only' }
-                                                2 { WriteWordLine 0 0 'Scan outgoing files only' }
-                                            }
-                                        WriteWordLine 0 2 'Exclusion settings' -boldface $true
-                                        WriteWordLine 0 3 'Excluded files and folders: '
-                                        foreach ($ExcludedFileFolder in $AgentConfig.ExcludedFilePaths)
-                                            {
-                                                WriteWordLine 0 4 "$($ExcludedFileFolder)"
-                                            }
-                                        WriteWordLine 0 3 'Excluded file types: '
-                                        foreach ($ExcludedFileType in $AgentConfig.ExcludedFileTypes)
-                                            {
-                                                WriteWordLine 0 4 "$($ExcludedFileType)"
-                                            }
-                                        WriteWordLine 0 3 'Excluded processes: '
-                                        foreach ($ExcludedProcess in $AgentConfig.ExcludedProcesses)
-                                            {
-                                                WriteWordLine 0 4 "$($ExcludedProcess)"
-                                            }
-                                        WriteWordLine 0 2 'Advanced' -boldface $true
-                                        WriteWordLine 0 3 "Create a system restore point before computers are cleaned: $($AgentConfig.CreateSystemRestorePointBeforeClean)"
-                                        WriteWordLine 0 3 "Disable the client user interface: $($AgentConfig.DisableClientUI)"
-                                        WriteWordLine 0 3 "Show notifications messages on the client computer when the user needs to run a full scan, update definitions, or run Windows Defender Offline: $($AgentConfig.ShowNotificationMessages)"
-                                        WriteWordLine 0 3 "Delete quarantined files after (days): $($AgentConfig.DeleteQuarantinedFilesPeriod)"
-                                        WriteWordLine 0 3 "Allow users to configure the setting for quarantined file deletion: $($AgentConfig.AllowUserConfigQuarantinedFileDeletionPeriod)"
-                                        WriteWordLine 0 3 "Allow users to exclude file and folders, file types and processes: $($AgentConfig.AllowUserAddExcludes)"
-                                        WriteWordLine 0 3 "Allow all users to view the full History results: $($AgentConfig.AllowUserViewHistory)"
-                                        WriteWordLine 0 3 "Enable reparse point scanning: $($AgentConfig.EnableReparsePointScanning)"
-                                        WriteWordLine 0 3 "Randomize scheduled scan and definition update start time (within 30 minutes): $($AgentConfig.RandomizeScheduledScanStartTime)"
-        
-                                        WriteWordLine 0 2 'Threat overrides' -boldface $true
-                                        if (-not [string]::IsNullOrEmpty($AgentConfig.ThreatName))
-                                            {
-                                                WriteWordLine 0 3 'Threat name and override action: Threats specified.'
-                                            }
-                                        WriteWordLine 0 2 'Microsoft Active Protection Service' -boldface $true
-                                        WriteWordLine 0 3 'Microsoft Active Protection Service membership type: ' -nonewline
-                                        switch ($AgentConfig.JoinSpyNet)
-                                            {
-                                                0 { WriteWordLine 0 0 'Do not join MAPS' }
-                                                1 { WriteWordLine 0 0 'Basic membership' }
-                                                2 { WriteWordLine 0 0 'Advanced membership' }
-                                            }
-                                        WriteWordLine 0 3 "Allow users to modify Microsoft Active Protection Service settings: $($AgentConfig.AllowUserChangeSpyNetSettings)"
-
-                                        WriteWordLine 0 2 'Definition Updates' -boldface $true
-                                        WriteWordLine 0 3 "Check for Endpoint Protection definitions at a specific interval (hours): (0 disable check on interval) $($AgentConfig.SignatureUpdateInterval)"
-                                        WriteWordLine 0 3 "Check for Endpoint Protection definitions daily at: (Only configurable if interval-based check is disabled) $(Convert-Time -time $AgentConfig.SignatureUpdateTime)"
-                                        WriteWordLine 0 3 "Force a definition update if the client computer is offline for more than two consecutive scheduled updates: $($AgentConfig.EnableSignatureUpdateCatchupInterval)"
-                                        WriteWordLine 0 3 'Set sources and order for Endpoint Protection definition updates: '
-                                        foreach ($Fallback in $AgentConfig.FallbackOrder)
-                                            {
-                                                WriteWordLine 0 3 "$($Fallback)"
-                                            }
-                                        WriteWordLine 0 3 "If Configuration Manager is used as a source for definition updates, clients will only update from alternative sources if definition is older than (hours): $($AgentConfig.AuGracePeriod / 60)"
-                                        WriteWordLine 0 3 'If UNC file shares are selected as a definition update source, specify the UNC paths:' 
-                                        foreach ($UNCShare in $AgentConfig.DefinitionUpdateFileSharesSources)
-                                            {
-                                                WriteWordLine 0 4 "$($UNCShare)"
-                                            }
-                                    }
-                            else
-                                {
-                                    $AgentConfig_custom = $AntiMalwarePolicy.AgentConfigurations
-                                    WriteWordLine 0 1 "$($AntiMalwarePolicy.Name)" -boldface $true
-                                    WriteWordLine 0 1 "Description: $($AntiMalwarePolicy.Description)"
-                                    foreach ($Agentconfig in $AgentConfig_custom)
-                                        {
-                                            switch ($AgentConfig.AgentID)
-                                                {
-                                                    201 
-                                                        {
-                                                            WriteWordLine 0 2 'Scheduled Scans' -boldface $true
-                                                            WriteWordLine 0 2 "Run a scheduled scan on client computers: $($AgentConfig.EnableScheduledScan)"
-                                                            if ($AgentConfig.EnableScheduledScan)
-                                                                {
-                                                                    switch ($AgentConfig.ScheduledScanType)
-                                                                        {
-                                                                            1 { $ScheduledScanType = 'Quick Scan' }
-                                                                            2 { $ScheduledScanType = 'Full Scan' }
-                                                                        }
-                                                                    WriteWordLine 0 3 "Scan type: $($ScheduledScanType)"
-                                                                    WriteWordLine 0 3 "Scan day: $(Convert-WeekDay $AgentConfig.ScheduledScanWeekDay)"
-                                                                    WriteWordLine 0 3 "Scan time: $(Convert-Time -time $AgentConfig.ScheduledScanTime)"
-                                                                    WriteWordLine 0 3 "Run a daily quick scan on client computers: $($AgentConfig.EnableQuickDailyScan)"
-                                                                    WriteWordLine 0 3 "Daily quick scan schedule time: $(Convert-Time -time $AgentConfig.ScheduledScanQuickTime)"
-                                                                    WriteWordLine 0 3 "Check for the latest definition updates before running a scan: $($AgentConfig.CheckLatestDefinition)"
-                                                                    WriteWordLine 0 3 "Start a scheduled scan only when the computer is idle: $($AgentConfig.ScanWhenClientNotInUse)"
-                                                                    WriteWordLine 0 3 "Force a scan of the selected scan type if client computer is offline during two or more scheduled scans: $($AgentConfig.EnableCatchupScan)"
-                                                                    WriteWordLine 0 3 "Limit CPU usage during scans to (%): $($AgentConfig.LimitCPUUsage)"
-                                                                }
-                                                        }
-                                                    202
-                                                        {
-                                                            WriteWordLine 0 2 'Default Actions' -boldface $true
-                                                            WriteWordLine 0 3 'Severe threats: ' -nonewline
-                                                            switch ($AgentConfig.DefaultActionSevere)
-                                                                {
-                                                                    0 { WriteWordLine 0 0 'Recommended' }
-                                                                    2 { WriteWordLine 0 0 'Quarantine' }
-                                                                    3 { WriteWordLine 0 0 'Remove' }
-                                                                    6 { WriteWordLine 0 0 'Allow' }
-                                                                }
-                                                            WriteWordLine 0 3 'High threats: ' -nonewline
-                                                            switch ($AgentConfig.DefaultActionSevere)
-                                                                {
-                                                                    0 { WriteWordLine 0 0 'Recommended' }
-                                                                    2 { WriteWordLine 0 0 'Quarantine' }
-                                                                    3 { WriteWordLine 0 0 'Remove' }
-                                                                    6 { WriteWordLine 0 0 'Allow' }
-                                                                }
-                                                            WriteWordLine 0 3 'Medium threats: ' -nonewline
-                                                            switch ($AgentConfig.DefaultActionSevere)
-                                                                {
-                                                                    0 { WriteWordLine 0 0 'Recommended' }
-                                                                    2 { WriteWordLine 0 0 'Quarantine' }
-                                                                    3 { WriteWordLine 0 0 'Remove' }
-                                                                    6 { WriteWordLine 0 0 'Allow' }
-                                                                }
-                                                            WriteWordLine 0 3 'Low threats: ' -nonewline
-                                                            switch ($AgentConfig.DefaultActionSevere)
-                                                                {
-                                                                    0 { WriteWordLine 0 0 'Recommended' }
-                                                                    2 { WriteWordLine 0 0 'Quarantine' }
-                                                                    3 { WriteWordLine 0 0 'Remove' }
-                                                                    6 { WriteWordLine 0 0 'Allow' }
-                                                                }                                           
-                                                        }
-                                                    203
-                                                        {
-                                                            WriteWordLine 0 2 'Exclusion settings' -boldface $true
-                                                            WriteWordLine 0 3 'Excluded files and folders: '
-                                                            foreach ($ExcludedFileFolder in $AgentConfig.ExcludedFilePaths)
-                                                                {
-                                                                    WriteWordLine 0 4 "$($ExcludedFileFolder)"
-                                                                }
-                                                            WriteWordLine 0 3 'Excluded file types: '
-                                                            foreach ($ExcludedFileType in $AgentConfig.ExcludedFileTypes)
-                                                                {
-                                                                    WriteWordLine 0 4 "$($ExcludedFileType)"
-                                                                }
-                                                            WriteWordLine 0 3 'Excluded processes: '
-                                                            foreach ($ExcludedProcess in $AgentConfig.ExcludedProcesses)
-                                                                {
-                                                                    WriteWordLine 0 4 "$($ExcludedProcess)"
-                                                                }                                            
-                                                        }
-                                                    204
-                                                        {
-                                                            WriteWordLine 0 2 'Real-time protection' -boldface $true
-                                                            WriteWordLine 0 3 "Enable real-time protection: $($AgentConfig.RealtimeProtectionOn)"
-                                                            WriteWordLine 0 3 "Monitor file and program activity on your computer: $($AgentConfig.MonitorFileProgramActivity)"
-                                                            WriteWordLine 0 3 'Scan system files: ' -nonewline
-                                                            switch ($AgentConfig.RealtimeScanOption)
-                                                                {
-                                                                    0 { WriteWordLine 0 0 'Scan incoming and outgoing files' }
-                                                                    1 { WriteWordLine 0 0 'Scan incoming files only' }
-                                                                    2 { WriteWordLine 0 0 'Scan outgoing files only' }
-                                                                }                                            
-                                                        }
-                                                    205
-                                                        {
-                                                            WriteWordLine 0 2 'Advanced' -boldface $true
-                                                            WriteWordLine 0 3 "Create a system restore point before computers are cleaned: $($AgentConfig.CreateSystemRestorePointBeforeClean)"
-                                                            WriteWordLine 0 3 "Disable the client user interface: $($AgentConfig.DisableClientUI)"
-                                                            WriteWordLine 0 3 "Show notifications messages on the client computer when the user needs to run a full scan, update definitions, or run Windows Defender Offline: $($AgentConfig.ShowNotificationMessages)"
-                                                            WriteWordLine 0 3 "Delete quarantined files after (days): $($AgentConfig.DeleteQuarantinedFilesPeriod)"
-                                                            WriteWordLine 0 3 "Allow users to configure the setting for quarantined file deletion: $($AgentConfig.AllowUserConfigQuarantinedFileDeletionPeriod)"
-                                                            WriteWordLine 0 3 "Allow users to exclude file and folders, file types and processes: $($AgentConfig.AllowUserAddExcludes)"
-                                                            WriteWordLine 0 3 "Allow all users to view the full History results: $($AgentConfig.AllowUserViewHistory)"
-                                                            WriteWordLine 0 3 "Enable reparse point scanning: $($AgentConfig.EnableReparsePointScanning)"
-                                                            WriteWordLine 0 3 "Randomize scheduled scan and definition update start time (within 30 minutes): $($AgentConfig.RandomizeScheduledScanStartTime)"                                            
-                                                        }
-                                                    206
-                                                        {
-                                            
-                                                        }
-                                                    207
-                                                        {
-                                                            WriteWordLine 0 2 'Microsoft Active Protection Service' -boldface $true
-                                                            WriteWordLine 0 3 'Microsoft Active Protection Service membership type: ' -nonewline
-                                                            switch ($AgentConfig.JoinSpyNet)
-                                                                {
-                                                                    0 { WriteWordLine 0 0 'Do not join MAPS' }
-                                                                    1 { WriteWordLine 0 0 'Basic membership' }
-                                                                    2 { WriteWordLine 0 0 'Advanced membership' }
-                                                                }
-                                                            WriteWordLine 0 3 "Allow users to modify Microsoft Active Protection Service settings: $($AgentConfig.AllowUserChangeSpyNetSettings)"                                            
-                                                        }
-                                                    208
-                                                        {
-                                                            WriteWordLine 0 2 'Definition Updates' -boldface $true
-                                                            WriteWordLine 0 3 "Check for Endpoint Protection definitions at a specific interval (hours): (0 disable check on interval) $($AgentConfig.SignatureUpdateInterval)"
-                                                            WriteWordLine 0 3 "Check for Endpoint Protection definitions daily at: (Only configurable if interval-based check is disabled) $(Convert-Time -time $AgentConfig.SignatureUpdateTime)"
-                                                            WriteWordLine 0 3 "Force a definition update if the client computer is offline for more than two consecutive scheduled updates: $($AgentConfig.EnableSignatureUpdateCatchupInterval)"
-                                                            WriteWordLine 0 3 'Set sources and order for Endpoint Protection definition updates: '
-                                                            foreach ($Fallback in $AgentConfig.FallbackOrder)
-                                                                {
-                                                                    WriteWordLine 0 4 "$($Fallback)"
-                                                                }
-                                                            WriteWordLine 0 3 "If Configuration Manager is used as a source for definition updates, clients will only update from alternative sources if definition is older than (hours): $($AgentConfig.AuGracePeriod / 60)"
-                                                            WriteWordLine 0 3 'If UNC file shares are selected as a definition update source, specify the UNC paths:' 
-                                                            foreach ($UNCShare in $AgentConfig.DefinitionUpdateFileSharesSources)
-                                                                {
-                                                                    WriteWordLine 0 4 "$($UNCShare)"
-                                                                }
-                                                        }
-                                                    209
-                                                        {
-                                                            WriteWordLine 0 2 'Scan settings' -boldface $true
-                                                            WriteWordLine 0 3 "Scan email and email attachments: $($AgentConfig.ScanEmail)"
-                                                            WriteWordLine 0 3 "Scan removable storage devices such as USB drives: $($AgentConfig.ScanRemovableStorage)"
-                                                            WriteWordLine 0 3 "Scan network drives when running a full scan: $($AgentConfig.ScanNetworkDrives)"
-                                                            WriteWordLine 0 3 "Scan archived files: $($AgentConfig.ScanArchivedFiles)"
-                                                            WriteWordLine 0 3 "Allow users to configure CPU usage during scans: $($AgentConfig.AllowClientUserConfigLimitCPUUsage)"
-                                                            WriteWordLine 0 3 'User control of scheduled scans: ' -nonewline
-                                                            switch ($AgentConfig.ScheduledScanUserControl)
-                                                                {
-                                                                    0 { WriteWordLine 0 0 'No control' }
-                                                                    1 { WriteWordLine 0 0 'Scan time only' }
-                                                                    2 { WriteWordLine 0 0 'Full control' }
-                                                                }
-                                                        }
-                                                }
-                                        }
-                                }
-                        }
-                    }
-                else
-                    {
-                        WriteWordLine 0 1 'There are no Anti Malware Policies configured.'
-                    }
-            }
-        else
-            {
-                WriteWordLine 0 1 'There is no Endpoint Protection Point enabled.'
-            }
-
-        WriteWordLine 0 0 ''
-
-        Write-Verbose "$(Get-Date):   Working on Windows Firewall Policies"
-        WriteWordLine 3 0 'Windows Firewall Policies'
-
-        $FirewallPolicies = Get-CMWindowsFirewallPolicy
-        if (-not [string]::IsNullOrEmpty($FirewallPolicies)) {
-
-          $FirewallPolsHashArray = @()
-  
-          foreach ($FWP in $FirewallPolicies)
-          {
-            $FWPRow = @{'Name' = $FWP.LocalizedDisplayName; 'Last modified' = $FWP.DateLastModified; 'Last modified by' = $FWP.LastModifiedBy; 'CI ID' = $FWP.CI_ID}
-            $FirewallPolsHashArray += $FWPRow
-          }
-          $Table = AddWordTable -Hashtable $FirewallPolsHashArray -Columns 'Name', 'Last modified', 'Last modified by', 'CI ID' -Headers 'Name', 'Last modified', 'Last modified by', 'CI ID' -Format -155 -AutoFit $wdAutoFitFixed;
-  
-          ## Set first column format
-          SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-  
-          ## IB - set column widths without recursion
-          $Table.Columns.Item(1).Width = 100;
-          $Table.Columns.Item(2).Width = 100;
-          $Table.Columns.Item(3).Width = 100;
-          $Table.Columns.Item(4).Width = 150;
-          $Table.Rows.SetLeftIndent($Indent1TabStops,$wdAdjustProportional)
-          $Table.AutoFitBehavior($wdAutoFitFixed)
-          FindWordDocumentEnd
-          $Table = $Null
-          WriteWordLine 0 0 ''           
-
-        }
-        else {
-            WriteWordLine 0 1 'There are no Windows Firewall policies configured.'
-        }
-        
-        #####
-        ##### finished with Assets and Compliance, moving on to Software Library
-        #####
-        Write-Verbose "$(Get-Date):   Finished with Assets and Compliance."
-
-
-
-#endregion Assets and Compliance
-
-if ($Software)
-    {
-        Write-Verbose "$(Get-Date):   moving on to Software Library"
-        WriteWordLine 1 0 'Software Library'
-
-##### Applications
-        
-        WriteWordLine 2 0 'Applications'
-        WriteWordLine 0 0 ''
-        $Applications = Get-WmiObject -Class sms_applicationlatest -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider
-        if ($ListAllInformation)
-            {
-                if (-not [string]::IsNullOrEmpty($Applications)) {
-                    WriteWordLine 0 1 'The following Applications are configured in this site:'
-                    
-
-                    foreach ($App in $Applications) {
-                        Write-Verbose 'Getting specific WMI instance for this App'
-                        [wmi]$App = $App.__PATH
-                        Write-Verbose "$(Get-Date):   Found App: $($App.LocalizedDisplayName)"
-                        WriteWordLine 0 2 "$($App.LocalizedDisplayName)" -boldface $true
-                        WriteWordLine 0 3 "Created by: $($App.CreatedBy)"
-                        WriteWordLine 0 3 "Date created: $($App.DateCreated)"
-                        $DTs = Get-CMDeploymentType -ApplicationName $App.LocalizedDisplayName
-                        if (-not [string]::IsNullOrEmpty($DTs)) {
-                            $DTsHashArray = @()
-  
-                            foreach ($DT in $DTs) {
-                                $xmlDT = [xml]$DT.SDMPackageXML
-                                $DTRow = @{'Deployment Type Name' = $DT.LocalizedDisplayName; 'Technology' = $DT.Technology; 'Commandline' = if (-not ($DT.Technology -like 'AppV*')){ $xmlDT.AppMgmtDigest.DeploymentType.Installer.CustomData.InstallCommandLine } }
-                                $DTsHashArray += $DTRow
+                                1 { $ScheduledScanType = 'Quick Scan' }
+                                2 { $ScheduledScanType = 'Full Scan' }
                             }
-                            $Table = AddWordTable -Hashtable $DTsHashArray -Columns 'Deployment Type Name', 'Technology', 'Commandline' -Headers 'Deployment Type Name', 'Technology', 'Commandline' -Format -155 -AutoFit $wdAutoFitContent;
-  
-                            ## Set first column format
-                            SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
- 
-                            FindWordDocumentEnd
-                            $Table = $Null
-                            WriteWordLine 0 0 ''
-                        }
-                        else {
-                            WriteWordLine 0 3 'There are no Deployment Types configured for this Application.'
-                        }
+                        $listArray += "Scan type: $($ScheduledScanType)"
+                        $listArray += "Scan day: $(Convert-WeekDay $AgentConfig.ScheduledScanWeekDay)"
+                        $listArray += "Scan time: $(Convert-Time -time $AgentConfig.ScheduledScanTime)"
+                        $listArray += "Run a daily quick scan on client computers: $($AgentConfig.EnableQuickDailyScan)"
+                        $listArray += "Daily quick scan schedule time: $(Convert-Time -time $AgentConfig.ScheduledScanQuickTime)"
+                        $listArray += "Check for the latest definition updates before running a scan: $($AgentConfig.CheckLatestDefinition)"
+                        $listArray += "Start a scheduled scan only when the computer is idle: $($AgentConfig.ScanWhenClientNotInUse)"
+                        $listArray += "Force a scan of the selected scan type if client computer is offline during two or more scheduled scans: $($AgentConfig.EnableCatchupScan)"
+                        $listArray += "Limit CPU usage during scans to (%): $($AgentConfig.LimitCPUUsage)"
                     }
-                }
-                else {
-                    WriteWordLine 0 1 'There are no Applications configured in this site.'
-                }
-            }
-        elseif ($Applications) {
-            WriteWordLine 0 1 "There are $($Applications.count) applications configured."
-        }
-        else {
-            WriteWordLine 0 1 'There are no Applications configured in this site.'
-        }
-##### Packages
-        
-        WriteWordLine 2 0 'Packages'
-        WriteWordLine 0 0 ''
-        $Packages = Get-CMPackage
-        if ($ListAllInformation)
-            {
-                if (-not [string]::IsNullOrEmpty($Packages))
-                    {
-                        WriteWordLine 0 1 'The following Packages are configured in this site:'
-                        foreach ($Package in $Packages) {
-                            WriteWordLine 0 0 ''
-                            WriteWordLine 0 2 "$($Package.Name)" -boldface $true
-                            WriteWordLine 0 3 "Description: $($Package.Description)"
-                            WriteWordLine 0 3 "PackageID: $($Package.PackageID)"
-                            $Programs = Get-WmiObject -Class SMS_Program -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider -Filter "PackageID = '$($Package.PackageID)'"
-                            if (-not [string]::IsNullOrEmpty($Programs))
-                                {
-                                    WriteWordLine 0 3 'The Package has the following Programs configured:'
-                                    foreach ($Program in $Programs)
-                                        {
-                                            WriteWordLine 0 4 "Program Name: $($Program.ProgramName)" -boldface $true
-                                            WriteWordLine 0 4 "Command Line: $($Program.CommandLine)"
-                                            if ($Program.ProgramFlags -band 0x00000001)
-                                                {
-                                                    WriteWordLine 0 4 "`'Allow this program to be installed from the Install Package task sequence without being deployed`' enabled."
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00000002)
-                                                {
-                                                    WriteWordLine 0 4 "`'The task sequence shows a custom progress user interface message.`' enabled."
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00000010)
-                                                {
-                                                    WriteWordLine 0 4 'This is a default program.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00000020)
-                                                {
-                                                    WriteWordLine 0 4 'Disables MOM alerts while the program runs.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00000040)
-                                                {
-                                                    WriteWordLine 0 4 'Generates MOM alert if the program fails.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00000080)
-                                                {
-                                                    WriteWordLine 0 4 "This program's immediate dependent should always be run."
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00000100)
-                                                {
-                                                    WriteWordLine 0 4 'A device program. The program is not offered to desktop clients.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00000400)
-                                                {
-                                                    WriteWordLine 0 4 'The countdown dialog is not displayed.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00001000)
-                                                {
-                                                    WriteWordLine 0 4 'The program is disabled.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00002000)
-                                                {
-                                                    WriteWordLine 0 4 'The program requires no user interaction.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00004000)
-                                                {
-                                                    WriteWordLine 0 4 'The program can run only when a user is logged on.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00008000)
-                                                {
-                                                    WriteWordLine 0 4 'The program must be run as the local Administrator account.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00010000)
-                                                {
-                                                    WriteWordLine 0 4 'The program must be run by every user for whom it is valid. Valid only for mandatory jobs.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00020000)
-                                                {
-                                                    WriteWordLine 0 4 'The program is run only when no user is logged on.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00040000)
-                                                {
-                                                    WriteWordLine 0 4 'The program will restart the computer.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00080000)
-                                                {
-                                                    WriteWordLine 0 4 'Configuration Manager restarts the computer when the program has finished running successfully.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00100000)
-                                                {
-                                                    WriteWordLine 0 4 'Use a UNC path (no drive letter) to access the distribution point.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00200000)
-                                                {
-                                                    WriteWordLine 0 4 'Persists the connection to the drive specified in the DriveLetter property. The USEUNCPATH bit flag must not be set.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00400000)
-                                                {
-                                                    WriteWordLine 0 4 'Run the program as a minimized window.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x00800000)
-                                                {
-                                                    WriteWordLine 0 4 'Run the program as a maximized window.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x01000000)
-                                                {
-                                                    WriteWordLine 0 4 'Hide the program window.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x02000000)
-                                                {
-                                                    WriteWordLine 0 4 'Logoff user when program completes successfully.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x08000000)
-                                                {
-                                                    WriteWordLine 0 4 'Override check for platform support.'
-                                                }
-                                            if ($Program.ProgramFlags -band 0x20000000)
-                                                {
-                                                    WriteWordLine 0 4 'Run uninstall from the registry key when the advertisement expires.'   
-                                                }   
-                                        }                             
-                                }
-                            else
-                                {
-                                    WriteWordLine 0 4 'The Package has no Programs configured.'
-                                }                       
-                        }
-                    }
-                else
-                    {
-                        WriteWordLine 0 1 'There are no Packages configured in this site.'
-                    }
-            }
-        elseif ($Packages)
-            {
-                WriteWordLine 0 1 "There are $($Packages.count) packages configured."
-            }
-            else
-                {
-                    WriteWordLine 0 1 'There are no packages configured.'
-                }
-##### Driver Packages
-
-    WriteWordLine 2 0 'Driver Packages'
-    WriteWordLine 0 0 ''
-    $DriverPackages = Get-CMDriverPackage
-    if ($ListAllInformation)
-        {
-            if (-not [string]::IsNullOrEmpty($DriverPackages))
-                    {
-                        WriteWordLine 0 1 'The following Driver Packages are configured in your site:'
-                        foreach ($DriverPackage in $DriverPackages)
-                            {
-                                WriteWordLine 0 0 ''
-                                WriteWordLine 0 2 "Name: $($DriverPackage.Name)" -boldface $true
-                                if ($DriverPackage.Description)
-                                    {
-                                        WriteWordLine 0 2 "Description: $($DriverPackage.Description)"
-                                    }
-                                WriteWordLine 0 2 "PackageID: $($DriverPackage.PackageID)"
-                                WriteWordLine 0 2 "Source path: $($DriverPackage.PkgSourcePath)"
-                                WriteWordLine 0 2 'This package consists of the following Drivers:'
-                                $Drivers = Get-CMDriver -DriverPackageId "$($DriverPackage.PackageID)"
-                                foreach ($Driver in $Drivers)
-                                    {
-                                        WriteWordLine 0 0 ''
-                                        WriteWordLine 0 3 "Driver Name: $($Driver.LocalizedDisplayName)" -boldface $true
-                                        WriteWordLine 0 3 "Manufacturer: $($Driver.DriverProvider)"
-                                        WriteWordLine 0 3 "Source path: $($Driver.ContentSourcePath)"
-                                        WriteWordLine 0 3 "INF File: $($Driver.DriverINFFile)"
-                                    }
-                                WriteWordLine 0 3 ''
-                            }
-                    }
-                else
-                    {
-                        WriteWordLine 0 1 'There are no Driver Packages configured in this site.'
-                    }
-        }
-    else
-        {
-            if (-not [string]::IsNullOrEmpty($DriverPackages))
-                {
-                    WriteWordLine 0 1 "There are $($DriverPackages.count) Driver Packages configured."                    
-                }
-            else
-                {
-                    WriteWordLine 0 1 'There are no Driver Packages configured in this site.'
-                }
-        }
-##### Operating System Installers
-
-    WriteWordLine 2 0 'Operating System Installers'
-    WriteWordLine 0 0 ''
-    $OSInstallers = Get-CMOperatingSystemInstaller
-    if (-not [string]::IsNullOrEmpty($OSImages))
-        {
-            WriteWordLine 0 1 'The following OS Installers are imported into this environment:'
-            foreach ($OSInstaller in $OSInstallers)
-                {
-                    WriteWordLine 0 2 "Name: $($OSInstaller.Name)" -boldface $true
-                    if ($OSInstaller.Description)
-                            {
-                                WriteWordLine 0 2 "Description: $($OSInstaller.Description)"
-                            }
-                    WriteWordLine 0 2 "Package ID: $($OSInstaller.PackageID)"
-                    WriteWordLine 0 2 "Source Path: $($OSInstaller.PkgSourcePath)"
-                }
-        }
-    else
-        {
-            WriteWordLine 0 1 'There are no OS Installers imported into this environment.'
-        }
-
-####
-####
-#### Boot Images
-    
-WriteWordLine 2 0 'Boot Images'
-WriteWordLine 0 0 ''
-$BootImages = Get-CMBootImage
-if (-not [string]::IsNullOrEmpty($BootImages))
-    {
-        WriteWordLine 0 1 'The following Boot Images are imported into this environment:'
-        WriteWordLine 0 0 ''
-        foreach ($BootImage in $BootImages)
-            {
-                WriteWordLine 0 2 "$($BootImage.Name)" -boldface $true
-                if ($BootImage.Description)
-                    {
-                        WriteWordLine 0 2 "Description: $($BootImage.Description)"
-                    }
-                WriteWordLine 0 2 "Source Path: $($BootImage.PkgSourcePath)"
-                WriteWordLine 0 2 "Package ID: $($BootImage.PackageID)"
-                WriteWordLine 0 2 'Architecture: ' -nonewline
-                switch ($BootImage.Architecture)
-                    {
-                        0 { WriteWordLine 0 0 'x86' }
-                        9 { WriteWordLine 0 0 'x64' }
-                    }
-                if ($BootImage.BackgroundBitmapPath)
-                    {
-                        WriteWordLine 0 2 "Custom Background: $($BootImage.BackgroundBitmapPath)"
-                    }
-                Switch ($BootImage.EnableLabShell)
-                    {
-                        True { WriteWordLine 0 2 'Command line support is enabled' }
-                        False { WriteWordLine 0 2 'Command line support is not enabled' }
-                    }
-                WriteWordLine 0 2 'The following drivers are imported into this WinPE'
-                if (-not [string]::IsNullOrEmpty($BootImage.ReferencedDrivers))
-                    {
-                        $ImportedDriverIDs = ($BootImage.ReferencedDrivers).ID | Out-Null
-                        foreach ($ImportedDriverID in $ImportedDriverIDs)
-                            {
-                                $ImportedDriver = Get-CMDriver -ID $ImportedDriverID
-                                WriteWordLine 0 3 "Name: $($ImportedDriver.LocalizedDisplayName)" -boldface $true
-                                WriteWordLine 0 3 "Inf File: $($ImportedDriver.DriverINFFile)"
-                                WriteWordLine 0 3 "Driver Class: $($ImportedDriver.DriverClass)"
-                                WriteWordLine 0 0 ''
-                            }
-                    }
-                else
-                    {
-                        WriteWordLine 0 3 'There are no drivers imported into the Boot Image.'
-                    }
-            if (-not [string]::IsNullOrEmpty($BootImage.OptionalComponents))
-                {
-                    $Component = $Null
-                    WriteWordLine 0 3 'The following Optional Components are added to this Boot Image:'
-                    foreach ($Component in $BootImage.OptionalComponents)
+                    Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
+                    $listTitle = 'Scan settings'
+                    $listArray = @()
+                    $listArray += "Scan email and email attachments: $($AgentConfig.ScanEmail)"
+                    $listArray += "Scan removable storage devices such as USB drives: $($AgentConfig.ScanRemovableStorage)"
+                    $listArray += "Scan network drives when running a full scan: $($AgentConfig.ScanNetworkDrives)"
+                    $listArray += "Scan archived files: $($AgentConfig.ScanArchivedFiles)"
+                    $listArray += "Allow users to configure CPU usage during scans: $($AgentConfig.AllowClientUserConfigLimitCPUUsage)"
+                    switch ($AgentConfig.ScheduledScanUserControl)
                         {
-                            switch ($Component)
-                                {
-                                    {($_ -eq '1') -or ($_ -eq '27')} { WriteWordLine 0 4 'WinPE-DismCmdlets' }
-                                    {($_ -eq '2') -or ($_ -eq '28')} { WriteWordLine 0 4 'WinPE-Dot3Svc' }
-                                    {($_ -eq '3') -or ($_ -eq '29')} { WriteWordLine 0 4 'WinPE-EnhancedStorage' }
-                                    {($_ -eq '4') -or ($_ -eq '30')} { WriteWordLine 0 4 'WinPE-FMAPI' }
-                                    {($_ -eq '5') -or ($_ -eq '31')} { WriteWordLine 0 4 'WinPE-FontSupport-JA-JP' }
-                                    {($_ -eq '6') -or ($_ -eq '32')} { WriteWordLine 0 4 'WinPE-FontSupport-KO-KR' }
-                                    {($_ -eq '7') -or ($_ -eq '33')} { WriteWordLine 0 4 'WinPE-FontSupport-ZH-CN' }
-                                    {($_ -eq '8') -or ($_ -eq '34')} { WriteWordLine 0 4 'WinPE-FontSupport-ZH-HK' }
-                                    {($_ -eq '9') -or ($_ -eq '35')} { WriteWordLine 0 4 'WinPE-FontSupport-ZH-TW' }
-                                    {($_ -eq '10') -or ($_ -eq '36')} { WriteWordLine 0 4 'WinPE-HTA' }
-                                    {($_ -eq '11') -or ($_ -eq '37')} { WriteWordLine 0 4 'WinPE-StorageWMI' }
-                                    {($_ -eq '12') -or ($_ -eq '38')} { WriteWordLine 0 4 'WinPE-LegacySetup' }
-                                    {($_ -eq '13') -or ($_ -eq '39')} { WriteWordLine 0 4 'WinPE-MDAC' }
-                                    {($_ -eq '14') -or ($_ -eq '40')} { WriteWordLine 0 4 'WinPE-NetFx4' }
-                                    {($_ -eq '15') -or ($_ -eq '41')} { WriteWordLine 0 4 'WinPE-PowerShell3' }
-                                    {($_ -eq '16') -or ($_ -eq '42')} { WriteWordLine 0 4 'WinPE-PPPoE' }
-                                    {($_ -eq '17') -or ($_ -eq '43')} { WriteWordLine 0 4 'WinPE-RNDIS' }
-                                    {($_ -eq '18') -or ($_ -eq '44')} { WriteWordLine 0 4 'WinPE-Scripting' }
-                                    {($_ -eq '19') -or ($_ -eq '45')} { WriteWordLine 0 4 'WinPE-SecureStartup' }
-                                    {($_ -eq '20') -or ($_ -eq '46')} { WriteWordLine 0 4 'WinPE-Setup' }
-                                    {($_ -eq '21') -or ($_ -eq '47')} { WriteWordLine 0 4 'WinPE-Setup-Client' }
-                                    {($_ -eq '22') -or ($_ -eq '48')} { WriteWordLine 0 4 'WinPE-Setup-Server' }
-                                    #{($_ -eq "23") -or ($_ -eq "49")} { WriteWordLine 0 4 "Not applicable" }
-                                    {($_ -eq '24') -or ($_ -eq '50')} { WriteWordLine 0 4 'WinPE-WDS-Tools' }
-                                    {($_ -eq '25') -or ($_ -eq '51')} { WriteWordLine 0 4 'WinPE-WinReCfg' }
-                                    {($_ -eq '26') -or ($_ -eq '52')} { WriteWordLine 0 4 'WinPE-WMI' }
-                                } 
-                            $Component = $Null    
+                            0 { $UserControl = 'No control' }
+                            1 { $UserControl = 'Scan time only' }
+                            2 { $UserControl = 'Full control' }
+                        }
+                    $listArray += "User control of scheduled scans: $UserControl"
+                    Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
+                    $listTitle = 'Default Actions'
+                    $listArray = @()
+                    switch ($AgentConfig.DefaultActionSevere)
+                        {
+                            0 { $Action = 'Recommended' }
+                            2 { $Action = 'Quarantine' }
+                            3 { $Action = 'Remove' }
+                            6 { $Action = 'Allow' }
+                        }
+                    $listArray += "Severe threats: $Action"
+                    switch ($AgentConfig.DefaultActionHigh)
+                        {
+                            0 { $Action = 'Recommended' }
+                            2 { $Action = 'Quarantine' }
+                            3 { $Action = 'Remove' }
+                            6 { $Action = 'Allow' }
+                        }
+                    $listArray += "High threats: $Action"
+                    switch ($AgentConfig.DefaultActionMedium)
+                        {
+                            0 { $Action = 'Recommended' }
+                            2 { $Action = 'Quarantine' }
+                            3 { $Action = 'Remove' }
+                            6 { $Action = 'Allow' }
+                        }
+                    $listArray += "Medium threats: $Action"
+                    switch ($AgentConfig.DefaultActionLow)
+                        {
+                            0 { $Action = 'Recommended' }
+                            2 { $Action = 'Quarantine' }
+                            3 { $Action = 'Remove' }
+                            6 { $Action = 'Allow' }
+                        }
+                    $listArray += "Low threats: $Action"
+                    Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
+                    $listTitle = 'Real-time protection'
+                    $listArray = @()
+                    $listArray += "Enable real-time protection: $($AgentConfig.RealtimeProtectionOn)"
+                    $listArray += "Monitor file and program activity on your computer: $($AgentConfig.MonitorFileProgramActivity)"
+                    switch ($AgentConfig.RealtimeScanOption){
+                        0 { $SysFiles = 'Scan incoming and outgoing files' }
+                        1 { $SysFiles = 'Scan incoming files only' }
+                        2 { $SysFiles = 'Scan outgoing files only' }
+                    }
+                    $listArray += "Scan system files: $SysFiles"
+                    $listArray += "Scan all downloaded files and enable exploit protection for Internet Explorer: $($AgentConfig.ScannAllDownloaded)"
+                    $listArray += "Enable behavior monitoring: $($AgentConfig.UseBehaviorMonitor)"
+                    $listArray += "Enable protection against network-based exploits: $($AgentConfig.NetworkProtectionAgainstExploits)"
+                    $listArray += "Allow users on client computers to configure real-time protection settings: $($AgentConfig.AllowClientUserConfigRealtime)"
+                    $listArray += "Enable protection against Potentially Unwanted Applications at download and prior to installation: $($AgentConfig.EnablePUAProtection)"
+                    Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
+                    $listTitle = 'Exclusion settings'
+                    $listArray = @()
+                    $filesArray = @()
+                    foreach ($ExcludedFileFolder in $AgentConfig.ExcludedFilePaths){
+                        $filesArray += "$($ExcludedFileFolder)"
+                    }
+                    $listArray += Write-HtmlList -Description 'Excluded files and folders:' -InputObject $filesArray -Level 1
+                    $filesArray = @()
+                    foreach ($ExcludedFileType in $AgentConfig.ExcludedFileTypes){
+                        $filesArray += "$($ExcludedFileType)"
+                    }
+                    $listArray += Write-HtmlList -Description 'Excluded file types:' -InputObject $filesArray -Level 1
+                    $ProcessArray = @()
+                    foreach ($ExcludedProcess in $AgentConfig.ExcludedProcesses){
+                        $ProcessArray += "$($ExcludedProcess)"
+                    }
+                    $listArray += Write-HtmlList -Description 'Excluded processes:' -InputObject $filesArray -Level 1
+                    Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
+                    $listTitle = 'Advanced'
+                    $listArray = @()
+                    $listArray += "Create a system restore point before computers are cleaned: $($AgentConfig.CreateSystemRestorePointBeforeClean)"
+                    $listArray += "Disable the client user interface: $($AgentConfig.DisableClientUI)"
+                    $listArray += "Show notifications messages on the client computer when the user needs to run a full scan, update definitions, or run Windows Defender Offline: $($AgentConfig.ShowNotificationMessages)"
+                    $listArray += "Delete quarantined files after (days): $($AgentConfig.DeleteQuarantinedFilesPeriod)"
+                    $listArray += "Allow users to configure the setting for quarantined file deletion: $($AgentConfig.AllowUserConfigQuarantinedFileDeletionPeriod)"
+                    $listArray += "Allow users to exclude file and folders, file types and processes: $($AgentConfig.AllowUserAddExcludes)"
+                    $listArray += "Allow all users to view the full History results: $($AgentConfig.AllowUserViewHistory)"
+                    $listArray += "Enable reparse point scanning: $($AgentConfig.EnableReparsePointScanning)"
+                    $listArray += "Randomize scheduled scan and definition update start time (within 30 minutes): $($AgentConfig.RandomizeScheduledScanStartTime)"
+                    $listArray += "Enable auto sample file submission to help Microsoft determine whether certain detected items are malicious: $($AgentConfig.EnableAutoSampleSubmission)"
+                    $listArray += "Allow users to modify auto sample file submission settings: $($AgentConfig.AllowUserConfigAutoSampleSubmission)"
+                    Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
+                    $listTitle = 'Threat overrides'
+                    $listArray = @()
+                    if (-not [string]::IsNullOrEmpty($AgentConfig.ThreatName)){
+                        $listArray +='Threat name and override action: Threats specified'
+                    }else{
+                        $listArray +='Threat name and override action: none specified'
+                    }
+                    Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
+                    $listTitle = 'Cloud Protection Service'
+                    $listArray = @()
+                    switch ($AgentConfig.JoinSpyNet){
+                        0 { $CPSLevel =  'Do not join MAPS' }
+                        1 { $CPSLevel =  'Basic membership' }
+                        2 { $CPSLevel =  'Advanced membership' }
+                    }
+                    $listArray += "Cloud Protection Service membership type: $CPSLevel"
+                    $listArray += "Allow users to modify Microsoft Active Protection Service settings: $($AgentConfig.AllowUserChangeSpyNetSettings)"
+                    switch ($AgentConfig.JoinSpyNet){
+                        0 { $BSFLevel =  'Normal' }
+                        1 { $BSFLevel =  'High' }
+                        2 { $BSFLevel =  'High with extra protection' }
+                        3 { $BSFLevel =  'Block unknown programs' }
+                    }
+                    $listArray += "Level for blocking suspicious files: $BSFLevel"
+                    $listArray += "Allow extended cloud check to block and scan suspicious files for up to (seconds): $($AgentConfig.CloudTimeout)"
+                    Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
+                    $listTitle = 'Definition Updates'
+                    $listArray = @()
+                    $listArray += "Check for Endpoint Protection definitions at a specific interval (hours): (0 disable check on interval) $($AgentConfig.SignatureUpdateInterval)"
+                    $listArray += "Check for Endpoint Protection definitions daily at: (Only configurable if interval-based check is disabled) $(Convert-Time -time $AgentConfig.SignatureUpdateTime)"
+                    $listArray += "Force a definition update if the client computer is offline for more than two consecutive scheduled updates: $($AgentConfig.EnableSignatureUpdateCatchupInterval)"
+                    $FallbackArray = @()
+                    foreach ($Fallback in $AgentConfig.FallbackOrder){
+                        $FallbackArray += "$($Fallback)"
+                    }
+                    $listArray += Write-HtmlList -Description 'Set sources and order for Endpoint Protection definition updates:' -InputObject $FallbackArray -Level 1
+                    $listArray += "If Configuration Manager is used as a source for definition updates, clients will only update from alternative sources if definition is older than (hours): $($AgentConfig.AuGracePeriod / 60)"
+                    $UNCShareArray = @()
+                    foreach ($UNCShare in $AgentConfig.DefinitionUpdateFileSharesSources){
+                        $UNCShareArray += "$($UNCShare)"
+                    }
+                    if ($UNCShareArray.count -gt 0){
+                        $listArray += Write-HtmlList -Description 'If UNC file shares are selected as a definition update source, specify the UNC paths:' -InputObject $UNCShareArray -Level 1
+                    }else{
+                        $listArray += 'If UNC file shares are selected as a definition update source, specify the UNC paths: None'
+                    }             
+                    Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
+                }else{
+                    $AgentConfig_custom = $AntiMalwarePolicy.AgentConfigurations
+                    Write-HTMLHeading -Level 4 -Text "$($AntiMalwarePolicy.Name)" -File $FilePath
+                    If("$($AntiMalwarePolicy.Description)" -ne ""){
+                        Write-HTMLParagraph -Text "Description: $($AntiMalwarePolicy.Description)" -Level 4 -File $FilePath
+                    }
+                    foreach ($Agentconfig in $AgentConfig_custom){
+                        switch ($AgentConfig.AgentID){
+                            201 {
+                                    $listTitle = 'Scheduled Scans'
+                                    $listArray = @()
+                                    $listArray += "Run a scheduled scan on client computers: $($AgentConfig.EnableScheduledScan)"
+                                    if ($AgentConfig.EnableScheduledScan){
+                                        switch ($AgentConfig.ScheduledScanType)
+                                            {
+                                                1 { $ScheduledScanType = 'Quick Scan' }
+                                                2 { $ScheduledScanType = 'Full Scan' }
+                                            }
+                                        $listArray += "Scan type: $($ScheduledScanType)"
+                                        $listArray += "Scan day: $(Convert-WeekDay $AgentConfig.ScheduledScanWeekDay)"
+                                        $listArray += "Scan time: $(Convert-Time -time $AgentConfig.ScheduledScanTime)"
+                                        $listArray += "Run a daily quick scan on client computers: $($AgentConfig.EnableQuickDailyScan)"
+                                        $listArray += "Daily quick scan schedule time: $(Convert-Time -time $AgentConfig.ScheduledScanQuickTime)"
+                                        $listArray += "Check for the latest definition updates before running a scan: $($AgentConfig.CheckLatestDefinition)"
+                                        $listArray += "Start a scheduled scan only when the computer is idle: $($AgentConfig.ScanWhenClientNotInUse)"
+                                        $listArray += "Force a scan of the selected scan type if client computer is offline during two or more scheduled scans: $($AgentConfig.EnableCatchupScan)"
+                                        $listArray += "Limit CPU usage during scans to (%): $($AgentConfig.LimitCPUUsage)"
+                                    }
+                                    Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
+                                }
+                            202 {
+                                    $listTitle = 'Default Actions'
+                                    $listArray = @()
+                                    switch ($AgentConfig.DefaultActionSevere)
+                                        {
+                                            0 { $Action = 'Recommended' }
+                                            2 { $Action = 'Quarantine' }
+                                            3 { $Action = 'Remove' }
+                                            6 { $Action = 'Allow' }
+                                        }
+                                    $listArray += "Severe threats: $Action"
+                                    switch ($AgentConfig.DefaultActionHigh)
+                                        {
+                                            0 { $Action = 'Recommended' }
+                                            2 { $Action = 'Quarantine' }
+                                            3 { $Action = 'Remove' }
+                                            6 { $Action = 'Allow' }
+                                        }
+                                    $listArray += "High threats: $Action"
+                                    switch ($AgentConfig.DefaultActionMedium)
+                                        {
+                                            0 { $Action = 'Recommended' }
+                                            2 { $Action = 'Quarantine' }
+                                            3 { $Action = 'Remove' }
+                                            6 { $Action = 'Allow' }
+                                        }
+                                    $listArray += "Medium threats: $Action"
+                                    switch ($AgentConfig.DefaultActionLow)
+                                        {
+                                            0 { $Action = 'Recommended' }
+                                            2 { $Action = 'Quarantine' }
+                                            3 { $Action = 'Remove' }
+                                            6 { $Action = 'Allow' }
+                                        }
+                                    $listArray += "Low threats: $Action"
+                                    Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
+                                }
+                            203 {
+                                    $listTitle = 'Exclusion settings'
+                                    $listArray = @()
+                                    $filesArray = @()
+                                    foreach ($ExcludedFileFolder in $AgentConfig.ExcludedFilePaths){
+                                        $filesArray += "$($ExcludedFileFolder)"
+                                    }
+                                    $listArray += Write-HtmlList -Description 'Excluded files and folders:' -InputObject $filesArray -Level 1
+                                    $filesArray = @()
+                                    foreach ($ExcludedFileType in $AgentConfig.ExcludedFileTypes){
+                                        $filesArray += "$($ExcludedFileType)"
+                                    }
+                                    $listArray += Write-HtmlList -Description 'Excluded file types:' -InputObject $filesArray -Level 1
+                                    $ProcessArray = @()
+                                    foreach ($ExcludedProcess in $AgentConfig.ExcludedProcesses){
+                                        $ProcessArray += "$($ExcludedProcess)"
+                                    }
+                                    $listArray += Write-HtmlList -Description 'Excluded processes:' -InputObject $filesArray -Level 1
+                                    Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
+                                }
+                            204 {
+                                    $listTitle = 'Real-time protection'
+                                    $listArray = @()
+                                    $listArray += "Enable real-time protection: $($AgentConfig.RealtimeProtectionOn)"
+                                    $listArray += "Monitor file and program activity on your computer: $($AgentConfig.MonitorFileProgramActivity)"
+                                    switch ($AgentConfig.RealtimeScanOption){
+                                        0 { $SysFiles = 'Scan incoming and outgoing files' }
+                                        1 { $SysFiles = 'Scan incoming files only' }
+                                        2 { $SysFiles = 'Scan outgoing files only' }
+                                    }
+                                    $listArray += "Scan system files: $SysFiles"
+                                    $listArray += "Scan all downloaded files and enable exploit protection for Internet Explorer: $($AgentConfig.ScannAllDownloaded)"
+                                    $listArray += "Enable behavior monitoring: $($AgentConfig.UseBehaviorMonitor)"
+                                    $listArray += "Enable protection against network-based exploits: $($AgentConfig.NetworkProtectionAgainstExploits)"
+                                    $listArray += "Allow users on client computers to configure real-time protection settings: $($AgentConfig.AllowClientUserConfigRealtime)"
+                                    $listArray += "Enable protection against Potentially Unwanted Applications at download and prior to installation: $($AgentConfig.EnablePUAProtection)"
+                                    Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
+                                }
+                            205 {
+                                    $listTitle = 'Advanced'
+                                    $listArray = @()
+                                    $listArray += "Create a system restore point before computers are cleaned: $($AgentConfig.CreateSystemRestorePointBeforeClean)"
+                                    $listArray += "Disable the client user interface: $($AgentConfig.DisableClientUI)"
+                                    $listArray += "Show notifications messages on the client computer when the user needs to run a full scan, update definitions, or run Windows Defender Offline: $($AgentConfig.ShowNotificationMessages)"
+                                    $listArray += "Delete quarantined files after (days): $($AgentConfig.DeleteQuarantinedFilesPeriod)"
+                                    $listArray += "Allow users to configure the setting for quarantined file deletion: $($AgentConfig.AllowUserConfigQuarantinedFileDeletionPeriod)"
+                                    $listArray += "Allow users to exclude file and folders, file types and processes: $($AgentConfig.AllowUserAddExcludes)"
+                                    $listArray += "Allow all users to view the full History results: $($AgentConfig.AllowUserViewHistory)"
+                                    $listArray += "Enable reparse point scanning: $($AgentConfig.EnableReparsePointScanning)"
+                                    $listArray += "Randomize scheduled scan and definition update start time (within 30 minutes): $($AgentConfig.RandomizeScheduledScanStartTime)"
+                                    $listArray += "Enable auto sample file submission to help Microsoft determine whether certain detected items are malicious: $($AgentConfig.EnableAutoSampleSubmission)"
+                                    $listArray += "Allow users to modify auto sample file submission settings: $($AgentConfig.AllowUserConfigAutoSampleSubmission)"
+                                    Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
+                                }
+                            206 {
+                                    $listTitle = 'Threat overrides'
+                                    $listArray = @()
+                                    if (-not [string]::IsNullOrEmpty($AgentConfig.ThreatName)){
+                                        $listArray +='Threat name and override action: Threats specified'
+                                    }else{
+                                        $listArray +='Threat name and override action: none specified'
+                                    }
+                                    Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
+                                }
+                            207 {
+                                    $listTitle = 'Cloud Protection Service'
+                                    $listArray = @()
+                                    switch ($AgentConfig.JoinSpyNet){
+                                        0 { $CPSLevel =  'Do not join MAPS' }
+                                        1 { $CPSLevel =  'Basic membership' }
+                                        2 { $CPSLevel =  'Advanced membership' }
+                                    }
+                                    $listArray += "Cloud Protection Service membership type: $CPSLevel"
+                                    $listArray += "Allow users to modify Microsoft Active Protection Service settings: $($AgentConfig.AllowUserChangeSpyNetSettings)"
+                                    switch ($AgentConfig.JoinSpyNet){
+                                        0 { $BSFLevel =  'Normal' }
+                                        1 { $BSFLevel =  'High' }
+                                        2 { $BSFLevel =  'High with extra protection' }
+                                        3 { $BSFLevel =  'Block unknown programs' }
+                                    }
+                                    $listArray += "Level for blocking suspicious files: $BSFLevel"
+                                    $listArray += "Allow extended cloud check to block and scan suspicious files for up to (seconds): $($AgentConfig.CloudTimeout)"
+                                    Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
+                                }
+                            208 {
+                                    $listTitle = 'Definition Updates'
+                                    $listArray = @()
+                                    $listArray += "Check for Endpoint Protection definitions at a specific interval (hours): (0 disable check on interval) $($AgentConfig.SignatureUpdateInterval)"
+                                    $listArray += "Check for Endpoint Protection definitions daily at: (Only configurable if interval-based check is disabled) $(Convert-Time -time $AgentConfig.SignatureUpdateTime)"
+                                    $listArray += "Force a definition update if the client computer is offline for more than two consecutive scheduled updates: $($AgentConfig.EnableSignatureUpdateCatchupInterval)"
+                                    $FallbackArray = @()
+                                    foreach ($Fallback in $AgentConfig.FallbackOrder){
+                                        $FallbackArray += "$($Fallback)"
+                                    }
+                                    $listArray += Write-HtmlList -Description 'Set sources and order for Endpoint Protection definition updates:' -InputObject $FallbackArray -Level 1
+                                    $listArray += "If Configuration Manager is used as a source for definition updates, clients will only update from alternative sources if definition is older than (hours): $($AgentConfig.AuGracePeriod / 60)"
+                                    $UNCShareArray = @()
+                                    foreach ($UNCShare in $AgentConfig.DefinitionUpdateFileSharesSources){
+                                        $UNCShareArray += "$($UNCShare)"
+                                    }
+                                    if ($UNCShareArray.count -gt 0){
+                                        $listArray += Write-HtmlList -Description 'If UNC file shares are selected as a definition update source, specify the UNC paths:' -InputObject $UNCShareArray -Level 1
+                                    }else{
+                                        $listArray += 'If UNC file shares are selected as a definition update source, specify the UNC paths: None'
+                                    }
+                                    Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
+                                }
+                            209 {
+                                    $listTitle = 'Scan settings'
+                                    $listArray = @()
+                                    $listArray += "Scan email and email attachments: $($AgentConfig.ScanEmail)"
+                                    $listArray += "Scan removable storage devices such as USB drives: $($AgentConfig.ScanRemovableStorage)"
+                                    $listArray += "Scan network drives when running a full scan: $($AgentConfig.ScanNetworkDrives)"
+                                    $listArray += "Scan archived files: $($AgentConfig.ScanArchivedFiles)"
+                                    $listArray += "Allow users to configure CPU usage during scans: $($AgentConfig.AllowClientUserConfigLimitCPUUsage)"
+                                    switch ($AgentConfig.ScheduledScanUserControl)
+                                        {
+                                            0 { $UserControl = 'No control' }
+                                            1 { $UserControl = 'Scan time only' }
+                                            2 { $UserControl = 'Full control' }
+                                        }
+                                    $listArray += "User control of scheduled scans: $UserControl"
+                                    Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
+                                }
                         }
                     }
-                WriteWordLine 0 0 ''
-
+                }
             }
+    }else{
+        Write-HTMLParagraph -Text 'There are no Anti Malware Policies configured.' -Level 3 -File $FilePath
     }
-else
-    {
-        WriteWordLine 0 1 'There are no Boot Images present in this environment.'
+}else{
+    Write-HTMLParagraph -Text 'There is no Endpoint Protection Point enabled in this site.' -Level 3 -File $FilePath
+}
+#endregion Antimalware
+#region firewall and Device Guard
+$FWPolicies = Get-CMConfigurationPolicy -Fast | where {$_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_FirewallSettings' -or $_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_DeviceGuardSettings'} | select CategoryInstance_UniqueIDs,LocalizedDisplayName,LocalizedCategoryInstanceNames,CI_ID,LastModifiedBy,DateLastModified,IsAssigned
+Write-HTMLHeading -Level 3 -Text 'Windows Defender Firewall Policies' -File $FilePath
+if ($FWPolicies) {
+    $FWArray = @()
+    foreach ($FWP in $FWPolicies){
+        $FWArray += New-Object -TypeName psobject -Property @{'Name'=$FWP.LocalizedDisplayName;'Modified By'=$FWP.LastModifiedBy;'Modified'=$FWP.DateLastModified;'Deployed'=$FWP.IsAssigned}
     }
+    $FWArray = $FWArray | Select-Object 'Name','Modified By','Modified','Deployed'
+    Write-HtmlTable -InputObject $FWArray -Border 1 -Level 4 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'No firewall policies defined in site.' -Level 4 -File $FilePath
+}
+$DeviceGuardPolicies = Get-CMConfigurationPolicy -Fast | where {$_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_DeviceGuardSettings'} | select CategoryInstance_UniqueIDs,LocalizedDisplayName,LocalizedCategoryInstanceNames,CI_ID,LastModifiedBy,DateLastModified,IsAssigned
+Write-HTMLHeading -Level 3 -Text 'Device Guard Policies' -File $FilePath
+if ($DeviceGuardPolicies) {
+    $DeviceGuardArray = @()
+    foreach ($DGP in $DeviceGuardPolicies){
+        $DeviceGuardArray += New-Object -TypeName psobject -Property @{'Name'=$DGP.LocalizedDisplayName;'Modified By'=$DGP.LastModifiedBy;'Modified'=$DGP.DateLastModified;'Deployed'=$DGP.IsAssigned}
+    }
+    $DeviceGuardArray = $DeviceGuardArray | Select-Object 'Name','Modified By','Modified','Deployed'
+    Write-HtmlTable -InputObject $DeviceGuardArray -Border 1 -Level 4 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'No Device Guard policies defined in site.' -Level 4 -File $FilePath
+}
+#endregion firewall and Device Guard
+#region Windows Defender ATP
+    #TBD
+#endregion Windows Defender ATP
+#endregion Endpoint Protection
+
+#region Corporate-owned Devices
+#region iOS Enrollment Profiles
+    #TBD
+#endregion iOS Enrollment Profiles
+#region Windows Enrollment Profiles
+    #TBD
+#endregion Windows Enrollment Profiles
+#endregion Corporate-owned Devices
+
 
 ####
+#region Software Library
 ####
-#### Task Sequences
+
+Write-Verbose "$(Get-Date):   Done with Assets and Compliance, next Software Library"
+Write-HTMLHeading -Level 1 -PageBreak -Text 'Software Library' -File $FilePath
+
+#region Application Management
+Write-HTMLHeading -Level 2 -PageBreak -Text 'Application Management' -File $FilePath
+
+#region Applications
+Write-Verbose "$(Get-Date):   Processing CM Appications."
+Write-HTMLHeading -Level 3 -Text 'Applications' -File $FilePath
+#$Applications = Get-WmiObject -Class sms_applicationlatest -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider
+#Get-CMApplication | select LocalizedDisplayName,LocalizedDescription,Manufacturer,SoftwareVersion,PackageID,ISExpired,ISDeployed,NumberOfDeploymentTypes
+$Applications = Get-CMApplication
+$Applications = $Applications|sort LocalizedDisplayName
+if ($ListAllInformation){
+    if (-not [string]::IsNullOrEmpty($Applications)) {
+        Write-HTMLParagraph -Text 'Below are a summary of all application installers defined in this site. These are applications that are installed with the configuration manager application model.  Packages are covered later in the documentation' -Level 3 -File $FilePath
+        foreach ($App in $Applications) {
+            Write-Verbose "$(Get-Date):   Found App: $($App.LocalizedDisplayName)"
+            Write-HTMLHeading -Level 4 -Text "$($App.LocalizedDisplayName)" -File $FilePath
+            $AppList = @()
+            if ($App.LocalizedDescription -ne ""){
+                $ListDescription = "Description: $($App.LocalizedDescription)"
+            }
+            $AppList += "Created by: $($App.CreatedBy)"
+            $AppList += "Date created: $($App.DateCreated)"
+            $AppList += "Publisher: $($App.Manufacturer)"
+            $AppList += "Software Version: $($App.SoftwareVersion)"
+            $AppList += "CM Package ID: $($App.PackageID)"
+            $AppList += "Enabled: $($App.ISEnabled)"
+            $AppList += "Deployed: $($App.ISDeployed)"
+            If ($ListDescription -ne "") {
+                Write-HtmlList -InputObject $AppList -Description $ListDescription -Level 5 -File $FilePath
+            }Else{
+                Write-HtmlList -InputObject $AppList -Level 5 -File $FilePath
+            }
+            $ListDescription = ""
+            Write-Verbose "$(Get-Date):   Processing deployment types for: $($App.LocalizedDisplayName)"
+            $DTs = Get-CMDeploymentType -ApplicationName "$($App.LocalizedDisplayName)"
+            [xml]$PackageXML = $App.SDMPackageXML
+            if (-not [string]::IsNullOrEmpty($DTs)) {
+                $DTsArray = @()
+                foreach ($DT in $DTs) {
+                    #$xmlDT = [xml]$DT.SDMPackageXML
+                    foreach ($xl in $PackageXML.AppMgmtDigest.DeploymentType) {
+                        if ($dt.ContentId -eq $xl.Installer.Contents.Content.ContentId) {
+                            Write-Verbose "$(Get-Date):   Found Deployment Type:  $($xl.Title.'#text')"
+                            $Content = "$($xl.Installer.contents.content.location)"
+                            if (Test-Path "filesystem::$Content" -ErrorAction SilentlyContinue){
+                                $Verified = "Verified"
+                            }else{
+                                $Verified = "Unverified!"
+                            }
+                            $InstallCL = "$($xl.installer.customdata.installcommandline)"
+                            $UninstallCL = "$($xl.installer.customdata.uninstallcommandline)"
+                        }
+                        if ($xl.Technology -eq "Deeplink"){ #this is a windows store app.  There is no onprem content.
+                            $Content = "$($xl.Installer.CustomData.PackageUriNew)"
+                            $Verified = "N/A"
+                            $InstallCL = "N/A"
+                            $UninstallCL = "N/A"
+                        }
+                    }
+                    $DTListArray =@()
+                    #$DTsArray += New-Object -TypeName psobject -Property @{'Priority'= $DT.PriorityInLatestApp; 'Deployment Type Name' = "$($DT.LocalizedDisplayName)"; 'Technology' = "$($DT.Technology)"; 'Install Command' = "$InstallCL"; 'Uninstall Command' = "$UninstallCL"; 'Content Path' = "$Content"; 'Content Status'="$Verified"}
+                    #$DTsArray = New-Object -TypeName psobject -Property @{'Priority'= $DT.PriorityInLatestApp; 'Deployment Type Name' = $DT.LocalizedDisplayName; 'Technology' = $DT.Technology; 'Commandline' = if (-not ($DT.Technology -like 'AppV*')){ $xmlDT.AppMgmtDigest.DeploymentType.Installer.CustomData.InstallCommandLine } }
+                    $DTListTitle = "Deployment Type Name: $($DT.LocalizedDisplayName)"
+                    $DTListArray += "Deployment Type Priority: $($DT.PriorityInLatestApp)"
+                    $DTListArray += "Technology: $($DT.Technology)"
+                    $DTListArray += "Install Command: $InstallCL"
+                    $DTListArray += "Uninstall Command: $UninstallCL"
+                    $DTListArray += "Content Path: $Content"
+                    $DTListArray += "Content Status: $Verified"
+                    Write-HtmlList -Title $DTListTitle -InputObject $DTListArray -Level 5 -File $FilePath
+                    $InstallCL = ""
+                    $UninstallCL = ""
+                    $Content = ""
+                    $Verified = ""
+                }
+                #$DTsArray = $DTsArray | sort Priority | Select-Object 'Priority','Deployment Type Name','Technology','Install Command','Uninstall Command','Content Path','Content Status'
+                #Write-HtmlTable -InputObject $DTsArray -Border 1 -Level 5 -File $FilePath
+                
+            }
+            else {
+                Write-HTMLParagraph -Text 'There are no Deployment Types configured for this Application.' -Level 5 -File $FilePath
+            }
+            Write-Verbose "$(Get-Date):   Processing deployments for: $($App.LocalizedDisplayName)"
+            $AppDeployments = Get-CMApplicationDeployment -ApplicationID $($App.CI_ID)
+            Write-HTMLHeading -Level 5 -Text "Deployments for $($App.LocalizedDisplayName):" -File $FilePath
+            if (-not [string]::IsNullOrEmpty($AppDeployments)) {
+                $DeploymentsArray = @()
+                foreach ($AppDeployment in $AppDeployments){
+                    Switch ($AppDeployment.DesiredConfigType){
+                        1{$Action = 'Install'}
+                        2{$Action = 'Remove'}
+                    }
+                    Switch ($AppDeployment.OfferTypeID){
+                        0{$Purpose = 'Required'}
+                        2{$Purpose = 'Available'}
+                    }
+                    Switch ($AppDeployment.UserUIExperience){
+                        False{$UserNotice = 'Hide in Software Center and all notifications'}
+                        True{
+                            Switch ($AppDeployment.NotifyUser){
+                                True{$UserNotice = 'Display in Software Center and show all notifications'}
+                                False{$UserNotice = 'Display in Software Center and only show notifications for computer restarts'}
+                            }
+                        }
+                    }
+                    Switch ($AppDeployment.UseGMTTimes){
+                        True{$TimeZone = 'GMT'}
+                        False{$TimeZone = 'Client Local Time'}
+                    }
+                    $DeploymentsArray += New-Object -TypeName psobject -Property @{'Collection'="$($AppDeployment.CollectionName)";'Action'="$Action";'Purpose'="$Purpose";'User Notification'="$UserNotice";'Available Time'="$($AppDeployment.StartTime)";'Deadline'="$($AppDeployment.EnforcementDeadline)";'Time Zone'="$TimeZone"}
+                }
+                $DeploymentsArray = $DeploymentsArray | Select-Object 'Collection','Action','Purpose','User Notification','Available Time','Deadline','Time Zone'
+                Write-HtmlTable -InputObject $DeploymentsArray -Border 1 -Level 6 -File $FilePath
+            }else{
+                Write-HTMLParagraph -Text 'There are no deployments for this application.' -Level 6 -File $FilePath
+            }
+        }
+    }else{
+        Write-HTMLParagraph -Text 'There are no Applications configured in this site.' -Level 4 -File $FilePath
+    }
+}
+elseif ($Applications) {
+    Write-HTMLParagraph -Text "There are $($Applications.count) applications configured." -Level 4 -File $FilePath
+}
+else {
+    Write-HTMLParagraph -Text 'There are no Applications configured in this site.' -Level 4 -File $FilePath
+}
+Write-Verbose "$(Get-Date):   Applications Complete."
+#endregion Applications
+
+#region Packages
+Write-Verbose "$(Get-Date):   Processing Packages."
+Write-HTMLHeading -PageBreak -Level 3 -Text 'Packages' -File $FilePath
+$Packages = Get-CMPackage
+if ($ListAllInformation){
+    if (-not [string]::IsNullOrEmpty($Packages)){
+        Write-HTMLParagraph -Text 'Below is a summary of all packages defined in this site. These are applications that are installed using traditional packages.' -Level 3 -File $FilePath
+        foreach ($Package in $Packages) {
+            Write-Verbose "$(Get-Date):   Found Package: $($Package.Name)"
+            Write-HTMLHeading -Level 4 -Text "$($Package.Name)" -File $FilePath
+            $PackageDetailList = @()
+            $PackageDetailList += "Description: $($Package.Description)"
+            $PackageDetailList += "PackageID: $($Package.PackageID)"
+            $PackageDetailList += "Package Source Files: $($Package.PkgSourcePath)"
+            if (Test-Path "filesystem::$($Package.PkgSourcePath)" -ErrorAction SilentlyContinue){
+                $Verified = "Path Verified"
+            }else{
+                $Verified = "Path not found"
+            }
+            $PackageDetailList += "Source Files exist: $Verified"
+            #$PackageDetailList += 'The Package has the following Programs configured:'
+            Write-HtmlList -InputObject $PackageDetailList -Level 5 -File $FilePath
+            Write-HTMLHeading -Level 6 -Text 'The Package has the following Programs configured:' -File $FilePath
+            $Programs = Get-WmiObject -Class SMS_Program -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider -Filter "PackageID = '$($Package.PackageID)'"
+            Write-Verbose "$(Get-Date):   Getting programs in package $($Package.Name)..."
+            if (-not [string]::IsNullOrEmpty($Programs)){
+                foreach ($Program in $Programs){
+                    $ProgramList = @()
+                    $ProgramTitle = "Program Name: $($Program.ProgramName)"
+                    $ProgramList += "Command Line: $($Program.CommandLine)"
+                    if ($Program.ProgramFlags -band 0x00000001){
+                        $ProgramList += "Allow this program to be installed from the Install Package task sequence without being deployed: Enabled"
+                    }
+                    if ($Program.ProgramFlags -band 0x00000002){
+                        $ProgramList += "The task sequence shows a custom progress user interface message: Enabled"
+                    }
+                    if ($Program.ProgramFlags -band 0x00000010){
+                        $ProgramList += "This is a default program."
+                    }
+                    if ($Program.ProgramFlags -band 0x00000020){
+                        $ProgramList += "Disables MOM alerts while the program runs."
+                    }
+                    if ($Program.ProgramFlags -band 0x00000040){
+                        $ProgramList += 'Generates MOM alert if the program fails.'
+                    }
+                    if ($Program.ProgramFlags -band 0x00000080){
+                        $ProgramList += "This program's immediate dependent should always be run."
+                    }
+                    if ($Program.ProgramFlags -band 0x00000100){
+                        $ProgramList += 'A device program. The program is not offered to desktop clients.'
+                    }
+                    if ($Program.ProgramFlags -band 0x00000400){
+                        $ProgramList += 'The countdown dialog is not displayed.'
+                    }
+                    if ($Program.ProgramFlags -band 0x00001000){
+                        $ProgramList += 'The program is disabled.'
+                    }
+                    if ($Program.ProgramFlags -band 0x00002000){
+                        $ProgramList += 'The program requires no user interaction.'
+                    }
+                    if ($Program.ProgramFlags -band 0x00004000){
+                        $ProgramList += 'The program can run only when a user is logged on.'
+                    }
+                    if ($Program.ProgramFlags -band 0x00008000){
+                        $ProgramList += 'The program must be run as the local Administrator account.'
+                    }
+                    if ($Program.ProgramFlags -band 0x00010000){
+                        $ProgramList += 'The program must be run by every user for whom it is valid. Valid only for mandatory jobs.'
+                    }
+                    if ($Program.ProgramFlags -band 0x00020000){
+                        $ProgramList += 'The program is run only when no user is logged on.'
+                    }
+                    if ($Program.ProgramFlags -band 0x00040000){
+                        $ProgramList += 'The program will restart the computer.'
+                    }
+                    if ($Program.ProgramFlags -band 0x00080000){
+                        $ProgramList += 'Configuration Manager restarts the computer when the program has finished running successfully.'
+                    }
+                    if ($Program.ProgramFlags -band 0x00100000){
+                        $ProgramList += 'Use a UNC path (no drive letter) to access the distribution point.'
+                    }
+                    if ($Program.ProgramFlags -band 0x00200000){
+                        $ProgramList += 'Persists the connection to the drive specified in the DriveLetter property. The USEUNCPATH bit flag must not be set.'
+                    }
+                    if ($Program.ProgramFlags -band 0x00400000){
+                        $ProgramList += 'Run the program as a minimized window.'
+                    }
+                    if ($Program.ProgramFlags -band 0x00800000){
+                        $ProgramList += 'Run the program as a maximized window.'
+                    }
+                    if ($Program.ProgramFlags -band 0x01000000){
+                        $ProgramList += 'Hide the program window.'
+                    }
+                    if ($Program.ProgramFlags -band 0x02000000){
+                        $ProgramList += 'Logoff user when program completes successfully.'
+                    }
+                    if ($Program.ProgramFlags -band 0x08000000){
+                        $ProgramList += 'Override check for platform support.'
+                    }
+                    if ($Program.ProgramFlags -band 0x20000000){
+                        $ProgramList += 'Run uninstall from the registry key when the advertisement expires.'
+                    }
+                    Write-HtmlList -Title $ProgramTitle -InputObject $ProgramList -Level 6 -File $FilePath
+                }
+            }else{
+                Write-Verbose "$(Get-Date):   No programs found in package $($Package.Name)..."
+                Write-HTMLParagraph -Text 'The Package has no Programs configured.' -Level 6 -File $FilePath
+            }                       
+        }
+    }else{
+        Write-HTMLParagraph -Text 'There are no Packages configured in this site.' -Level 5 -File $FilePath
+    }
+}
+elseif ($Packages){
+    Write-HTMLParagraph -Text "There are $($Packages.count) packages configured." -Level 5 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'There are no packages configured.' -Level 5 -File $FilePath
+}
+Write-Verbose "$(Get-Date):   Completed processing Packages."
+#endregion Packages
+#endregion Application Management
+
+
+#region Software Updates
+Write-HTMLHeading -Level 2 -PageBreak -Text 'Software Updates' -File $FilePath
+
+#region Update Groups
+Write-HTMLHeading -Level 3 -PageBreak -Text 'Software Update Groups' -File $FilePath
+$UpdateGroups = Get-CMSoftwareUpdateGroup
+Write-HTMLParagraph -Text "There are $($UpdateGroups.count) update groups defined in this site." -Level 3 -File $FilePath
+$UGs = $UpdateGroups|Sort LocalizedDisplayName|Select @{Name='Group Name';expression={$_.LocalizedDisplayName}},@{Name='ID';expression={$_.CI_ID}},@{Name='Update Count';expression={$_.NumberOfUpdates}},@{Name='Expired Updates';expression={$_.NumberOfExpiredUpdates}},@{Name='Created By';expression={$_.CreatedBy}},@{Name='Date Created';expression={$_.DateCreated}},@{Name='Deployed';expression={$_.IsDeployed}},@{Name='Compliance';expression={"$($_.PercentCompliant)%"}}
+Write-HtmlTable -InputObject $UGs -Border 1 -Level 3 -File $FilePath
+#endregion Update Groups
+
+#region Update Packages
+Write-HTMLHeading -Level 3 -PageBreak -Text 'Software Update Packages' -File $FilePath
+$UpdatePackages=Get-CMSoftwareUpdateDeploymentPackage
+Write-HTMLParagraph -Text "There are $($UpdatePackages.count) update packages defined in this site." -Level 3 -File $FilePath
+$SUPackages = @()
+foreach($UP in $UpdatePackages){
+    $Name = $UP.Name
+    #binary differential replication
+    If ($UP.PkgFlags -band 0x04000000){
+        $BDR = "Enabled"
+    }else{
+        $BDR = "Disabled"
+    }
+    $SourcePath="$($UP.PkgSourcePath)"
+    $PackageID = "$($UP.PackageID)"
+    If(Test-Path -Path "filesystem::$SourcePath"){
+        $SourceStatus = "Verified"
+    }else{
+        $SourceStatus = "Not Found"
+    }
+    $SUPackages += New-Object -TypeName PSObject -Property @{'Name'="$Name";'Package ID'="$PackageID";'BDR'="$BDR";'Source Path'="$SourcePath";'Source Status'="$SourceStatus"}
+}
+$SUPackages= $SUPackages|Sort Name|Select-Object 'Name','Package ID','BDR','Source Path','Source Status'
+Write-HtmlTable -InputObject $SUPackages -Border 1 -Level 3 -File $FilePath
+Write-HTMLParagraph -Text '(BDR = Binary Differential Replication)' -Level 4 -File $FilePath
+#endregion Update Packages
+
+
+#region ADRs
+Write-HTMLHeading -Level 3 -PageBreak -Text 'Automatic Deployment Rules' -File $FilePath
+$CMPSSuppressFastNotUsedCheck = $true
+$ADRs=Get-CMSoftwareUpdateAutoDeploymentRule
+foreach ($ADR in $ADRs){
+    $ADRListDetails = @()
+    $ADRListTitle = "Name: $($ADR.Name)"
+    Write-HTMLHeading -Level 4 -Text "$($ADR.Name)" -File $FilePath
+    $ADRListDescription = $ADR.Description
+    Remove-Variable languages -ErrorAction SilentlyContinue
+    foreach ($locale in ([xml]$adr.ContentTemplate).ContentActionXML.ContentLocales.Locale){
+        if ($locale -ne 'Locale:0'){$languages = "$languages, $((Get-CMCategory -Id $locale).LocalizedCategoryInstanceName)"}
+    }
+    $ADRListDetails += "Languages: $($languages.Trim(', '))"
+    If (-not [string]::IsNullOrEmpty($ADR.Schedule)){
+        $Schedule=Convert-CMSchedule $ADR.Schedule
+        if ($Schedule.DaySpan -gt 0){
+            $ADRListDetails += "Evaluation Schedule: Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
+        }
+        elseif ($Schedule.HourSpan -gt 0){
+            $ADRListDetails += "Evaluation Schedule: Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
+        }
+        elseif ($Schedule.MinuteSpan -gt 0){
+            $ADRListDetails += "Evaluation Schedule: Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
+        }
+        elseif ($Schedule.ForNumberOfWeeks){
+            $ADRListDetails += "Evaluation Schedule: Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
+        }
+        elseif ($Schedule.ForNumberOfMonths){
+            if ($Schedule.MonthDay -gt 0){
+                $ADRListDetails += "Evaluation Schedule: Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+            }
+            elseif ($Schedule.MonthDay -eq 0){
+                $ADRListDetails += "Evaluation Schedule: Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+            }
+            elseif ($Schedule.WeekOrder -gt 0){
+                switch ($Schedule.WeekOrder){
+                    0 {$order = 'last'}
+                    1 {$order = 'first'}
+                    2 {$order = 'second'}
+                    3 {$order = 'third'}
+                    4 {$order = 'fourth'}
+                }
+                $ADRListDetails += "Evaluation Schedule: Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+            }
+        }
+    }else{
+        $ADRListDetails += "Evaluation Schedule: No schedule defined"
+    }
+    [xml]$rules=$ADR.UpdateRuleXML
+    Remove-Variable Categories -ErrorAction SilentlyContinue
+    Add-Type -AssemblyName System.Web
+    $UpdateRuleList = @()
+    foreach ($UpdateRule in $rules.UpdateXML.UpdateXMLDescriptionItems.UpdateXMLDescriptionItem){
+        Switch($UpdateRule.PropertyName){
+            '_Product'{
+                $Categories = ""
+                foreach ($Id in $UpdateRule.MatchRules.string){
+                    $UpdateCategory = Get-CMSoftwareUpdateCategory -UniqueId $($Id.trim("'")) -Fast
+                    $Categories = "$Categories, $($UpdateCategory.LocalizedCategoryInstanceName)"
+                }
+                $UpdateRuleList += "Products: $($Categories.Trim(', '))"
+            }
+            '_UpdateClassification'{
+                $UpdateClassification = @()
+                foreach ($UC in $UpdateRule.MatchRules.string.Trim("'")){
+                    $UPClasses = Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -Query "SELECT LocalizedCategoryInstanceName FROM SMS_CIAllCategories WHERE CategoryTypeName=`'UpdateClassification`' and CategoryInstance_UniqueID=`'$UC`'" -ComputerName $SMSProvider
+                    $UpdateClassification += $UPClasses[0].LocalizedCategoryInstanceName
+                }
+                $UC = "Update Classifications: $($UpdateClassification -join ' OR ')"
+                $UpdateRuleList += [System.Web.HttpUtility]::HtmlEncode("$UC")
+            }
+            'IsSuperseded'{
+                If ($UpdateRule.MatchRules.string -eq $false){
+                    $UpdateRuleList += 'Superseded: No'
+                }else{
+                    $UpdateRuleList += 'Superseded: Yes'
+                }
+            }
+            'DateRevised'{
+                $interval=($UpdateRule.MatchRules.string).split(':')
+                If($interval[0] -gt 0) {$RevisedInterval = "Last $($interval[0]) year(s)"}
+                If($interval[1] -gt 0) {$RevisedInterval = "Last $($interval[1]) month(s)"}
+                If($interval[2] -gt 0) {$RevisedInterval = "Last $($interval[2]) days(s)"}
+                If($interval[3] -gt 0) {$RevisedInterval = "Last $($interval[3]) hours(s)"}
+                $UpdateRuleList += "Date Released or Revised: $RevisedInterval"
+            }
+            'ArticleID'{
+                $ArticleID = "Article ID: $(($UpdateRule.MatchRules.string) -join ' OR ')"
+                $UpdateRuleList += [System.Web.HttpUtility]::HtmlEncode("$ArticleID")
+            }
+            'BulletinID'{
+                $BulletinID = "Bulletin ID: $(($UpdateRule.MatchRules.string) -join ' OR ')"
+                $UpdateRuleList += [System.Web.HttpUtility]::HtmlEncode("$BulletinID")
+            }
+            'ContentSize'{
+                $ContentSize = "Content Size: $(($UpdateRule.MatchRules.string) -join ' OR ')"
+                $UpdateRuleList += [System.Web.HttpUtility]::HtmlEncode("$ContentSize")
+            }
+            'CustomSeverity'{
+                #10-critical;8-Important;2-Low;6-Moderate;0-None
+                $CustSev = @()
+                foreach ($CS in $UpdateRule.MatchRules.string.Trim("'")){
+                    Switch($CS){
+                        10{$CustSev += 'Critical'}
+                        8{$CustSev += 'Important'}
+                        6{$CustSev += 'Moderate'}
+                        2{$CustSev += 'Low'}
+                        0{$CustSev += 'None'}
+                    }
+                }
+                $UpdateRuleList += "Custom Severity: $($CustSev -join ' OR ')"
+            }
+            'LocalizedDescription'{
+                $LocalizedDescription = "Description: $(($UpdateRule.MatchRules.string) -join ' OR ')"
+                $UpdateRuleList += [System.Web.HttpUtility]::HtmlEncode("$LocalizedDescription")
+            }
+            'UpdateLocales'{
+                $UpdateLanguages = @()
+                foreach ($locale in $UpdateRule.MatchRules.string.Trim("'")){
+                    $language = Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -Query "SELECT LocalizedCategoryInstanceName FROM SMS_CIAllCategories WHERE CategoryTypeName=`'Locale`' and CategoryInstance_UniqueID=`'$locale`'" -ComputerName $SMSProvider
+                    $UpdateLanguages += $language[0].LocalizedCategoryInstanceName
+                }
+                $ULs = "Languages: $($UpdateLanguages -join ' OR ')"
+                $UpdateRuleList += [System.Web.HttpUtility]::HtmlEncode("$ULs")
+            }
+            'NumMissing'{
+                $NumMissing = "Required: $(($UpdateRule.MatchRules.string) -join ' OR ')"
+                $UpdateRuleList += [System.Web.HttpUtility]::HtmlEncode("$NumMissing")
+            }
+            'Severity'{
+                #10-critical;8-Important;2-Low;6-Moderate;0-None
+                $Severity = @()
+                foreach ($SV in $UpdateRule.MatchRules.string.Trim("'")){
+                    Switch($SV){
+                        10{$Severity += 'Critical'}
+                        8{$Severity += 'Important'}
+                        6{$Severity += 'Moderate'}
+                        2{$Severity += 'Low'}
+                        0{$Severity += 'None'}
+                    }
+                }
+                $UpdateRuleList += "Custom Severity: $($Severity -join ' OR ')"
+            }
+            'LocalizedDisplayName'{
+                $UTitle = "Title: $(($UpdateRule.MatchRules.string) -join ' OR ')"
+                $UpdateRuleList += [System.Web.HttpUtility]::HtmlEncode("$UTitle")
+            }
+            '_Company'{
+                $Vendors = @()
+                foreach ($Vendor in $UpdateRule.MatchRules.string.Trim("'")){
+                    $Vend = Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -Query "SELECT LocalizedCategoryInstanceName FROM SMS_CIAllCategories WHERE CategoryTypeName=`'Company`' and CategoryInstance_UniqueID=`'$Vendor`'" -ComputerName $SMSProvider
+                    $UpdateVendor += $Vend[0].LocalizedCategoryInstanceName
+                }
+                $UpVendors = "Vendor: $($UpdateVendor -join ' OR ')"
+                $UpdateRuleList += [System.Web.HttpUtility]::HtmlEncode("$UpVendors")
+            }
+        }
+    }
+    $ADRDeployments = Get-CMSoftwareUpdateAutoDeploymentRuleDeployment -ID $ADR.AutoDeploymentID
+    $DeploymentPackage = Get-CMSoftwareUpdateDeploymentPackage -Id ([xml]$adr.ContentTemplate).ContentActionXML.PackageID
+    $Package = New-Object -TypeName PSObject -Property @{'Package Name'="$($DeploymentPackage.Name)";'Description'="$($DeploymentPackage.Description)";'Package ID'="$($DeploymentPackage.PackageID)";'Source Location'="$($DeploymentPackage.PkgSourcePath)"}
+    $Package = $package | Select-Object 'Package Name','Package ID','Description','Source Location'
+    Write-HtmlList -InputObject $ADRListDetails -Description $ADRListDescription -Level 3 -File $FilePath
+    #$UpdateRuleList
+    Write-HtmlList -InputObject $UpdateRuleList -Description 'Software Update Property Filters (Update Rules):' -Level 3 -File $FilePath
+    Write-HtmlTable -InputObject $Package -Level 5 -File $FilePath
+    Foreach ($Deployment in $ADRDeployments){
+        $ADRDTListDetails = @()
+        $DTxml=([xml]$Deployment.DeploymentTemplate).DeploymentCreationActionXML
+        $ADRDTListTitle = "Deployment Collection: $($Deployment.CollectionName) ($($Deployment.CollectionID))"
+        $ADRDTListDetails += "Enable the deployment after this rule is run: $($DTxml.EnableDeployment)"
+        $ADRDTListDetails += "Use Wake-on-LAN to wake up clients for required deployments: $($DTxml.EnableWakeOnLan)"
+        Switch ($($DTxml.StateMessageVerbosity)){
+            1 {$StateMessages = 'Only error messages'}
+            5 {$StateMessages = 'Only success and error messages'}
+            10 {$StateMessages = 'All messages'}
+        }
+        $ADRDTListDetails += "Choose how much state detail you want clients to report back. Detail level: $StateMessages"
+        Switch ($($DTxml.Utc)){
+            false{$timebase = 'Client local time'}
+            true{$timebase = 'UTC'}
+        }
+        $ADRDTListDetails += "Time based on: $timebase"
+        If ($DTxml.AvailableDeltaDuration -eq 0){
+            $ADRDTListDetails += "Software available time: As soon as possible"
+        }else{
+            $ADRDTListDetails += "Software available time: $($DTxml.AvailableDeltaDuration) $($DTxml.AvailableDeltaDurationUnits)"
+        }
+        If ($DTxml.Duration -eq 0){
+            $ADRDTListDetails += "Installation Deadline: As soon as possible"
+        }else{
+            $ADRDTListDetails += "Installation Deadline: $($DTxml.Duration) $($DTxml.DurationUnits)"
+        }
+        $ADRDTListDetails += "Delay Enforcement of this deployment according to user preferences, up to the grace period defined in client settings: $($DTxml.SoftDeadlineEnabled)"
+        Switch ($($DTxml.UserNotificationOption)){
+            'DisplayAll'{$UserNotification = 'Display in Software Center and show all notifications'}
+            'DisplaySoftwareCenterOnly'{$UserNotification = 'Display in Software Center, and only show nitifications for computer restarts'}
+            'HideAll'{$UserNotification = 'Hide in Software Center and all notifications'}
+        }
+        $ADRDTListDetails += "User notifications: $UserNotification"
+        Switch ($($DTxml.AllowInstallOutSW)){
+            false{$InstallOutMW = 'Do not allow'}
+            true{$InstallOutMW = 'Allow installations'}
+        }
+        $ADRDTListDetails += "Deadline behavior for Software Update installation outside of maintenance windows: $InstallOutMW"
+        Switch ($($DTxml.AllowRestart)){
+            false{$RestartOutMW = 'Do not allow'}
+            true{$RestartOutMW = 'Allow restarts'}
+        }
+        $ADRDTListDetails += "Deadline behavior for System restarts outside of maintenance windows: $RestartOutMW"
+        $ADRDTListDetails += "Suppress reboots on servers if update requires reboot: $($DTxml.SuppressServers)"
+        $ADRDTListDetails += "Suppress reboots on workstations if update requires reboot: $($DTxml.SuppressWorkstations)"
+        $ADRDTListDetails += "Windows Embedded devices, Commit changes at deadline: $($DTxml.PersistOnWriteFilterDevices)"
+        $ADRDTListDetails += "If any update in this deployment requires a system restart, run updates deployment evaluation cycle after restart: $($DTxml.RequirePostRebootFullScan)"
+        If($($DTxml.EnableAlert) -eq $false){
+            $ADRDTListDetails += "Configuration Manager alerts.  Generate an alert when the following conditions are met: False"
+        }else{
+            $ADRDTListDetails += "Configuration Manager alerts.  Generate an alert when the following conditions are met: True<br />Client Compliance is below the following percent: $($DTxml.AlertThresholdPercentage)<br />Offset from the deadline: $($DTxml.AlertDuration)"
+        }
+        $ADRDTListDetails += "Disable Operations Manager alerts while software updates run: $($DTxml.DisableMomAlert)"
+        $ADRDTListDetails += "Generate Operations Manager alert when a software update installation fails: $($DTxml.GenerateMomAlert)"
+        switch ($DTxml.UseRemoteDP){
+            false{$deploymentopt = 'Do not install software updates'}
+            true{$deploymentopt = 'Download software updates from distribution point and install'}
+        }
+        $ADRDTListDetails += "Select deployment options to use when when client uses neighbor or default boundary group: $deploymentopt"
+        switch ($DTxml.UseUnprotectedDP){
+            false{$deploymentopt2 = 'Do not install software updates'}
+            true{$deploymentopt2 = 'Download and install software updates from the distribution points in the site default boundary group'}
+        }
+        $ADRDTListDetails += "When software updates are not available on any distribution point in current or neighbor boundary group, download from default boundary group: $deploymentopt2"
+        $ADRDTListDetails += "Allow clients to share content with other clients on the same subnet: $($DTxml.UseBranchCache)"
+        $ADRDTListDetails += "If software updates are not available on distribution point in current, neighbor or site boundary groups, download content from Microsoft Updates: $($DTxml.AllowWUMU)"
+        $ADRDTListDetails += "Allow clients on a metered Internet connection to download content after the installation deadline which might incur additional costs: $($DTxml.AllowUseMeteredNetwork)"
+        Write-HtmlList -InputObject $ADRDTListDetails -Title $ADRDTListTitle -Level 4 -File $FilePath
+        #$DTxml
+    }
+}
+
+#endregion ADRs
+
+
+#endregion Software Updates
+
+
+#region Operating Systems
+Write-HTMLHeading -Level 2 -PageBreak -Text 'Operating Systems' -File $FilePath
+
+#region Driver Packages
+Write-Verbose "$(Get-Date):   Processing Driver Packages."
+Write-HTMLHeading -Level 3 -PageBreak -Text 'Driver Packages' -File $FilePath
+$DriverPackages = Get-CMDriverPackage
+if ($ListAllInformation){
+    if (-not [string]::IsNullOrEmpty($DriverPackages)){
+        Write-HTMLParagraph -Text 'The following Driver Packages are configured in your site:' -Level 4 -File $FilePath
+        foreach ($DriverPackage in $DriverPackages){
+            $DPackArray = @()
+            $PackageName = "$($DriverPackage.Name)"
+            $PackageDescription = ""
+            if ($DriverPackage.Description){
+                $PackageDescription = "Description: $($DriverPackage.Description)"
+            }
+            $DPackArray += "PackageID: $($DriverPackage.PackageID)"
+            $DPackArray += "Source path: $($DriverPackage.PkgSourcePath)"
+            if (Test-Path "filesystem::$($DriverPackage.PkgSourcePath)" -ErrorAction SilentlyContinue){
+                $Verified = "Path Verified"
+            }else{
+                $Verified = "Path not found"
+            }
+            $DPackArray += "Source Files exist: $Verified"
+            $DPackArray += 'This package consists of the following Drivers:'
+            $Drivers = Get-CMDriver -DriverPackageId "$($DriverPackage.PackageID)"
+            $DriverArray = @()
+            foreach ($Driver in $Drivers){
+                if (Test-Path "filesystem::$($Driver.ContentSourcePath)" -ErrorAction SilentlyContinue){
+                    $Verified = "Path Verified"
+                }else{
+                    $Verified = "Path not found"
+                }
+                $DriverArray += New-Object -TypeName psobject -Property @{'Driver Name'="$($Driver.LocalizedDisplayName)";'Manufacturer'="$($Driver.DriverProvider)";'Source Path'="$($Driver.ContentSourcePath)";'Source Status' = "$Verified";'INF File'="$($Driver.DriverINFFile)"}
+            }
+            If ($PackageDescription){
+                Write-HtmlList -Title $PackageName -Description $PackageDescription -InputObject $DPackArray -Level 4 -File $FilePath
+            }else{
+                Write-HtmlList -Title $PackageName -InputObject $DPackArray -Level 4 -File $FilePath
+            }
+            $DriverArray = $DriverArray | Select-Object 'Driver Name','Manufacturer','Source Path','Source Status','INF File'
+            Write-HtmlTable -InputObject $DriverArray -Border 1 -Level 5 -File $FilePath
+        }
+    }else{
+        Write-HTMLParagraph -Text 'There are no Driver Packages configured in this site.' -Level 4 -File $FilePath
+    }
+}else{
+    if (-not [string]::IsNullOrEmpty($DriverPackages)){
+        Write-HTMLParagraph -Text "There are $($DriverPackages.count) Driver Packages configured." -Level 4 -File $FilePath
+    }else{
+        Write-HTMLParagraph -Text 'There are no Driver Packages configured in this site.' -Level 4 -File $FilePath
+    }
+}
+Write-Verbose "$(Get-Date):   Completed processing Driver Packages."
+#endregion Driver Packages
+
+#region Operating System Upgrade Packages
+Write-Verbose "$(Get-Date):   Processing Operating System Upgrade Packages."
+Write-HTMLHeading -Level 3 -PageBreak -Text 'Operating System Upgrade Packages' -File $FilePath
+$OSUgPacks = Get-CMOperatingSystemInstaller
+if (-not [string]::IsNullOrEmpty($OSUgPacks)){
+    Write-HTMLParagraph -Text 'The following Operating System Upgrade Packages are available in this CM Site:' -Level 4 -File $FilePath
+    foreach ($OSUpgradePack in $OSUgPacks)
+        {
+            $UgPackList = @()
+            $UgPackTitle = "$($OSUpgradePack.Name)"
+            $UgPackDescription = ""
+            if ($OSUpgradePack.Description -ne "")
+                    {
+                        $UgPackDescription = "Description/Comment: $($OSUpgradePack.Description)"
+                    }
+            $UgPackList += "Version: $($OSUpgradePack.PackageID)"
+            $UgPackList += "Language: $($OSUpgradePack.Language)"
+            $UgPackList += "Image OS Version: $($OSUpgradePack.ImageOSVersion)"
+            $UgPackList += "Package ID: $($OSUpgradePack.PackageID)"
+            $UgPackList += "Source Path: $($OSUpgradePack.PkgSourcePath)"
+            if (Test-Path "filesystem::$($OSUpgradePack.PkgSourcePath)" -ErrorAction SilentlyContinue){
+                $Verified = "Path exists"
+            }else{
+                $Verified = "Path not found"
+            }
+            $UgPackList += "Source Path Status: $Verified"
+            If ($UgPackDescription){
+                Write-HtmlList -Title $UgPackTitle -Description $UgPackDescription -InputObject $UgPackList -Level 4 -File $FilePath
+            }else{
+                Write-HtmlList -Title $UgPackTitle -InputObject $UgPackList -Level 4 -File $FilePath
+            }
+        }
+}else{
+    Write-HTMLParagraph -Text 'There are no Operating System Upgrade Packages found in this site.' -Level 4 -File $FilePath
+}
+Write-Verbose "$(Get-Date):   Completed processing Operating System Upgrade Packages."
+#endregion Operating System Upgrade Packages
+
+#region Operating System Images
+Write-Verbose "$(Get-Date):   Processing Operating System Images."
+Write-HTMLHeading -Level 3 -PageBreak -Text 'Operating System Images' -File $FilePath
+$OSImages = Get-CMOperatingSystemImage
+if (-not [string]::IsNullOrEmpty($OSImages)){
+    Write-HTMLParagraph -Text 'The following Operating System Images are available in this CM Site:' -Level 4 -File $FilePath
+    foreach ($OSImage in $OSImages)
+        {
+            $OSImageList = @()
+            $OSImageName = "$($OSImage.Name)"
+            $OSImageDescription = ""
+            if ($OSImage.Description -ne "")
+                    {
+                        $OSImageDescription = "Description/Comment: $($OSImage.Description)"
+                    }
+            $OSImageList += "Version: $($OSImage.PackageID)"
+            $OSImageList += "Language: $($OSImage.Language)"
+            $OSImageList += "Image OS Version: $($OSImage.ImageOSVersion)"
+            $OSImageList += "Package ID: $($OSImage.PackageID)"
+            $OSImageList += "Source Path: $($OSImage.PkgSourcePath)"
+            if (Test-Path "filesystem::$($OSImage.PkgSourcePath)" -ErrorAction SilentlyContinue){
+                $OSImageList += "Source Path Status: Path exists"
+                $OSImageList += "Image Size: $([int]((Get-Item filesystem::$($OSImage.PkgSourcePath)).Length/1MB)) MB"
+            }else{
+                $OSImageList += "Source Path Status: Path not found"
+            }
+            If ($OSImageDescription){
+                Write-HtmlList -Title $OSImageName -Description $OSImageDescription -InputObject $OSImageList -Level 4 -File $FilePath
+            }else{
+                Write-HtmlList -Title $OSImageName -InputObject $OSImageList -Level 4 -File $FilePath
+            }
+        }
+}else{
+    Write-HTMLParagraph -Text 'There are no Operating System Images found in this site.' -Level 4 -File $FilePath
+}
+Write-Verbose "$(Get-Date):   Completed processing Operating System Images."
+#endregion Operating System Images
+
+#region Boot Images
+Write-Verbose "$(Get-Date):   Processing Boot Images."
+Write-HTMLHeading -Level 3 -PageBreak -Text 'Boot Images' -File $FilePath
+$BootImages = Get-CMBootImage
+if (-not [string]::IsNullOrEmpty($BootImages)){
+    Write-HTMLParagraph -Text 'The following Boot Images are available in this site:' -Level 4 -File $FilePath
+    foreach ($BootImage in $BootImages){
+        $BootImageList = @()
+        $BootImageName = "$($BootImage.Name)"
+        $BootImageDescription = ""
+        if ($BootImage.Description -ne ""){
+            $BootImageDescription = "Description/Comment: $($BootImage.Description)"
+        }
+        $BootImageList += "Last Updated: $($BootImage.LastRefreshTime)"
+        $BootImageList += "Source Path: $($BootImage.PkgSourcePath)"
+        $BootImageList += "Package ID: $($BootImage.PackageID)"
+        $BootImageList += "Boot Image OS Version: $($BootImage.ImageOSVersion)"
+        switch ($BootImage.Architecture)
+            {
+                0 { $BootImageList += "Architecture: x86" }
+                9 { $BootImageList += "Architecture: x64" }
+            }
+        If ($BootImage.PkgFlags -band 0x00000400){
+            $BootImageList += "Deploy this boot image from the PXE-enabled distribution point: Enabled"
+        }else{
+            $BootImageList += "Deploy this boot image from the PXE-enabled distribution point: Disabled"
+        }
+        If ($BootImage.PkgFlags -band 0x04000000){
+            $BootImageList += "Enable binary differential replication: Enabled"
+        }else{
+            $BootImageList += "Enable binary differential replication: Disabled"
+        }
+        if ($BootImage.BackgroundBitmapPath)
+            {
+                $BootImageList += "Custom Background: $($BootImage.BackgroundBitmapPath)"
+            }
+        Switch ($BootImage.EnableLabShell)
+            {
+                True { $BootImageList += 'Command line support is enabled' }
+                False { $BootImageList += 'Command line support is not enabled' }
+            }
+        $BootImageList += 'The following drivers are imported into this WinPE:'
+        If ($OSImageDescription){
+            Write-HtmlList -Title $BootImageName -Description $BootImageDescription -InputObject $BootImageList -Level 4 -File $FilePath
+        }else{
+            Write-HtmlList -Title $BootImageName -InputObject $BootImageList -Level 4 -File $FilePath
+        }
+        if (-not [string]::IsNullOrEmpty($BootImage.ReferencedDrivers)){
+            $DriverArray = @()
+            $ImportedDriverIDs = ($BootImage.ReferencedDrivers).ID
+            foreach ($ImportedDriverID in $ImportedDriverIDs){
+                $ImportedDriver = Get-CMDriver -ID $ImportedDriverID
+                $DriverArray += New-Object -TypeName psobject -Property @{'Driver Name'="$($ImportedDriver.LocalizedDisplayName)";'Driver Class'="$($ImportedDriver.DriverClass)";'Inf File'="$($ImportedDriver.DriverINFFile)"}
+            }
+            Write-HtmlTable -InputObject $DriverArray -Border 1 -Level 6 -File $FilePath
+        }else{
+            #$DriverArray += New-Object -TypeName psobject -Property @{'Driver Name'='There are no drivers imported into the Boot Image.'}
+            Write-HTMLParagraph -Level 6 -Text 'There are no drivers imported into the Boot Image.' -File $FilePath
+        }
+        if (-not [string]::IsNullOrEmpty($BootImage.OptionalComponents)){
+            $Component = $Null
+            $OCList = @()
+            $OCDescription = 'The following Optional Components are added to this Boot Image:'
+            foreach ($Component in $BootImage.OptionalComponents){
+                switch ($Component){
+                    {($_ -eq '1') -or ($_ -eq '27')} { $OCList += 'WinPE-DismCmdlets' }
+                    {($_ -eq '2') -or ($_ -eq '28')} { $OCList += 'WinPE-Dot3Svc' }
+                    {($_ -eq '3') -or ($_ -eq '29')} { $OCList += 'WinPE-EnhancedStorage' }
+                    {($_ -eq '4') -or ($_ -eq '30')} { $OCList += 'WinPE-FMAPI' }
+                    {($_ -eq '5') -or ($_ -eq '31')} { $OCList += 'WinPE-FontSupport-JA-JP' }
+                    {($_ -eq '6') -or ($_ -eq '32')} { $OCList += 'WinPE-FontSupport-KO-KR' }
+                    {($_ -eq '7') -or ($_ -eq '33')} { $OCList += 'WinPE-FontSupport-ZH-CN' }
+                    {($_ -eq '8') -or ($_ -eq '34')} { $OCList += 'WinPE-FontSupport-ZH-HK' }
+                    {($_ -eq '9') -or ($_ -eq '35')} { $OCList += 'WinPE-FontSupport-ZH-TW' }
+                    {($_ -eq '10') -or ($_ -eq '36')} { $OCList += 'WinPE-HTA' }
+                    {($_ -eq '11') -or ($_ -eq '37')} { $OCList += 'WinPE-StorageWMI' }
+                    {($_ -eq '12') -or ($_ -eq '38')} { $OCList += 'WinPE-LegacySetup' }
+                    {($_ -eq '13') -or ($_ -eq '39')} { $OCList += 'WinPE-MDAC' }
+                    {($_ -eq '14') -or ($_ -eq '40')} { $OCList += 'WinPE-NetFx4' }
+                    {($_ -eq '15') -or ($_ -eq '41')} { $OCList += 'WinPE-PowerShell3' }
+                    {($_ -eq '16') -or ($_ -eq '42')} { $OCList += 'WinPE-PPPoE' }
+                    {($_ -eq '17') -or ($_ -eq '43')} { $OCList += 'WinPE-RNDIS' }
+                    {($_ -eq '18') -or ($_ -eq '44')} { $OCList += 'WinPE-Scripting' }
+                    {($_ -eq '19') -or ($_ -eq '45')} { $OCList += 'WinPE-SecureStartup' }
+                    {($_ -eq '20') -or ($_ -eq '46')} { $OCList += 'WinPE-Setup' }
+                    {($_ -eq '21') -or ($_ -eq '47')} { $OCList += 'WinPE-Setup-Client' }
+                    {($_ -eq '22') -or ($_ -eq '48')} { $OCList += 'WinPE-Setup-Server' }
+                    #{($_ -eq "23") -or ($_ -eq "49")} { $OCList += "Not applicable" }
+                    {($_ -eq '24') -or ($_ -eq '50')} { $OCList += 'WinPE-WDS-Tools' }
+                    {($_ -eq '25') -or ($_ -eq '51')} { $OCList += 'WinPE-WinReCfg' }
+                    {($_ -eq '26') -or ($_ -eq '52')} { $OCList += 'WinPE-WMI' }
+                }
+                $Component = $Null    
+            }
+            Write-HtmlList -Description $OCDescription -InputObject $OCList -Level 5 -File $FilePath
+        }
+
+    }
+}else{
+    Write-HTMLParagraph -Text 'There are no Boot Images present in this site.' -Level 4 -File $FilePath
+}
+Write-Verbose "$(Get-Date):   Completed processing Boot Images."
+#endregion Boot Images
+
+
+#region Task Sequences
 Write-Verbose "$(Get-Date):   Enumerating Task Sequences"
-WriteWordLine 2 0 'Task Sequences'
-WriteWordLine 0 0 ''
-
+Write-HTMLHeading -Level 3 -PageBreak -Text 'Task Sequences' -File $FilePath
 $TaskSequences = Get-CMTaskSequence
 Write-Verbose "$(Get-Date):   working on $($TaskSequences.count) Task Sequences"
-if ($ListAllInformation)
-    {
-        if (-not [string]::IsNullOrEmpty($TaskSequences))
-            {
-                foreach ($TaskSequence in $TaskSequences)
-                    {
-                        WriteWordLine 0 1 "Task Sequence name: $($TaskSequence.Name)" -boldface $true
-                        WriteWordLine 0 1 "Package ID: $($TaskSequence.PackageID)"
-                        if ($TaskSequence.BootImageID)
-                            {
-                                WriteWordLine 0 2 "Boot Image referenced in this Task Sequence: $((Get-CMBootImage -Id $TaskSequence.BootImageID -ErrorAction SilentlyContinue ).Name)"
-                            }
-        
-                        $Sequence = $Null
-                        [xml]$Sequence = $TaskSequence.Sequence
-                        try
-                            {
-                                foreach ($Group in $Sequence.sequence.group)
-                                    {
-                                        WriteWordLine 0 1 "Group name: $($Group.Name)" -boldface $true
-                                        if (-not [string]::IsNullOrEmpty($Group.Description))
-                                            {
-                                                WriteWordLine 0 1 "Description: $($Group.Description)"
-                                            }
-                                        WriteWordLine 0 1 'This Group has the following steps configured.'
-                                        foreach ($Step in $Group.Step)
-                                            {
-                                                WriteWordLine 0 3 "$($Step.Name)" -boldface $true
-                                                if (-not [string]::IsNullOrEmpty($Step.Description))
-                                                    {
-                                                        WriteWordLine 0 4 "$($Step.Description)"
-                                                    }
-                                                WriteWordLine 0 4 "$($Step.Action)"
-                                                try 
-                                                    {
-                                                        if (-not [string]::IsNullOrEmpty($Step.disable))
-                                                                {
-                                                                    WriteWordLine 0 4 'This step is disabled.'
-                                                                }
-                                                    }   
-                                                catch [System.Management.Automation.PropertyNotFoundException] 
-                                                    {
-                                                        WriteWordLine 0 4 'This step is enabled'
-                                                    }
-                                                WriteWordLine 0 0 ''
-                                            }
-
-                                    }
-                            }
-                        catch [System.Management.Automation.PropertyNotFoundException]
-                            {
-                                WriteWordLine 0 0 ''
-                            }
-                        try 
-                            {
-                                foreach ($Step in $Sequence.sequence.step)
-                                    {
-                                        WriteWordLine 0 3 "$($Step.Name)" -boldface $true
-                                        if (-not [string]::IsNullOrEmpty($Step.Description))
-                                            {
-                                                WriteWordLine 0 4 "$($Step.Description)"
-                                            }
-                                        WriteWordLine 0 4 "$($Step.Action)"
-                                        try 
-                                            {
-                                                if (-not [string]::IsNullOrEmpty($Step.disable))
-                                                        {
-                                                            WriteWordLine 0 4 'This step is disabled.'
-                                                        }
-                                            }   
-                                        catch [System.Management.Automation.PropertyNotFoundException] 
-                                            {
-                                                WriteWordLine 0 4 'This step is enabled'
-                                            }
-                                        WriteWordLine 0 0 ''
-                                    }
-                            }
-                        catch [System.Management.Automation.PropertyNotFoundException]
-                            {
-                                WriteWordLine 0 0 ''
-                            }
-                        #>
-                        WriteWordLine 0 0 ''
-                        WriteWordLine 0 0 '----------------------------------------------'
-                    }
+if ($ListAllInformation){
+    if (-not [string]::IsNullOrEmpty($TaskSequences)){
+        foreach ($TaskSequence in $TaskSequences){
+                Write-Verbose "$(Get-Date):   Detailing $($TaskSequence.Name) Task Sequences"
+                Write-HTMLHeading -Level 4 -Text "$($TaskSequence.Name)" -File $FilePath
+                $TSDetails = @()
+                $TSDetails += "Package ID: $($TaskSequence.PackageID)"
+                if ($TaskSequence.BootImageID){
+                    $TSDetails += "Task Sequence Boot Image: $((Get-CMBootImage -Id $TaskSequence.BootImageID -ErrorAction SilentlyContinue ).Name)"
+                }
+                $TSDetails += "Sequence Steps:"
+                Write-HtmlList -InputObject $TSDetails -Level 4 -File $FilePath
+                $Sequence = $Null
+                $Sequence = ([xml]$TaskSequence.Sequence).sequence
+Function Process-TSSteps{
+    param ($Sequence,$GroupName)
+    foreach ($node in $Sequence.ChildNodes){
+        switch($node.localname) {
+            'step'{
+                if (-not [string]::IsNullOrEmpty($node.Description)){
+                    $StepDescription = "$($node.Description)"
+                }
+                try {
+                        if (-not [string]::IsNullOrEmpty($node.disable)){
+                            $StepStatus = 'Disabled'
+                        }else{
+                            $StepStatus = 'Enabled'
+                        }
+                    }   
+                catch [System.Management.Automation.PropertyNotFoundException] {
+                    $StepStatus = 'Enabled'
+                }
+                if($GroupName){
+                    #"$($GroupName):  $($node.name) $($node.action)"
+                    $TSStep = New-Object -TypeName psobject -Property @{'Group Name'="$GroupName";'Step Name'="$($node.Name)";'Description'="$StepDescription";'Action'="$($node.Action)";'Status'="$StepStatus"}
+                }else{
+                    $TSStep = New-Object -TypeName psobject -Property @{'Group Name'="N/A";'Step Name'="$($node.Name)";'Description'="$StepDescription";'Action'="$($node.Action)";'Status'="$StepStatus"}
+                    #"$($node.name) $($node.action)"
+                }
+                $TSStep
             }
-        else
-            {
-                WriteWordLine 0 1 'There are no Task Sequences present in this environment.'
+            'group'{
+                $TSStepNumber++
+                if (-not [string]::IsNullOrEmpty($node.Description)){
+                    $StepDescription = "$($node.Description)"
+                }
+                try {
+                        if (-not [string]::IsNullOrEmpty($node.disable)){
+                            $StepStatus = 'Disabled'
+                        }else{
+                            $StepStatus = 'Enabled'
+                        }
+                    }   
+                catch [System.Management.Automation.PropertyNotFoundException] {
+                    $StepStatus = 'Enabled'
+                }
+                #"Group: $($node.Name)"
+                $TSStep = New-Object -TypeName psobject -Property @{'Group Name'="$($node.Name)";'Step Name'="N/A";'Description'="$StepDescription";'Action'="N/A";'Status'="$StepStatus"}
+                $TSStep
+                Process-TSSteps -Sequence $node -GroupName "$($node.Name)" -TSSteps $TSSteps -StepCounter $TSStepNumber
             }
+            default{}
+        }
     }
-else
-    {
-        if (-not [string]::IsNullOrEmpty($TaskSequences))
-            {
-                WriteWordLine 0 1 'The following Task Sequences are configured:'
-                foreach ($TaskSequence in $TaskSequences)
-                    {
-                        WriteWordLine 0 2 "$($TaskSequence.Name)"
-                    }
+}
+                $AllSteps = Process-TSSteps -Sequence $Sequence
+                $c = 0
+                foreach ($Step in $AllSteps){$c++;$Step|Add-Member -MemberType NoteProperty -Name 'Step' -Value $c}
+                $AllSteps = $AllSteps |Select-Object 'Step','Group Name','Step Name','Description','Action','Status'
+                Write-HtmlTable -InputObject $AllSteps -Border 1 -Level 6 -File $FilePath
             }
-        else
-            {
-                WriteWordLine 0 1 'There are no Task Sequences present in this environment.'
-            }
+    }else{
+        Write-HTMLParagraph -Level 3 -Text 'There are no Task Sequences present in this environment.' -File $FilePath
     }
+}else{
+    if (-not [string]::IsNullOrEmpty($TaskSequences)){
+        Write-HTMLParagraph -Level 3 -Text 'The following Task Sequences are configured:' -File $FilePath
+        $TSList =@()
+        foreach ($TaskSequence in $TaskSequences){
+            $TSList += "$($TaskSequence.Name)"
+        }
+        Write-HtmlList -InputObject $TSList -Level 3 -File $FilePath
+    }else{
+        Write-HTMLParagraph -Level 3 -Text 'There are no Task Sequences present in this environment.' -File $FilePath
+    }
+}
+Write-Verbose "$(Get-Date):   Completed Task Sequences"
+#endregion Task Sequences
 
-} #End Software
+#endregion Operating Systems
 
-#endregion Site Configuration report
+#region Windows 10 Servicing
 
-Set-Location -Path $LocationBeforeExecution
-$Script:ScriptInformation = $Null
+#region Servicing Plan
+$ServicingPlans=((Get-CMWindowsServicingPlan).UpdateRuleXML).updatexml.UpdateXMLDescriptionItems.UpdateXMLDescriptionItem
 
-###REPLACE BEFORE THIS SECTION WITH YOUR SCRIPT###
-#endregion
+foreach ($ServicingPlan in $ServicingPlans){
+    [xml]$UR = $ServicingPlan.UpdateRuleXML
+    #Name
+    #Description
+    #Target Collection
+    #Deployment Ring: Channel, Deployment Delay
+    ($UR.UpdateXML.UpdateXMLDescriptionItems.UpdateXMLDescriptionItem | where {$_.PropertyName -eq 'AfterDays'}).Matchrules.string
+    #Evaluation Schedule
+    #Deployment Schedule
+    #Deployment Package
+    #Language Selection
+    #User Experience: User Notification
+}
+#endregion Servicing Plan
 
-###REPLACE BEFORE THIS SECTION WITH YOUR SCRIPT###
-#endregion
+#region Windows Update for Business Policies
+<#
+ General
+•	Name: Test WUB Policy
+•	Description: Test Policy for deploying windows updates.
+ Deferral Settings
+•	Branch Readiness Level: Semi-Annual Channel
+•	Feature Updates deferral period (in days): 30
+•	Pause Feature Updates: No
+•	Quality Updates deferral period (in days): 12
+•	Pause Quality Updates: No
+•	Install updates for other Microsoft products: Yes
+•	Include drivers: No
+#>
+#endregion Windows Update for Business Policies
 
-#region finish script
-Write-Verbose "$(Get-Date): Finishing up document"
-#end of document processing
+#endregion Windows 10 Servicing
 
-###Change the two lines below for your script###
-$AbstractTitle = "Template Script Report"
-$SubjectTitle = "Sample Template Script Report"
+#region Scripts
+Write-Verbose "$(Get-Date):   Enumerating Configuration Manager Scripts"
+Write-HTMLHeading -Level 2 -PageBreak -Text 'Configuration Manager Scripts' -File $FilePath
+$CMScripts = Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider -Query 'select ScriptName,Author,Approver,ApprovalState,ScriptType,LastUpdateTime from SMS_Scripts'
+Write-Verbose "$(Get-Date):   working on $($TaskSequences.count) Task Sequences"
 
-UpdateDocumentProperties $AbstractTitle $SubjectTitle
+if (-not [string]::IsNullOrEmpty($CMScripts)){
+    $CMScripts = $CMScripts|select @{Name='Script Name';expression={$_.ScriptName}},Author,Approver,@{Name='Approval State';expression={$_.ApprovalState}},@{Name='Script Type';expression={$_.ScriptType}},@{Name='Last Update Time'; expression = {[Management.ManagementDateTimeConverter]::ToDateTime($_.LastUpdateTime)}}
+}
 
-ProcessDocumentOutput
+Write-HtmlTable -InputObject $CMScripts -Border 1 -Level 3 -File $FilePath
 
-Write-Verbose "$(Get-Date): Script has completed"
-Write-Verbose "$(Get-Date): "
+Write-Verbose "$(Get-Date):   Completed Configuration Manager Scripts"
+#endregion Scripts
 
-#http://poshtips.com/measuring-elapsed-time-in-powershell/
-Write-Verbose "$(Get-Date): Script started: $($Script:StartTime)"
-Write-Verbose "$(Get-Date): Script ended: $(Get-Date)"
-$runtime = $(Get-Date) - $Script:StartTime
-$Str = [string]::format("{0} days, {1} hours, {2} minutes, {3}.{4} seconds", `
-	$runtime.Days, `
-	$runtime.Hours, `
-	$runtime.Minutes, `
-	$runtime.Seconds,
-	$runtime.Milliseconds)
-Write-Verbose "$(Get-Date): Elapsed time: $($Str)"
-$runtime = $Null
-$Str = $Null
-$ErrorActionPreference = $SaveEAPreference
-#endregion
+#endregion Software Library
+
+Write-HTMLTOC -InputObject $Global:DocTOC -File $FilePath
