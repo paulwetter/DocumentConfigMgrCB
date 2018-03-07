@@ -3002,7 +3002,8 @@ WriteWordLine 0 0 ''
       
       ## Set first column format
       SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-      $Table.Rows.SetLeftIndent($Indent1TabStops,$wdAdjustProportional) 
+      $Table.Rows.SetLeftIndent($Indent1TabStops,$wdAdjustProportional) 
+
       FindWordDocumentEnd
       $Table = $Null
 #endregion AD Site Boundaries Table
@@ -4848,7 +4849,32 @@ if (-not [string]::IsNullOrEmpty($BootImages))
                         {
                             switch ($Component)
                                 {
-                                    {($_ -eq '1') -or ($_ -eq '27')} { WriteWordLine 0 4 'WinPE-DismCmdlets' }                                    {($_ -eq '2') -or ($_ -eq '28')} { WriteWordLine 0 4 'WinPE-Dot3Svc' }                                    {($_ -eq '3') -or ($_ -eq '29')} { WriteWordLine 0 4 'WinPE-EnhancedStorage' }                                    {($_ -eq '4') -or ($_ -eq '30')} { WriteWordLine 0 4 'WinPE-FMAPI' }                                    {($_ -eq '5') -or ($_ -eq '31')} { WriteWordLine 0 4 'WinPE-FontSupport-JA-JP' }                                    {($_ -eq '6') -or ($_ -eq '32')} { WriteWordLine 0 4 'WinPE-FontSupport-KO-KR' }                                    {($_ -eq '7') -or ($_ -eq '33')} { WriteWordLine 0 4 'WinPE-FontSupport-ZH-CN' }                                    {($_ -eq '8') -or ($_ -eq '34')} { WriteWordLine 0 4 'WinPE-FontSupport-ZH-HK' }                                    {($_ -eq '9') -or ($_ -eq '35')} { WriteWordLine 0 4 'WinPE-FontSupport-ZH-TW' }                                    {($_ -eq '10') -or ($_ -eq '36')} { WriteWordLine 0 4 'WinPE-HTA' }                                    {($_ -eq '11') -or ($_ -eq '37')} { WriteWordLine 0 4 'WinPE-StorageWMI' }                                    {($_ -eq '12') -or ($_ -eq '38')} { WriteWordLine 0 4 'WinPE-LegacySetup' }                                    {($_ -eq '13') -or ($_ -eq '39')} { WriteWordLine 0 4 'WinPE-MDAC' }                                    {($_ -eq '14') -or ($_ -eq '40')} { WriteWordLine 0 4 'WinPE-NetFx4' }                                    {($_ -eq '15') -or ($_ -eq '41')} { WriteWordLine 0 4 'WinPE-PowerShell3' }                                    {($_ -eq '16') -or ($_ -eq '42')} { WriteWordLine 0 4 'WinPE-PPPoE' }                                    {($_ -eq '17') -or ($_ -eq '43')} { WriteWordLine 0 4 'WinPE-RNDIS' }                                    {($_ -eq '18') -or ($_ -eq '44')} { WriteWordLine 0 4 'WinPE-Scripting' }                                    {($_ -eq '19') -or ($_ -eq '45')} { WriteWordLine 0 4 'WinPE-SecureStartup' }                                    {($_ -eq '20') -or ($_ -eq '46')} { WriteWordLine 0 4 'WinPE-Setup' }                                    {($_ -eq '21') -or ($_ -eq '47')} { WriteWordLine 0 4 'WinPE-Setup-Client' }                                    {($_ -eq '22') -or ($_ -eq '48')} { WriteWordLine 0 4 'WinPE-Setup-Server' }                                    #{($_ -eq "23") -or ($_ -eq "49")} { WriteWordLine 0 4 "Not applicable" }                                    {($_ -eq '24') -or ($_ -eq '50')} { WriteWordLine 0 4 'WinPE-WDS-Tools' }                                    {($_ -eq '25') -or ($_ -eq '51')} { WriteWordLine 0 4 'WinPE-WinReCfg' }                                    {($_ -eq '26') -or ($_ -eq '52')} { WriteWordLine 0 4 'WinPE-WMI' }
+                                    {($_ -eq '1') -or ($_ -eq '27')} { WriteWordLine 0 4 'WinPE-DismCmdlets' }
+                                    {($_ -eq '2') -or ($_ -eq '28')} { WriteWordLine 0 4 'WinPE-Dot3Svc' }
+                                    {($_ -eq '3') -or ($_ -eq '29')} { WriteWordLine 0 4 'WinPE-EnhancedStorage' }
+                                    {($_ -eq '4') -or ($_ -eq '30')} { WriteWordLine 0 4 'WinPE-FMAPI' }
+                                    {($_ -eq '5') -or ($_ -eq '31')} { WriteWordLine 0 4 'WinPE-FontSupport-JA-JP' }
+                                    {($_ -eq '6') -or ($_ -eq '32')} { WriteWordLine 0 4 'WinPE-FontSupport-KO-KR' }
+                                    {($_ -eq '7') -or ($_ -eq '33')} { WriteWordLine 0 4 'WinPE-FontSupport-ZH-CN' }
+                                    {($_ -eq '8') -or ($_ -eq '34')} { WriteWordLine 0 4 'WinPE-FontSupport-ZH-HK' }
+                                    {($_ -eq '9') -or ($_ -eq '35')} { WriteWordLine 0 4 'WinPE-FontSupport-ZH-TW' }
+                                    {($_ -eq '10') -or ($_ -eq '36')} { WriteWordLine 0 4 'WinPE-HTA' }
+                                    {($_ -eq '11') -or ($_ -eq '37')} { WriteWordLine 0 4 'WinPE-StorageWMI' }
+                                    {($_ -eq '12') -or ($_ -eq '38')} { WriteWordLine 0 4 'WinPE-LegacySetup' }
+                                    {($_ -eq '13') -or ($_ -eq '39')} { WriteWordLine 0 4 'WinPE-MDAC' }
+                                    {($_ -eq '14') -or ($_ -eq '40')} { WriteWordLine 0 4 'WinPE-NetFx4' }
+                                    {($_ -eq '15') -or ($_ -eq '41')} { WriteWordLine 0 4 'WinPE-PowerShell3' }
+                                    {($_ -eq '16') -or ($_ -eq '42')} { WriteWordLine 0 4 'WinPE-PPPoE' }
+                                    {($_ -eq '17') -or ($_ -eq '43')} { WriteWordLine 0 4 'WinPE-RNDIS' }
+                                    {($_ -eq '18') -or ($_ -eq '44')} { WriteWordLine 0 4 'WinPE-Scripting' }
+                                    {($_ -eq '19') -or ($_ -eq '45')} { WriteWordLine 0 4 'WinPE-SecureStartup' }
+                                    {($_ -eq '20') -or ($_ -eq '46')} { WriteWordLine 0 4 'WinPE-Setup' }
+                                    {($_ -eq '21') -or ($_ -eq '47')} { WriteWordLine 0 4 'WinPE-Setup-Client' }
+                                    {($_ -eq '22') -or ($_ -eq '48')} { WriteWordLine 0 4 'WinPE-Setup-Server' }
+                                    #{($_ -eq "23") -or ($_ -eq "49")} { WriteWordLine 0 4 "Not applicable" }
+                                    {($_ -eq '24') -or ($_ -eq '50')} { WriteWordLine 0 4 'WinPE-WDS-Tools' }
+                                    {($_ -eq '25') -or ($_ -eq '51')} { WriteWordLine 0 4 'WinPE-WinReCfg' }
+                                    {($_ -eq '26') -or ($_ -eq '52')} { WriteWordLine 0 4 'WinPE-WMI' }
                                 } 
                             $Component = $Null    
                         }
