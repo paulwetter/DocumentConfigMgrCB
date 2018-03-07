@@ -4177,12 +4177,12 @@ Write-HTMLHeading -Level 2 -PageBreak -Text 'Configuration Manager Scripts' -Fil
 $CMScripts = Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider -Query 'select ScriptName,Author,Approver,ApprovalState,ScriptType,LastUpdateTime from SMS_Scripts'
 Write-Verbose "$(Get-Date):   working on $($TaskSequences.count) Task Sequences"
 
-if (-not [string]::IsNullOrEmpty($CMScripts)){
+if ([string]::IsNullOrEmpty($CMScripts)){
+    Write-HTMLParagraph -Text "No Scripts are defined in this site." -Level 3 -File $FilePath
+}else{
     $CMScripts = $CMScripts|select @{Name='Script Name';expression={$_.ScriptName}},Author,Approver,@{Name='Approval State';expression={$_.ApprovalState}},@{Name='Script Type';expression={$_.ScriptType}},@{Name='Last Update Time'; expression = {[Management.ManagementDateTimeConverter]::ToDateTime($_.LastUpdateTime)}}
+    Write-HtmlTable -InputObject $CMScripts -Border 1 -Level 3 -File $FilePath
 }
-
-Write-HtmlTable -InputObject $CMScripts -Border 1 -Level 3 -File $FilePath
-
 Write-Verbose "$(Get-Date):   Completed Configuration Manager Scripts"
 #endregion Scripts
 
