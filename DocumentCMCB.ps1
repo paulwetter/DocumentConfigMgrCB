@@ -780,7 +780,7 @@ Write-HTMLCoverPage -Title $Title -Author $Author -Vendor $Vendor -Org $CompanyN
 if (-not (Test-Path -Path $SiteCode))
 {
   Write-Verbose "$(Get-Date):   CM PowerShell module has not been imported yet, will import it now."
-  Import-Module ($env:SMS_ADMIN_UI_PATH.Substring(0,$env:SMS_ADMIN_UI_PATH.Length – 5) + '\ConfigurationManager.psd1') | Out-Null
+  Import-Module ($env:SMS_ADMIN_UI_PATH.Substring(0,$env:SMS_ADMIN_UI_PATH.Length - 5) + '\ConfigurationManager.psd1') | Out-Null
 }
 #CM12 cmdlets need to be run from the CM12 drive
 Set-Location "$($SiteCode):" | Out-Null
