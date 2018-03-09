@@ -12,13 +12,7 @@
     in pure HTML.  If you so desire, you can import this HTML report into Word for easier
     editing.
 .PARAMETER Title
-	Company Name to use for the Cover Page.  
-	Default value is contained in HKCU:\Software\Microsoft\Office\Common\UserInfo\CompanyName or
-	HKCU:\Software\Microsoft\Office\Common\UserInfo\Company, whichever is populated on the 
-	computer running the script.
-	This parameter has an alias of CN.
-	If either registry key does not exist and this parameter is not specified, the report will
-	not contain a Company Name on the cover page.
+	The title you would like to use for this documentation.  default is "Configuration Manager Site Documentation".
 .PARAMETER FilePath
 	This is the path of the documentation file.  By default, the file will be created in the same directory as the
     where the script is currently located. And named CMDocumentation.html
@@ -49,7 +43,11 @@
     With new releases of CM come new client settings.  If this parameter is added, it will display raw 
     information for these client settings.
 .EXAMPLE
-
+	DocumentCMCB.ps1 -ListAllInformation
+.EXAMPLE
+	DocumentCMCB.ps1 -CompanyLogo 'http://www.contoso.com/logo.jpg' -ListAllInformation
+.EXAMPLE
+	DocumentCMCB.ps1 -CompanyLogo 'http://www.contoso.com/logo.jpg' -Author "Bugs Bunny" -Vendor "Acme" -ListAllInformation
 .INPUTS
 	None.  You cannot pipe objects to this script.
 .OUTPUTS
@@ -69,20 +67,14 @@
 [CmdletBinding()]
 
 Param(
-	[parameter(Mandatory=$False)] 
-	[String]$Title = "Configuration Manager Site Documentation",
-
-	[parameter(Mandatory=$False)] 
-	[String]$FilePath = "$([System.IO.Path]::GetDirectoryName($myInvocation.MyCommand.Definition))\CMDocumentation.html",
-
-	[parameter(Mandatory=$False)] 
-	[Switch]$AddDateTime=$False,
-	
 	[parameter(Mandatory=$True)] 
 	[string]$CompanyName,
     
 	[parameter(Mandatory=$False)] 
     [string]$CompanyLogo = "https://blog.cyberadvisors.com/hubfs/CAI_logo.jpg",
+
+	[parameter(Mandatory=$False)] 
+	[Switch]$ListAllInformation,
 
 	[parameter(Mandatory=$False)] 
 	[string]$Author="Paul Wetter",
@@ -91,14 +83,20 @@ Param(
     [string]$Vendor = "Cyber Advisors",
 
 	[parameter(Mandatory=$False)] 
-	[Switch]$Software,
+	[String]$Title = "Configuration Manager Site Documentation",
 
 	[parameter(Mandatory=$False)] 
-	[Switch]$ListAllInformation,
+	[String]$FilePath = "$([System.IO.Path]::GetDirectoryName($myInvocation.MyCommand.Definition))\CMDocumentation.html",
+
+	[parameter(Mandatory=$False)] 
+	[Switch]$Software,
 
 	[parameter(Mandatory=$False)] 
 	[string]$SMSProvider='localhost',
 
+	[parameter(Mandatory=$False)] 
+	[Switch]$AddDateTime=$False,
+	
 	[parameter(Mandatory=$False)] 
     [switch]$UnknownClientSettings
 
