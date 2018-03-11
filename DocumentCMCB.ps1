@@ -758,6 +758,60 @@ Function Get-SiteCode
   }
   return $SiteCode
 }
+
+##Recursively processes through all the steps in a task sequence
+Function Process-TSSteps{
+    param ($Sequence,$GroupName)
+    foreach ($node in $Sequence.ChildNodes){
+        switch($node.localname) {
+            'step'{
+                if (-not [string]::IsNullOrEmpty($node.Description)){
+                    $StepDescription = "$($node.Description)"
+                }
+                try {
+                        if (-not [string]::IsNullOrEmpty($node.disable)){
+                            $StepStatus = 'Disabled'
+                        }else{
+                            $StepStatus = 'Enabled'
+                        }
+                    }   
+                catch [System.Management.Automation.PropertyNotFoundException] {
+                    $StepStatus = 'Enabled'
+                }
+                if($GroupName){
+                    #"$($GroupName):  $($node.name) $($node.action)"
+                    $TSStep = New-Object -TypeName psobject -Property @{'Group Name'="$GroupName";'Step Name'="$($node.Name)";'Description'="$StepDescription";'Action'="$($node.Action)";'Status'="$StepStatus"}
+                }else{
+                    $TSStep = New-Object -TypeName psobject -Property @{'Group Name'="N/A";'Step Name'="$($node.Name)";'Description'="$StepDescription";'Action'="$($node.Action)";'Status'="$StepStatus"}
+                    #"$($node.name) $($node.action)"
+                }
+                $TSStep
+            }
+            'group'{
+                $TSStepNumber++
+                if (-not [string]::IsNullOrEmpty($node.Description)){
+                    $StepDescription = "$($node.Description)"
+                }
+                try {
+                        if (-not [string]::IsNullOrEmpty($node.disable)){
+                            $StepStatus = 'Disabled'
+                        }else{
+                            $StepStatus = 'Enabled'
+                        }
+                    }   
+                catch [System.Management.Automation.PropertyNotFoundException] {
+                    $StepStatus = 'Enabled'
+                }
+                #"Group: $($node.Name)"
+                $TSStep = New-Object -TypeName psobject -Property @{'Group Name'="$($node.Name)";'Step Name'="N/A";'Description'="$StepDescription";'Action'="N/A";'Status'="$StepStatus"}
+                $TSStep
+                Process-TSSteps -Sequence $node -GroupName "$($node.Name)" -TSSteps $TSSteps -StepCounter $TSStepNumber
+            }
+            default{}
+        }
+    }
+}
+
 ####################################################################################################################################################################
 ####################################################################################################################################################################
 #####################################################################Starting#######################################################################################
@@ -1296,7 +1350,6 @@ $Boundaries = Get-CMBoundary
           Write-HTMLParagraph -Text "No IP Range boundaries defined." -Level 3 -File $FilePath
       }
 #endregion IP Range Boundaries Table
-      Write-HTMLParagraph -Text '&nbsp;' -File $FilePath
 
 #region AD Site Boundaries Table
       Write-HTMLHeading -Level 3 -Text "AD Site Boundaries" -File $FilePath
@@ -2426,15 +2479,19 @@ Write-HTMLHeading -Level 2 -Text 'Configured Accounts' -File $FilePath
 $Accounts = Get-CMAccount
 Write-HTMLParagraph -Text 'List of all accounts used for specific tasks in the site:' -Level 2 -File $FilePath
 
-$AccountsArray = @();
+If(-not [string]::IsNullOrEmpty($Accounts)){
+    $AccountsArray = @();
 
-foreach ($Account in $Accounts)
-{
-  $AccountsArray += New-Object -TypeName psobject -Property @{'User Name'= $Account.UserName; 'Account Usage' = if ([string]::IsNullOrEmpty($Account.AccountUsage)) {'not assigned'} else {"$($Account.AccountUsage)"}; 'Site Code' = $Account.SiteCode};
+    foreach ($Account in $Accounts)
+    {
+      $AccountsArray += New-Object -TypeName psobject -Property @{'User Name'= $Account.UserName; 'Account Usage' = if ([string]::IsNullOrEmpty($Account.AccountUsage)) {'not assigned'} else {"$($Account.AccountUsage)"}; 'Site Code' = $Account.SiteCode};
+    }
+
+    $AccountsArray = $AccountsArray | Select-Object -Property 'User Name','Account Usage','Site Code'
+    Write-HtmlTable -InputObject $AccountsArray -Border 1 -Level 3 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'No accounts in use in this site.' -Level 3 -File $FilePath
 }
-
-$AccountsArray = $AccountsArray | Select-Object -Property 'User Name','Account Usage','Site Code'
-Write-HtmlTable -InputObject $AccountsArray -Border 1 -Level 3 -File $FilePath
 #endregion System Used Accounts
 
 
@@ -2669,28 +2726,28 @@ if ($ListAllInformation)
             Write-Verbose "$(Get-Date):   Collection Rule info not found"
         }
 
-        if ($QueryRules) {
+        if (-not [string]::IsNullOrEmpty($QueryRules)) {
             $QueryRulesArray = @();
             foreach ($QueryRule in $QueryRules) {
                 $QueryRulesArray += New-Object -TypeName psobject -Property @{'Query Name'= $QueryRule.RuleName; 'Query Expression' = $($QueryRule.QueryExpression -replace ',',', ')}
             }
             Write-HtmlTable -InputObject $QueryRulesArray -Border 1 -Level 5 -File $FilePath
         }
-        if ($DirectRules) {
+        if (-not [string]::IsNullOrEmpty($DirectRules)) {
             $DirectRulesArray = @();
             foreach ($DirectRule in $DirectRules) {
                 $DirectRulesArray += New-Object -TypeName psobject -Property @{'Resource Name'= $DirectRule.RuleName; 'Resource ID' = $DirectRule.ResourceId}
             }
             Write-HtmlTable -InputObject $DirectRulesArray -Border 1 -Level 5 -File $FilePath
         }
-        if ($IncludeRules) {
+        if (-not [String]::IsNullOrEmpty($IncludeRules)) {
             $IncludeRulesArray = @()
             foreach ($IncludeRule in $IncludeRules) {
                 $IncludeRulesArray += New-Object -TypeName psobject -Property @{'Collection Name'= $IncludeRule.RuleName; 'Collection ID' = $IncludeRule.IncludeCollectionId}
             }
             Write-HtmlTable -InputObject $IncludeRulesArray -Border 1 -Level 5 -File $FilePath
         }
-        if ((!$IncludeRules) -and (!$DirectRules) -and (!$QueryRules)){
+        if (([String]::IsNullOrEmpty($IncludeRules)) -and ([string]::IsNullOrEmpty($DirectRules)) -and ([string]::IsNullOrEmpty($QueryRules))){
         Write-HTMLParagraph -Level 5 -File $FilePath -Text 'No collection membership rules defined.'
         }
     #move to the end of the current document
@@ -2709,12 +2766,16 @@ Write-HTMLParagraph -Text 'This section contains a summary of all configuration 
 #region enumerating all Configuration Items and baselines.
 Write-HTMLHeading -Level 3 -Text 'Configuration Items' -File $FilePath
 $CIs = Get-CMConfigurationItem -Fast | Where {$_.IsUserDefined -eq "true"}
-$CIsArray = @()
-foreach ($CI in $CIs){
-    $CIsArray += New-Object -TypeName psobject -Property @{'Name' = $CI.LocalizedDisplayName; 'Last modified' = $CI.DateLastModified; 'Last modified by' = $CI.LastModifiedBy; 'CI ID' = $CI.CI_ID}
+if(-not [string]::IsNullOrEmpty($CIs)){
+    $CIsArray = @()
+    foreach ($CI in $CIs){
+        $CIsArray += New-Object -TypeName psobject -Property @{'Name' = $CI.LocalizedDisplayName; 'Last modified' = $CI.DateLastModified; 'Last modified by' = $CI.LastModifiedBy; 'CI ID' = $CI.CI_ID}
+    }
+    $CIsArray = $CIsArray | Select-Object 'Name','Last modified','Last modified by','CI ID'
+    Write-HtmlTable -InputObject $CIsArray -Border 1 -Level 4 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'There are no Configuration Items configured.' -Level 3 -File $FilePath
 }
-$CIsArray = $CIsArray | Select-Object 'Name','Last modified','Last modified by','CI ID'
-Write-HtmlTable -InputObject $CIsArray -Border 1 -Level 4 -File $FilePath
 Write-HTMLHeading -Level 3 -Text 'Configuration Baselines' -File $FilePath
 $CBs = Get-CMBaseline | Where {$_.IsUserDefined -eq "true"}
 if ($CBs){
@@ -3241,7 +3302,7 @@ if (-not ($(Get-CMEndpointProtectionPoint) -eq $Null)){
 #region firewall and Device Guard
 $FWPolicies = Get-CMConfigurationPolicy -Fast | where {$_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_FirewallSettings' -or $_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_DeviceGuardSettings'} | select CategoryInstance_UniqueIDs,LocalizedDisplayName,LocalizedCategoryInstanceNames,CI_ID,LastModifiedBy,DateLastModified,IsAssigned
 Write-HTMLHeading -Level 3 -Text 'Windows Defender Firewall Policies' -File $FilePath
-if ($FWPolicies) {
+if (-not [string]::IsNullOrEmpty($FWPolicies)) {
     $FWArray = @()
     foreach ($FWP in $FWPolicies){
         $FWArray += New-Object -TypeName psobject -Property @{'Name'=$FWP.LocalizedDisplayName;'Modified By'=$FWP.LastModifiedBy;'Modified'=$FWP.DateLastModified;'Deployed'=$FWP.IsAssigned}
@@ -3253,7 +3314,7 @@ if ($FWPolicies) {
 }
 $DeviceGuardPolicies = Get-CMConfigurationPolicy -Fast | where {$_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_DeviceGuardSettings'} | select CategoryInstance_UniqueIDs,LocalizedDisplayName,LocalizedCategoryInstanceNames,CI_ID,LastModifiedBy,DateLastModified,IsAssigned
 Write-HTMLHeading -Level 3 -Text 'Device Guard Policies' -File $FilePath
-if ($DeviceGuardPolicies) {
+if (-not [string]::IsNullOrEmpty($DeviceGuardPolicies)) {
     $DeviceGuardArray = @()
     foreach ($DGP in $DeviceGuardPolicies){
         $DeviceGuardArray += New-Object -TypeName psobject -Property @{'Name'=$DGP.LocalizedDisplayName;'Modified By'=$DGP.LastModifiedBy;'Modified'=$DGP.DateLastModified;'Deployed'=$DGP.IsAssigned}
@@ -3545,36 +3606,44 @@ Write-HTMLHeading -Level 2 -PageBreak -Text 'Software Updates' -File $FilePath
 #region Update Groups
 Write-HTMLHeading -Level 3 -PageBreak -Text 'Software Update Groups' -File $FilePath
 $UpdateGroups = Get-CMSoftwareUpdateGroup
-Write-HTMLParagraph -Text "There are $($UpdateGroups.count) update groups defined in this site." -Level 3 -File $FilePath
-$UGs = $UpdateGroups|Sort LocalizedDisplayName|Select @{Name='Group Name';expression={$_.LocalizedDisplayName}},@{Name='ID';expression={$_.CI_ID}},@{Name='Update Count';expression={$_.NumberOfUpdates}},@{Name='Expired Updates';expression={$_.NumberOfExpiredUpdates}},@{Name='Created By';expression={$_.CreatedBy}},@{Name='Date Created';expression={$_.DateCreated}},@{Name='Deployed';expression={$_.IsDeployed}},@{Name='Compliance';expression={"$($_.PercentCompliant)%"}}
-Write-HtmlTable -InputObject $UGs -Border 1 -Level 3 -File $FilePath
+If(-not [string]::IsNullOrEmpty($UpdateGroups)){
+    Write-HTMLParagraph -Text "There are $($UpdateGroups.count) update groups defined in this site." -Level 3 -File $FilePath
+    $UGs = $UpdateGroups|Sort LocalizedDisplayName|Select @{Name='Group Name';expression={$_.LocalizedDisplayName}},@{Name='ID';expression={$_.CI_ID}},@{Name='Update Count';expression={$_.NumberOfUpdates}},@{Name='Expired Updates';expression={$_.NumberOfExpiredUpdates}},@{Name='Created By';expression={$_.CreatedBy}},@{Name='Date Created';expression={$_.DateCreated}},@{Name='Deployed';expression={$_.IsDeployed}},@{Name='Compliance';expression={"$($_.PercentCompliant)%"}}
+    Write-HtmlTable -InputObject $UGs -Border 1 -Level 3 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text "There are no update groups defined in this site." -Level 3 -File $FilePath
+}
 #endregion Update Groups
 
 #region Update Packages
 Write-HTMLHeading -Level 3 -PageBreak -Text 'Software Update Packages' -File $FilePath
 $UpdatePackages=Get-CMSoftwareUpdateDeploymentPackage
-Write-HTMLParagraph -Text "There are $($UpdatePackages.count) update packages defined in this site." -Level 3 -File $FilePath
-$SUPackages = @()
-foreach($UP in $UpdatePackages){
-    $Name = $UP.Name
-    #binary differential replication
-    If ($UP.PkgFlags -band 0x04000000){
-        $BDR = "Enabled"
-    }else{
-        $BDR = "Disabled"
+If(-not [string]::IsNullOrEmpty($UpdatePackages)){
+    Write-HTMLParagraph -Text "There are $($UpdatePackages.count) update packages defined in this site." -Level 3 -File $FilePath
+    $SUPackages = @()
+    foreach($UP in $UpdatePackages){
+        $Name = $UP.Name
+        #binary differential replication
+        If ($UP.PkgFlags -band 0x04000000){
+            $BDR = "Enabled"
+        }else{
+            $BDR = "Disabled"
+        }
+        $SourcePath="$($UP.PkgSourcePath)"
+        $PackageID = "$($UP.PackageID)"
+        If(Test-Path -Path "filesystem::$SourcePath"){
+            $SourceStatus = "Verified"
+        }else{
+            $SourceStatus = "Not Found"
+        }
+        $SUPackages += New-Object -TypeName PSObject -Property @{'Name'="$Name";'Package ID'="$PackageID";'BDR'="$BDR";'Source Path'="$SourcePath";'Source Status'="$SourceStatus"}
     }
-    $SourcePath="$($UP.PkgSourcePath)"
-    $PackageID = "$($UP.PackageID)"
-    If(Test-Path -Path "filesystem::$SourcePath"){
-        $SourceStatus = "Verified"
-    }else{
-        $SourceStatus = "Not Found"
-    }
-    $SUPackages += New-Object -TypeName PSObject -Property @{'Name'="$Name";'Package ID'="$PackageID";'BDR'="$BDR";'Source Path'="$SourcePath";'Source Status'="$SourceStatus"}
+    $SUPackages= $SUPackages|Sort Name|Select-Object 'Name','Package ID','BDR','Source Path','Source Status'
+    Write-HtmlTable -InputObject $SUPackages -Border 1 -Level 3 -File $FilePath
+    Write-HTMLParagraph -Text '(BDR = Binary Differential Replication)' -Level 4 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text "There are no update packages defined in this site." -Level 3 -File $FilePath
 }
-$SUPackages= $SUPackages|Sort Name|Select-Object 'Name','Package ID','BDR','Source Path','Source Status'
-Write-HtmlTable -InputObject $SUPackages -Border 1 -Level 3 -File $FilePath
-Write-HTMLParagraph -Text '(BDR = Binary Differential Replication)' -Level 4 -File $FilePath
 #endregion Update Packages
 
 
@@ -4081,57 +4150,6 @@ if ($ListAllInformation){
                 Write-HtmlList -InputObject $TSDetails -Level 4 -File $FilePath
                 $Sequence = $Null
                 $Sequence = ([xml]$TaskSequence.Sequence).sequence
-Function Process-TSSteps{
-    param ($Sequence,$GroupName)
-    foreach ($node in $Sequence.ChildNodes){
-        switch($node.localname) {
-            'step'{
-                if (-not [string]::IsNullOrEmpty($node.Description)){
-                    $StepDescription = "$($node.Description)"
-                }
-                try {
-                        if (-not [string]::IsNullOrEmpty($node.disable)){
-                            $StepStatus = 'Disabled'
-                        }else{
-                            $StepStatus = 'Enabled'
-                        }
-                    }   
-                catch [System.Management.Automation.PropertyNotFoundException] {
-                    $StepStatus = 'Enabled'
-                }
-                if($GroupName){
-                    #"$($GroupName):  $($node.name) $($node.action)"
-                    $TSStep = New-Object -TypeName psobject -Property @{'Group Name'="$GroupName";'Step Name'="$($node.Name)";'Description'="$StepDescription";'Action'="$($node.Action)";'Status'="$StepStatus"}
-                }else{
-                    $TSStep = New-Object -TypeName psobject -Property @{'Group Name'="N/A";'Step Name'="$($node.Name)";'Description'="$StepDescription";'Action'="$($node.Action)";'Status'="$StepStatus"}
-                    #"$($node.name) $($node.action)"
-                }
-                $TSStep
-            }
-            'group'{
-                $TSStepNumber++
-                if (-not [string]::IsNullOrEmpty($node.Description)){
-                    $StepDescription = "$($node.Description)"
-                }
-                try {
-                        if (-not [string]::IsNullOrEmpty($node.disable)){
-                            $StepStatus = 'Disabled'
-                        }else{
-                            $StepStatus = 'Enabled'
-                        }
-                    }   
-                catch [System.Management.Automation.PropertyNotFoundException] {
-                    $StepStatus = 'Enabled'
-                }
-                #"Group: $($node.Name)"
-                $TSStep = New-Object -TypeName psobject -Property @{'Group Name'="$($node.Name)";'Step Name'="N/A";'Description'="$StepDescription";'Action'="N/A";'Status'="$StepStatus"}
-                $TSStep
-                Process-TSSteps -Sequence $node -GroupName "$($node.Name)" -TSSteps $TSSteps -StepCounter $TSStepNumber
-            }
-            default{}
-        }
-    }
-}
                 $AllSteps = Process-TSSteps -Sequence $Sequence
                 $c = 0
                 foreach ($Step in $AllSteps){$c++;$Step|Add-Member -MemberType NoteProperty -Name 'Step' -Value $c}
