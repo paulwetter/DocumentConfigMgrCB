@@ -893,8 +893,35 @@ foreach ($CMSite in $CMSites)
   $SQLInfo = @("Site SQL Server: <b>$SQLServer</b>","Site Database Name: <b>$CMDatabase</b>")
   Write-HtmlList -InputObject $SQLInfo -Level 2 -File $FilePath
   #Write-HTMLParagraph -Text "$($SQLInfo)" -Level 2 -File $FilePath
+  #Query SQL Server WMI for basic hardware Information: CPU,RAM,Drives
+  $SQLHWDesc = "$SQLServer Hardware Info:"
+  $SQLHWInfo = @()
+  try {
+    $Capacity = 0
+    Get-WmiObject -Class win32_physicalmemory -ComputerName $SQLServer | ForEach-Object {[int64]$Capacity = $Capacity + [int64]$_.Capacity}
+    $TotalMemory = $Capacity / 1024 / 1024 / 1024
+    $CPUs = Get-WmiObject -Class win32_processor -ComputerName $SQLServer 
+    [int]$Cores=0
+    foreach ($CPU in $CPUs) {
+        $Cores = $Cores + $CPU.NumberOfCores
+        $CPUModel = $CPU.Name
+    }
+    [int]$Threads=0
+    foreach ($CPU in $CPUs) {$Threads = $Threads + $CPU.NumberOfLogicalProcessors}
+    $SQLHWInfo += "$CPUModel"
+    $SQLHWInfo += "$Cores Cores ($Threads logical)"
+    $SQLHWInfo += "$($TotalMemory) GB RAM"
+    $Drives=Get-WmiObject -Class win32_LogicalDisk -ComputerName $SQLServer | Where {$_.DriveType -eq 3}
+    Foreach($Drive in $Drives){
+        $SQLHWInfo += "Drive $($Drive.DeviceID) size: $([math]::Round($Drive.size/1024/1024/1024,1)) GB ($([math]::Round($Drive.FreeSpace/1024/1024/1024,1)) GB Free)"
+    }
+  }
+  catch {
+    $SQLHWInfo += "Failed to access server: $SQLServer" 
+  }
+  Write-HtmlList -InputObject $SQLHWInfo -Description $SQLHWDesc -Level 2 -File $FilePath
   
-  Write-Verbose "$(Get-Date):   Getting SQL detailed info."
+  Write-Verbose "$(Get-Date):   Getting SQL Database detailed info."
   $SQLVersion = Invoke-SqlDataReader -ServerInstance $SQLServer -Database Master -Query "SELECT SERVERPROPERTY (`'edition`') Edition, SERVERPROPERTY(`'productversion`') Version, SERVERPROPERTY (`'productlevel`') SP"
   $SQLConfig = Invoke-SqlDataReader -ServerInstance $SQLServer -Database Master -Query "SELECT name ServerSetting,value_in_use Value FROM sys.configurations where configuration_id = 1543 OR configuration_id = 1544 OR configuration_id = 1539"
   $DatabaseFiles = Invoke-SqlDataReader -ServerInstance $SQLServer -Database Master -Query "SELECT db.name `'DatabaseName`',type_desc `'FileType`',physical_name `'FilePath`',mf.state_desc `'Status`',size*8/1024 `'FileSizeMB`',max_size `'MaximumSize`',growth `'GrowthRate`',(CASE WHEN is_percent_growth = 1 THEN `'Percent`' ELSE `'MB`' END) `'GrowthUnit`',create_date `'DateCreated`',compatibility_level `'DBLevel`',user_access_desc `'AccessMode`',recovery_model_desc `'RecoveryModel`' FROM sys.master_files mf INNER JOIN sys.databases db ON db.database_id = mf.database_id where db.name = `'$CMDatabase`'"
@@ -990,7 +1017,7 @@ foreach ($CMSite in $CMSites)
           $Capacity = 0
           Get-WmiObject -Class win32_physicalmemory -ComputerName $CMDPServerName | ForEach-Object {[int64]$Capacity = $Capacity + [int64]$_.Capacity}
           $TotalMemory = $Capacity / 1024 / 1024 / 1024
-          $CPUs = Get-WmiObject -Class win32_processor
+          $CPUs = Get-WmiObject -Class win32_processor -ComputerName $CMDPServerName 
           [int]$Cores=0
           foreach ($CPU in $CPUs) {$Cores = $Cores + $CPU.NumberOfCores}
           $CPUModel = $CPU.Name
