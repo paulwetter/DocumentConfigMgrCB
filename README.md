@@ -6,3 +6,5 @@ This is a nearly full rewrite of the System Center Configuration Manager (SCCM) 
 I am attempting to document most everything in Current Branch.
 
 The requirement for Microsoft Word has been dropped in favor of a pure HTML output.
+
+Please submit issues if you find bug or have ideas on additional data that should be collected.
