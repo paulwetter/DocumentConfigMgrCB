@@ -514,7 +514,7 @@ Function Convert-Image2Base64{
         if (Test-Path $tempfile) {Remove-Item -Path $tempfile -Force}
         Try{Invoke-WebRequest -Uri $Path -OutFile $tempfile}
         Catch{
-            Write-Host -ForegroundColor Yellow "Image not Found. Skipping."
+            Write-Host -ForegroundColor Yellow "Image for title page not found. Building title page without image."
             Return $false
         }
         $EncodedImage = [convert]::ToBase64String((get-content $tempfile -encoding byte))
@@ -817,7 +817,7 @@ Function Process-TSSteps{
 #####################################################################Starting#######################################################################################
 ####################################################################################################################################################################
 ####################################################################################################################################################################
-
+$StartingPath = (get-location).Path
 
 $SiteCode = Get-SiteCode
 
@@ -913,7 +913,74 @@ foreach ($CMSite in $CMSites)
 {  
   Write-Verbose "$(Get-Date):   Checking each site's configuration."
   Write-HTMLHeading -Text "Configuration Summary for Site $($CMSite.SiteCode)" -level 1 -File $FilePath
- 
+  Write-HTMLHeading -Text "Updates and Servicing" -Level 2 -File $FilePath
+
+  #region Site Servicing Updates
+  Write-Verbose "$(Get-Date):   Enumerating Configuration Manager Update Status and History"
+  Write-HTMLHeading -Text "Update Status and History" -Level 3 -File $FilePath
+  Write-HTMLParagraph -Text "Below is a history of updates that have been made available to this Site.  It includes information for if, or when, they were installed.  Some older updates may be listed as ready to install, however, they were never installed nor will they be avialable to install as they are superseded by the newer updates." -Level 3 -File $FilePath
+  $SiteUpdateHistory = Get-CMSiteUpdateHistory| select Name,FullVersion,Impact,State,UpdateType,LastUpdateTime|sort LastUpdateTime
+  if(-not [string]::IsNullOrEmpty($SiteUpdateHistory)){
+    $SiteUpdates = @()
+    foreach ($SiteUpdate in $SiteUpdateHistory){
+        Switch($SiteUpdate.State){
+            196612{$UpdateState = "Installed"}
+            262146{$UpdateState = "Ready to Install"}
+            default{$UpdateState = "Other ($($SiteUpdate.State))"}
+        }
+        If($UpdateState -eq "Installed"){
+            $InstalledDate = $SiteUpdate.LastUpdateTime
+        }else{
+            $InstalledDate = "N/A"
+        }
+        $SiteUpdates += New-Object -TypeName PSObject -Property @{'Name'="$($SiteUpdate.Name)";'Version'="$($SiteUpdate.FullVersion)";'Status'="$UpdateState";'Installed Date'="$InstalledDate"}
+    }
+    $SiteUpdates = $SiteUpdates | select 'Name','Version','Status','Installed Date'
+    Write-HtmlTable -InputObject $SiteUpdates -Border 1 -Level 3 -File $FilePath
+  }
+  Write-Verbose "$(Get-Date):   Completed Configuration Manager Update Status and History"
+  #endregion Site Servicing Updates
+
+  #region Site Features
+  Write-Verbose "$(Get-Date):   Enumerating Configuration Manager Site Features"
+  Write-HTMLHeading -Text "Site Features" -Level 3 -File $FilePath
+  $features=Get-CMSiteFeature
+  #region release features
+  $ReleaseFeatures = $features | Where{$_.FeatureType -eq 1}|Sort-Object Name
+  $FeatureTable = @()
+  Foreach ($feature in $ReleaseFeatures){
+    $FeatureName = $feature.Name
+    Switch($feature.Status){
+        1{$FeatureStatus = "On"}
+        0{$FeatureStatus = "Off"}
+        default{$FeatureStatus = "Unknown"}
+    }
+    $FeatureTable += New-Object -TypeName PSObject -Property @{'Feature Name'="$FeatureName";'Status'="$FeatureStatus"}
+  }
+  Write-HTMLHeading -Text "Release Features" -Level 4 -File $FilePath
+  Write-HTMLParagraph -Text "Below is a list of all released features in this Configuration Manager site and which ones are enabled and which are not.  Once a feature is turned on, it cannot be turned off." -Level 4 -File $FilePath
+  Write-HtmlTable -InputObject $FeatureTable -Border 1 -Level 4 -File $FilePath
+  #endregion release features
+
+  #region PreRelease features
+  $PreReleaseFeatures = $features | Where{$_.FeatureType -eq 0}|Sort-Object Name
+  $PreFeatureTable = @()
+  Foreach ($feature in $PreReleaseFeatures){
+    $FeatureName = $feature.Name
+    Switch($feature.Status){
+        1{$FeatureStatus = "On"}
+        0{$FeatureStatus = "Off"}
+        default{$FeatureStatus = "Unknown"}
+    }
+    $PreFeatureTable += New-Object -TypeName PSObject -Property @{'Feature Name'="$FeatureName";'Status'="$FeatureStatus"}
+  }
+  Write-HTMLHeading -Text "Pre-Release Features" -Level 4 -File $FilePath
+  Write-HTMLParagraph -Text "Below is a list of all pre-release features in this Configuration Manager site and which ones are enabled and which are not.  Once a feature is turned on, it cannot be turned off." -Level 4 -File $FilePath
+  Write-HtmlTable -InputObject $PreFeatureTable -Border 1 -Level 4 -File $FilePath
+  #region PreRelease features
+  Write-Verbose "$(Get-Date):   Completed Configuration Manager Site Features"
+  #endregion Site Features
+
   $SiteRolesTable = @()  
   $SiteRoles = Get-CMSiteRole -SiteCode $CMSite.SiteCode | Select-Object -Property NALPath, rolename
 
@@ -4217,14 +4284,34 @@ foreach ($ServicingPlan in $ServicingPlans){
 #region Scripts
 Write-Verbose "$(Get-Date):   Enumerating Configuration Manager Scripts"
 Write-HTMLHeading -Level 2 -PageBreak -Text 'Configuration Manager Scripts' -File $FilePath
-$CMScripts = Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider -Query 'select ScriptName,Author,Approver,ApprovalState,ScriptType,LastUpdateTime from SMS_Scripts'
-Write-Verbose "$(Get-Date):   working on $($TaskSequences.count) Task Sequences"
+$ScriptFeature = Get-CMSiteFeature|where{$_.FeatureGuid -like '566F8720-F415-4E10-9A51-CDE682BA2B2E'}
+if (-not [string]::IsNullOrEmpty($ScriptFeature)){
+    If ($ScriptFeature.Status -eq 1){
+        $CMScripts = Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider -Query 'select ScriptName,Author,Approver,ApprovalState,ScriptType,LastUpdateTime from SMS_Scripts'
+        Write-Verbose "$(Get-Date):   working on $($TaskSequences.count) Task Sequences"
 
-if ([string]::IsNullOrEmpty($CMScripts)){
-    Write-HTMLParagraph -Text "No Scripts are defined in this site." -Level 3 -File $FilePath
+        if ([string]::IsNullOrEmpty($CMScripts)){
+            Write-HTMLParagraph -Text "No Scripts are defined in this site." -Level 3 -File $FilePath
+        }else{
+            $Scripts = @()
+            foreach ($Script in $CMScripts){
+                SWitch($script.ApprovalState){
+                    0{$Approval = "Waiting for Approval"}
+                    1{$Approval = "Declined"}
+                    3{$Approval = "Approved"}
+                    default{$Approval = "Unknown"}
+                }
+                $UpdateTime = [Management.ManagementDateTimeConverter]::ToDateTime($Script.LastUpdateTime)
+                $Scripts += New-Object -TypeName PSObject -Property @{'Script Name'="$($Script.ScriptName)";'Author'="$($Script.Author)";'Approver'=$($Script.Approver);'Approval State'="$Approval";'Last Update Time' = "$UpdateTime"}
+            }
+            $Scripts = $Scripts | Select-Object 'Script Name','Author','Approver','Approval State','Last Update Time'
+            Write-HtmlTable -InputObject $Scripts -Border 1 -Level 3 -File $FilePath
+        }
+    }else{
+        Write-HTMLParagraph -Text "Scripts feature, `"$($ScriptFeature.Name)`", not enabled in this site." -Level 3 -File $FilePath
+    }
 }else{
-    $CMScripts = $CMScripts|select @{Name='Script Name';expression={$_.ScriptName}},Author,Approver,@{Name='Approval State';expression={$_.ApprovalState}},@{Name='Script Type';expression={$_.ScriptType}},@{Name='Last Update Time'; expression = {[Management.ManagementDateTimeConverter]::ToDateTime($_.LastUpdateTime)}}
-    Write-HtmlTable -InputObject $CMScripts -Border 1 -Level 3 -File $FilePath
+    Write-HTMLParagraph -Text "Scripts feature not found in this site. Scripts were introduced with release 1706." -Level 3 -File $FilePath
 }
 Write-Verbose "$(Get-Date):   Completed Configuration Manager Scripts"
 #endregion Scripts
@@ -4232,3 +4319,5 @@ Write-Verbose "$(Get-Date):   Completed Configuration Manager Scripts"
 #endregion Software Library
 
 Write-HTMLTOC -InputObject $Global:DocTOC -File $FilePath
+
+Set-Location -Path "$StartingPath"
