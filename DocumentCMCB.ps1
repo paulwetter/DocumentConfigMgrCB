@@ -146,10 +146,10 @@ Function Write-HtmlTable{
         HelpMessage="This is an array of objects that will be built into a HTML table.")]
         $InputObject,
         [Parameter(Mandatory=$false,ValueFromPipeline=$false,
-        HelpMessage="If this table has a border, select the thickness here")]
+        HelpMessage="If this table has a border, select the thickness here. Default:1")]
         [int]$Border=1,
         [Parameter(Mandatory=$false,ValueFromPipeline=$false,
-        HelpMessage="This is the amount of space in each field between the border and the text.")]
+        HelpMessage="This is the amount of space in each field between the border and the text. Default:3")]
         [int]$Padding=3,
         [Parameter(Mandatory=$false,ValueFromPipeline=$false,
         HelpMessage="This is the amount of space between the borders of each field.  Rarely anything other than zero (0).")]
@@ -159,7 +159,7 @@ Function Write-HtmlTable{
         [ValidateRange(0,9)]
         [int]$Level=0,
         [Parameter(Mandatory=$false,ValueFromPipeline=$false,
-        HelpMessage="This is the amount of space that the table will indent by")]
+        HelpMessage="This is the file that the HTML will be written to")]
         [string]$File
     )
 
@@ -229,7 +229,7 @@ Function Write-HtmlList{
         [ValidateSet("OL","UL")]
         [string]$Type="UL",
         [Parameter(Mandatory=$false,ValueFromPipeline=$false,
-        HelpMessage="This is the amount of space that the List will indent by")]
+        HelpMessage="This is the file that the HTML will be written to")]
         [string]$File
     )
 
@@ -459,19 +459,19 @@ Function Write-HTMLCoverPage{
         HelpMessage="This is the text that will appear in title tag of the header")]
         [string]$Title,
         [Parameter(Mandatory=$true,ValueFromPipeline=$false,
-        HelpMessage="This is the text that will appear in the lower left by line")]
+        HelpMessage="This is the text that will appear in the lower right by line")]
         [string]$Author,
         [Parameter(Mandatory=$true,ValueFromPipeline=$false,
-        HelpMessage="This text will also appear in to lower left by line, below")]
+        HelpMessage="This text will also appear in to lower right by line, below")]
         [string]$Vendor,
         [Parameter(Mandatory=$true,ValueFromPipeline=$false,
-        HelpMessage="Will apprear in the top right, below the title.")]
+        HelpMessage="Will apprear in the top left, below the title.")]
         [string]$Org,
         [Parameter(Mandatory=$false,ValueFromPipeline=$false,
         HelpMessage="This is an image logo that will be embedded in the title page")]
         [string]$ImagePath,
         [Parameter(Mandatory=$false,ValueFromPipeline=$false,
-        HelpMessage="This is the amount of space that the table will indent by")]
+        HelpMessage="This is the file that the HTML text will be written to")]
         [string]$File
     )
     $Cover = @()
@@ -531,14 +531,14 @@ function Write-HTMLTOC {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory=$true,ValueFromPipeline=$false,
-        HelpMessage="This is the text that will appear in title tag of the header")]
+        HelpMessage="This is the array of texts that will make up the table of contents")]
         $InputObject,
         [Parameter(Mandatory=$true,ValueFromPipeline=$false,
-        HelpMessage="This is the amount of space that the table will indent by")]
+        HelpMessage="This is the file that the table of contents text will be written to")]
         [string]$File,
         [Parameter(Mandatory=$false,ValueFromPipeline=$false,
-        HelpMessage="This is the text that will appear in the lower left by line")]
-        [string]$InsertPoint = "Table of Contents"
+        HelpMessage="This is the key text that the table of contents will be inserted after. Each line of the HTML file is searched to find this text.  On each find, it will begin the insert.")]
+        [string]$InsertPoint = "TOC_Insert_Point"
     )
     $TOC = @()
     foreach ($heading in $InputObject){
@@ -562,6 +562,49 @@ function Write-HTMLTOC {
             }
         } | Set-Content $File
 }
+
+function Write-HtmliLink{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$false,ParameterSetName='Standard',
+        HelpMessage="This is the text that will appear in title tag of the header")]
+        [string]$LinkID,
+        [Parameter(Mandatory=$true,ValueFromPipeline=$false,ParameterSetName='Standard',
+        HelpMessage="This is the amount of space that the table will indent by")]
+        [string]$Text,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,ParameterSetName='TOC',
+        HelpMessage="This is the text that will appear in the lower left by line")]
+        [Switch]$ReturnTOC,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,ParameterSetName='TOC',
+        HelpMessage="This is the text that will appear in the lower left by line")]
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,ParameterSetName='Standard',
+        HelpMessage="This is the text that will appear in the lower left by line")]
+        [String]$File
+    )
+    if($ReturnTOC){
+        $iLink = "<div style=`"text-align:right`"><a href=`"#TableofContents`" style=`"color:DarkRed`">Return to Table of Contents</a></div>"
+    }Else{
+        $iLink = "<div><a href=`"#$LinkID`" style=`"color:blue`">$Text</a></div>"
+    }
+    If ($File) {$iLink | Out-File -filepath $File -Append}
+    Else {$iLink}
+}
+
+
+function Write-HtmlComment{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$false,
+        HelpMessage="This is the text that will appear in the HTML comment")]
+        [string]$Text,
+        [Parameter(Mandatory=$true,ValueFromPipeline=$false,
+        HelpMessage="This is the text that will appear in the lower left by line")]
+        [String]$File
+    )
+    "<!--$Text-->" | Out-File -filepath $File -Append
+}
+
+
 
 #$folders=Get-ChildItem -Path 'C:\AMD\WU-CCC2\ccc2_install' | Where {$_.PSIsContainer -eq $false} | select Name,FullName,Mode,Length
 #Write-HTMLHeadLine -Text "Applications" -Level 2 -PageBreak
@@ -848,6 +891,7 @@ if (-not (Get-PSDrive -Name $SiteCode))
 #### Site Configuration
 
 Write-HTMLHeading -Text 'Table of Contents' -Level 1 -PageBreak -ExcludeTOC -File $FilePath
+Write-HtmlComment -Text "TOC_Insert_Point" -File $FilePath
 Write-HTMLHeading -Text 'Summary of all Sites in this Hierarchy' -Level 1 -PageBreak -File $FilePath
 Write-Verbose "$(Get-Date):   Getting Site Information"
 $CMSites = Get-CMSite
@@ -978,6 +1022,7 @@ foreach ($CMSite in $CMSites)
   Write-HTMLParagraph -Text "Below is a list of all pre-release features in this Configuration Manager site and which ones are enabled and which are not.  Once a feature is turned on, it cannot be turned off." -Level 4 -File $FilePath
   Write-HtmlTable -InputObject $PreFeatureTable -Border 1 -Level 4 -File $FilePath
   #region PreRelease features
+  Write-HtmliLink -ReturnTOC -File $FilePath
   Write-Verbose "$(Get-Date):   Completed Configuration Manager Site Features"
   #endregion Site Features
 
@@ -993,6 +1038,7 @@ foreach ($CMSite in $CMSites)
     }
   }
   Write-HtmlTable -InputObject $SiteRolesTable -Border 1 -Level 2 -File $FilePath
+  Write-HtmliLink -ReturnTOC -File $FilePath
 
   $SiteMaintenanceTaskTable = @()
   $SiteMaintenanceTasks = Get-CMSiteMaintenanceTask -SiteCode $CMSite.SiteCode
@@ -1005,6 +1051,7 @@ foreach ($CMSite in $CMSites)
 
   $SiteMaintenanceTaskTable = $SiteMaintenanceTaskTable|Select 'Task Name',Enabled
   Write-HtmlTable -InputObject $SiteMaintenanceTaskTable -Border 1 -Level 2 -File $FilePath
+  Write-HtmliLink -ReturnTOC -File $FilePath
   
   #region Site SQL Info
   Write-HTMLHeading -Text "Summary of SQL database info for Site $($CMSite.SiteCode)" -PageBreak -Level 2 -File $FilePath
@@ -1060,8 +1107,10 @@ foreach ($CMSite in $CMSites)
   Write-HTMLParagraph -Text "Below is a fragmentation summary (%) for indexes on the site database ($CMDatabase):" -Level 2 -File $FilePath
   Write-HtmlTable -InputObject $IndexFragmentation -Border 1 -Level 3 -File $FilePath
   Write-Verbose "$(Get-Date):   SQL detailed info complete."
+  Write-HtmliLink -ReturnTOC -File $FilePath
   #endregion Getting Site SQL Info
 
+  #region Management Points
   $CMManagementPoints = Get-CMManagementPoint -SiteCode $CMSite.SiteCode
   Write-HTMLHeading -Text "Summary of Management Points for Site $($CMSite.SiteCode)" -PageBreak -Level 2 -File $FilePath
   foreach ($CMManagementPoint in $CMManagementPoints)
@@ -1096,8 +1145,9 @@ foreach ($CMSite in $CMSites)
     If (Test-Path -Path "filesystem::\\$MPName\C$") {$CMMPServerName=$MPName}
     Set-Location $local1
   }
-
+  Write-HtmliLink -ReturnTOC -File $FilePath
   Write-Verbose "$(Get-Date):   Default Management Point: $CMMPServerName"
+  #endregion Management Points
   
   #region Distribution Point details
   Write-HTMLHeading -Text "Summary of Distribution Points for Site $($CMSite.SiteCode)" -Level 2 -PageBreak -File $FilePath
@@ -1197,6 +1247,7 @@ foreach ($CMSite in $CMSites)
     }
     Write-HTMLParagraph -Text $DPText -Level 4 -File $FilePath
   }
+  Write-HtmliLink -ReturnTOC -File $FilePath
   #endregion Distribution Point details
 
   #region enumerating Software Update Points and Configuration
@@ -1285,9 +1336,10 @@ foreach ($CMSite in $CMSites)
   {
     Write-HTMLParagraph -Text "This site has no Software Update Points installed." -Level 3 -File $FilePath
   }
+  Write-HtmliLink -ReturnTOC -File $FilePath
+  #endregion enumerating Software Update Points and Configuration
 }
 
-#endregion enumerating Software Update Points and Configuration
 
 ##### Hierarchy wide configuration
 Write-HTMLHeading -Level 1 -PageBreak -Text "Summary of Hierarchy Wide Configuration" -File $FilePath
@@ -1427,8 +1479,7 @@ $Boundaries = Get-CMBoundary
           Write-HTMLParagraph -Text "No AD Site boundaries defined." -Level 3 -File $FilePath
       }
 #endregion AD Site Boundaries Table
-      Write-HTMLParagraph -Text '&nbsp;' -File $FilePath
-
+    Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion enumerating Boundaries
 
 
@@ -1519,7 +1570,7 @@ $DefaultBoundaryGroupRow = $DefaultBoundaryGroupRow|select 'Name','Site Systems'
 Write-HtmlTable -InputObject $DefaultBoundaryGroupRow -Level 4 -Border 1 -File $FilePath
 
 #End Default Boundary Group
-
+Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion enumerating all Boundary Groups and their members
 
 
@@ -2483,6 +2534,7 @@ foreach ($ClientSetting in $AllClientSettings)
 
   }
 }
+Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion enumerating Client Policies
 
 #region Security
@@ -2560,7 +2612,7 @@ If(-not [string]::IsNullOrEmpty($Accounts)){
     Write-HTMLParagraph -Text 'No accounts in use in this site.' -Level 3 -File $FilePath
 }
 #endregion System Used Accounts
-
+Write-HtmliLink -ReturnTOC -File $FilePath
 
 ####
 #region Assets and Compliance
@@ -2606,7 +2658,7 @@ else
 {
   Write-HTMLParagraph -Text "There are $($CustomUserCollections.count) User Defined User Collections.  These are in addition to the $($BuiltinUserCollections.count) built-in default user collections." -Level 2 -File $FilePath
 }
-
+Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion enumerating all User Collections
 
 
@@ -2620,6 +2672,7 @@ $CustomDeviceCollections = $DeviceCollections | where {$_.IsBuiltIn -eq $false}
 $IncUpCollCount = ($CustomDeviceCollections|where {($_.RefreshType -eq 4) -or ($_.RefreshType -eq 6)}).count
 $ServiceWindowCollections = $CustomDeviceCollections|where {$_.ServiceWindowsCount -gt 0}
 Write-HtmlList -InputObject "$IncUpCollCount of $($CustomDeviceCollections.Count) have incremental updates Enabled." -Description "Incremental Update Summary:" -Level 3 -File $FilePath
+
 if ($ListAllInformation)
 {
   Write-HTMLHeading -Level 3 -Text 'Built-In Device Collections' -File $FilePath
@@ -2637,7 +2690,8 @@ if ($ListAllInformation)
   Write-HTMLParagraph -Level 3 -File $FilePath -Text "There are $($ServiceWindowCollections.count) custom collections with defined service windows.  These are listed below:"
   $SWCollections = @()
   foreach ($collection in $ServiceWindowCollections){
-    $SWCollections += "$($Collection.Name) ($($Collection.CollectionID))"
+    $LinkID = ($Collection.Name).Replace(' ','')
+    $SWCollections +=  Write-HtmliLink -LinkID $LinkID -Text "$($Collection.Name) ($($Collection.CollectionID))"
   }
   If($SWCollections.count -eq 0){$SWCollections += "None Found"}
   Write-HtmlList -InputObject $SWCollections -Level 3 -File $FilePath
@@ -2658,13 +2712,11 @@ if ($ListAllInformation)
         6 {$UpdateSchedule = "Full and Incremental updates configured"}
     }
     $CollectionInfo += "Selected Update Schedule: $UpdateSchedule"
-#    If ($DeviceCollection.RefreshType -in @(2,6)){
-#        "Full Update Schedule"
-#    }
+    Write-HTMLHeading -Level 4 -Text $CollectionName -File $FilePath -ExcludeTOC
     If ($CollectionDesc){
-        Write-HtmlList -InputObject $CollectionInfo -Title $CollectionName -Description "Description: $CollectionDesc" -Level 3 -File $FilePath
+        Write-HtmlList -InputObject $CollectionInfo -Description "Description: $CollectionDesc" -Level 4 -File $FilePath
     }else{
-        Write-HtmlList -InputObject $CollectionInfo -Title $CollectionName -Level 3 -File $FilePath
+        Write-HtmlList -InputObject $CollectionInfo -Level 4 -File $FilePath
     }
     If ($DeviceCollection.ServiceWindowsCount -gt 0) {
         $ServiceWindows = Get-CMMaintenanceWindow -CollectionId $DeviceCollection.CollectionID
@@ -2736,33 +2788,6 @@ if ($ListAllInformation)
     } else {
         Write-HTMLParagraph -Level 4 -File $FilePath -Text 'No maintenance windows configured on this collection.'
     }
-<##        try {
-            $CollVars = Get-CMDeviceCollectionVariable -CollectionId $DeviceCollection.CollectionID
-            if ($CollVars) {
-                $CollVarsHashArray = @();
-
-                foreach ($CollVar in $CollVars)
-                {
-                  $CollVarRow = @{'Variable Name'= $CollVar.Name; 'Value' = $CollVar.Value; 'Hidden Value' = $CollVar.IsMasked};
-                  $CollVarsHashArray += $CollVarRow;
-                }
-
-                $Table = AddWordTable -Hashtable $CollVarsHashArray -Columns 'Variable Name', 'Value', 'Hidden Value' -Headers 'Variable Name', 'Value', 'Hidden Value' -Format -155 -AutoFit $wdAutoFitContent
-  
-                ## Set first column format
-                SetWordCellFormat -Collection $Table.Rows.Item(1).Cells -Bold -BackgroundColor $wdColorGray15;
-
-                FindWordDocumentEnd
-                $Table = $Null
-            }
-            else {
-                WriteWordLine 0 1 'Enumerating device collection variables: No device collection variables configured!'
-            }
-        }
-        catch [System.Management.Automation.PropertyNotFoundException] {
-            WriteWordLine 0 0 ''
-        }
-##>
         ### enumerating the Collection Membership Rules
         Write-HTMLParagraph -Level 4 -File $FilePath -Text 'Collection Membership Rules:'
         $QueryRules = $Null
@@ -2817,12 +2842,11 @@ if ($ListAllInformation)
         if (([String]::IsNullOrEmpty($IncludeRules)) -and ([string]::IsNullOrEmpty($DirectRules)) -and ([string]::IsNullOrEmpty($QueryRules))){
         Write-HTMLParagraph -Level 5 -File $FilePath -Text 'No collection membership rules defined.'
         }
-    #move to the end of the current document
-	Write-Verbose "$(Get-Date):   move to the end of the current document"
     }
 }else{
   Write-HTMLParagraph -Text "There are $($CustomDeviceCollections.count) User Defined Device collections.  These are in addition to the $($BuiltInDeviceCollections.count) built-in default device collections." -Level 3 -File $FilePath
 }
+Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion enumerating all Device Collections
 
 
@@ -2983,6 +3007,7 @@ if ($EdUpgradeSettings.count -gt 0) {
 }
 
 #endregion enumerating Configuration Policies.
+Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion enumerating all Compliance Settings
 
 #region Endpoint Protection
@@ -3406,12 +3431,13 @@ if (-not [string]::IsNullOrEmpty($DeviceGuardPolicies)) {
 #endregion Windows Enrollment Profiles
 #endregion Corporate-owned Devices
 
+Write-HtmliLink -ReturnTOC -File $FilePath
+Write-Verbose "$(Get-Date):   Done with Assets and Compliance, next Software Library"
 
 ####
 #region Software Library
 ####
 
-Write-Verbose "$(Get-Date):   Done with Assets and Compliance, next Software Library"
 Write-HTMLHeading -Level 1 -PageBreak -Text 'Software Library' -File $FilePath
 
 #region Application Management
@@ -3542,6 +3568,7 @@ else {
     Write-HTMLParagraph -Text 'There are no Applications configured in this site.' -Level 4 -File $FilePath
 }
 Write-Verbose "$(Get-Date):   Applications Complete."
+Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion Applications
 
 #region Packages
@@ -3664,6 +3691,7 @@ elseif ($Packages){
 }
 Write-Verbose "$(Get-Date):   Completed processing Packages."
 #endregion Packages
+Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion Application Management
 
 
@@ -3680,6 +3708,7 @@ If(-not [string]::IsNullOrEmpty($UpdateGroups)){
 }else{
     Write-HTMLParagraph -Text "There are no update groups defined in this site." -Level 3 -File $FilePath
 }
+Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion Update Groups
 
 #region Update Packages
@@ -3711,6 +3740,7 @@ If(-not [string]::IsNullOrEmpty($UpdatePackages)){
 }else{
     Write-HTMLParagraph -Text "There are no update packages defined in this site." -Level 3 -File $FilePath
 }
+Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion Update Packages
 
 
@@ -3953,7 +3983,7 @@ foreach ($ADR in $ADRs){
         #$DTxml
     }
 }
-
+Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion ADRs
 
 
@@ -4015,6 +4045,7 @@ if ($ListAllInformation){
     }
 }
 Write-Verbose "$(Get-Date):   Completed processing Driver Packages."
+Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion Driver Packages
 
 #region Operating System Upgrade Packages
@@ -4053,6 +4084,7 @@ if (-not [string]::IsNullOrEmpty($OSUgPacks)){
     Write-HTMLParagraph -Text 'There are no Operating System Upgrade Packages found in this site.' -Level 4 -File $FilePath
 }
 Write-Verbose "$(Get-Date):   Completed processing Operating System Upgrade Packages."
+Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion Operating System Upgrade Packages
 
 #region Operating System Images
@@ -4091,6 +4123,7 @@ if (-not [string]::IsNullOrEmpty($OSImages)){
     Write-HTMLParagraph -Text 'There are no Operating System Images found in this site.' -Level 4 -File $FilePath
 }
 Write-Verbose "$(Get-Date):   Completed processing Operating System Images."
+Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion Operating System Images
 
 #region Boot Images
@@ -4195,6 +4228,7 @@ if (-not [string]::IsNullOrEmpty($BootImages)){
     Write-HTMLParagraph -Text 'There are no Boot Images present in this site.' -Level 4 -File $FilePath
 }
 Write-Verbose "$(Get-Date):   Completed processing Boot Images."
+Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion Boot Images
 
 
@@ -4239,6 +4273,7 @@ if ($ListAllInformation){
     }
 }
 Write-Verbose "$(Get-Date):   Completed Task Sequences"
+Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion Task Sequences
 
 #endregion Operating Systems
@@ -4246,6 +4281,9 @@ Write-Verbose "$(Get-Date):   Completed Task Sequences"
 #region Windows 10 Servicing
 
 #region Servicing Plan
+
+###Work in progress...
+
 $ServicingPlans=((Get-CMWindowsServicingPlan).UpdateRuleXML).updatexml.UpdateXMLDescriptionItems.UpdateXMLDescriptionItem
 
 foreach ($ServicingPlan in $ServicingPlans){
@@ -4314,6 +4352,7 @@ if (-not [string]::IsNullOrEmpty($ScriptFeature)){
     Write-HTMLParagraph -Text "Scripts feature not found in this site. Scripts were introduced with release 1706." -Level 3 -File $FilePath
 }
 Write-Verbose "$(Get-Date):   Completed Configuration Manager Scripts"
+Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion Scripts
 
 #endregion Software Library
