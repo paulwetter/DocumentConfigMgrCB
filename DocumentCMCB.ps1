@@ -12,7 +12,7 @@
     in pure HTML.  If you so desire, you can import this HTML report into Word for easier
     editing.
 .PARAMETER Title
-	The title you would like to use for this documentation.  default is "Configuration Manager Site Documentation".
+	The title you would like to use for this documentation.  default is "Configuration Manager Site Documentation For Company".
 .PARAMETER FilePath
 	This is the path of the documentation file.  By default, the file will be created in the same directory as the
     where the script is currently located. And named CMDocumentation.html
