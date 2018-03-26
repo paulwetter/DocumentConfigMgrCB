@@ -12,7 +12,7 @@
     in pure HTML.  If you so desire, you can import this HTML report into Word for easier
     editing.
 .PARAMETER Title
-	The title you would like to use for this documentation.  default is "Configuration Manager Site Documentation For Company".
+	The title you would like to use for this documentation.  default is "Configuration Manager Site Documentation".
 .PARAMETER FilePath
 	This is the path of the documentation file.  By default, the file will be created in the same directory as the
     where the script is currently located. And named CMDocumentation.html
@@ -1940,7 +1940,7 @@ foreach ($ClientSetting in $AllClientSettings)
           }
         }
         9{
-          $KnownProps = @("AgentID","AlternateContentProviders","AssignmentBatchingTimeout","BrandingSubTitle","BrandingTitle","ContentDownloadTimeout","ContentLocationTimeout","DayReminderInterval","Enabled","EnableExpressUpdates","EvaluationSchedule","ExpressUpdatesPort","HourReminderInterval","MaxRandomDelayMinutes","MaxScanRetryCount","O365Management","PerDPInactivityTimeout","PSComputerName","PSShowComputerName","ReminderInterval","ScanRetryDelay","ScanSchedule","SmsProviderObjectPath","TotalInactivityTimeout","UpdateStatusRefreshIntervalDays","UserExperience","UserJobPerDPInactivityTimeout","UserJobTotalInactivityTimeout","WSUSLocationTimeout","WSUSScanRetryCodes","WUAMaxRebootsWhenOnInternet","WUASuccessCodes","WUfBEnabled")
+          $KnownProps = @("AgentID","AlternateContentProviders","AssignmentBatchingTimeout","BrandingSubTitle","BrandingTitle","ContentDownloadTimeout","ContentLocationTimeout","DayReminderInterval","Enabled","EnableExpressUpdates","EvaluationSchedule","ExpressUpdatesPort","HourReminderInterval","MaxRandomDelayMinutes","MaxScanRetryCount","O365Management","PerDPInactivityTimeout","PSComputerName","PSShowComputerName","ReminderInterval","ScanRetryDelay","ScanSchedule","SmsProviderObjectPath","TotalInactivityTimeout","UpdateStatusRefreshIntervalDays","UserExperience","UserJobPerDPInactivityTimeout","UserJobTotalInactivityTimeout","WSUSLocationTimeout","WSUSScanRetryCodes","WUAMaxRebootsWhenOnInternet","WUASuccessCodes","WUfBEnabled","EnableThirdPartyUpdates")
           $Config = 'Software Updates'
           $ConfigList = @()
           $ConfigList += "Enable software updates on clients: $($AgentConfig.Enabled)"
@@ -2064,6 +2064,14 @@ foreach ($ClientSetting in $AllClientSettings)
           else
           {
               $ConfigList += "Enable management of the Office 365 Client Agent: No"
+          }
+          If($AgentConfig.EnableThirdPartyUpdates -eq "True")
+          {
+              $ConfigList += "Enable Third Party Software Updates: Yes"
+          }
+          else
+          {
+              $ConfigList += "Enable Third Party Software Updates: No"
           }
           Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
           If ($UnknownClientSettings) {
@@ -2513,6 +2521,85 @@ foreach ($ClientSetting in $AllClientSettings)
               }
               $ConfigList += "Windows 8.1 and earlier Internet Explorer data collection: $Level"
           }
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
+        }
+        30{
+          $KnownProps = @("AgentID","PSComputerName","PSShowComputerName","SmsProviderObjectPath","SCBrandingColor","SCBrandingString","SCLogo","SCShowApplicationsTab","SCShowComplianceTab","SCShowInstallationTab","SCShowOptionsTab","SCShowOSDTab","SCShowUpdatesTab","SC_Old_Branding","SettingsXml")
+          $Config = 'Software Center'
+          $ConfigList = @()
+          If ($AgentConfig.SC_Old_Branding -eq 1){
+              $ConfigList += "Select these new settings to specify company information: Yes"
+              $SCBrand = ([xml]$AgentConfig.SettingsXml).settings
+              If (-not [string]::IsNullOrEmpty($SCBrand.'brand-orgname')){
+                  $ConfigList += "Organization Name: $($SCBrand.'brand-orgname')"
+              }
+              If (-not [string]::IsNullOrEmpty($SCBrand.'brand-color')){
+                  $BrandColor = [System.Web.HttpUtility]::HtmlEncode($($SCBrand.'brand-color'))
+                  $ConfigList += "Color scheme for Software Center: <font Style=`"height: 20px; width: 20px; background-color: $BrandColor;  color: $BrandColor; border-radius: 50%;`">----</font>  $($SCBrand.'brand-color')"
+              }
+              If (-not [string]::IsNullOrEmpty($SCBrand.'brand-logo')){
+                  $EncodedImage=$SCBrand.'brand-logo'
+                  $ImageData="data:image/jpg;base64,$EncodedImage"
+                  $ConfigList += "Organization Logo Defined:<br /><img src=`"$ImageData`">"
+              }
+              If ($SCBrand.'software-list'.'unapproved-applications-hidden' -eq 'true'){
+                  $ConfigList += "Hide unapproved applications in Software Center: Selected"
+              }else{
+                  $ConfigList += "Hide unapproved applications in Software Center: Not Selected"
+              }
+              if ($SCBrand.'software-list'.'installed-applications-hidden' -eq 'true'){
+                  $ConfigList += "Hide installed applications in Software Center: Selected"
+              }else{
+                  $ConfigList += "Hide installed applications in Software Center: Not Selected"
+              }
+              $tabvisibility = "Select which tabs should be exposed to the end user in Software Center:<br />"
+              foreach ($tab in $SCBrand.'tab-visibility'.tab){
+                  switch ($tab.name)
+                  {
+                    'AvailableSoftware' {$tabvisibility = $tabvisibility + " &bull;  Applications: $($tab.visible) <br />"}
+                    'Updates' {$tabvisibility = $tabvisibility + " &bull;  Updates: $($tab.visible) <br />"}
+                    'OSD' {$tabvisibility = $tabvisibility + " &bull;  Operating Systems: $($tab.visible) <br />"}
+                    'InstallationStatus' {$tabvisibility = $tabvisibility + " &bull;  Installation Status: $($tab.visible) <br />"}
+                    'Compliance' {$tabvisibility = $tabvisibility + " &bull;  Device Compliance: $($tab.visible) <br />"}
+                    'Options' {$tabvisibility = $tabvisibility + " &bull;  Applications: $($tab.visible) <br />"}
+                  }
+              }
+              $ConfigList += $tabvisibility.TrimEnd('<br />')
+          }Else{
+              $ConfigList += "Select these new settings to specify company information: No"
+          }
+          Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
+          If ($UnknownClientSettings) {
+              $UnknownProps = @()
+              $props = ($AgentConfig| Get-Member -Type Property).Name
+              Foreach ($prop in $props) {
+                if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+              }
+              If ($UnknownProps -gt 0) {
+                Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+              }
+          }
+        }
+        32{
+          $KnownProps = @("AgentID","PSComputerName","PSShowComputerName","SmsProviderObjectPath","EnableWindowsDO")
+          $Config = 'Delivery Optimization'
+          $ConfigList = @()
+          If ($AgentConfig.EnableWindowsDO -eq 'True'){
+            $WindowsDO = 'Yes'
+          }Else{
+            $WindowsDO = 'No'
+          }
+          $ConfigList += "Use Configuration Manager Boundary Groups for Delivery Optimization Group ID: $WindowsDO"
           Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
           If ($UnknownClientSettings) {
               $UnknownProps = @()
@@ -3747,7 +3834,7 @@ Write-HtmliLink -ReturnTOC -File $FilePath
 #region ADRs
 Write-HTMLHeading -Level 3 -PageBreak -Text 'Automatic Deployment Rules' -File $FilePath
 $CMPSSuppressFastNotUsedCheck = $true
-$ADRs=Get-CMSoftwareUpdateAutoDeploymentRule
+$ADRs=Get-CMSoftwareUpdateAutoDeploymentRule -WarningAction SilentlyContinue
 foreach ($ADR in $ADRs){
     $ADRListDetails = @()
     $ADRListTitle = "Name: $($ADR.Name)"
