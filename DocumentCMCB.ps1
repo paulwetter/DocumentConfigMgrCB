@@ -1090,10 +1090,10 @@ foreach ($CMSite in $CMSites)
   Write-HtmlList -InputObject $SQLHWInfo -Description $SQLHWDesc -Level 2 -File $FilePath
   
   Write-Verbose "$(Get-Date):   Getting SQL Database detailed info."
-  $SQLVersion = Invoke-SqlDataReader -ServerInstance $SQLServer -Database Master -Query "SELECT SERVERPROPERTY (`'edition`') Edition, SERVERPROPERTY(`'productversion`') Version, SERVERPROPERTY (`'productlevel`') SP"
+  $SQLVersion = Invoke-SqlDataReader -ServerInstance $SQLServer -Database Master -Query "SELECT SERVERPROPERTY (`'edition`') Edition, SERVERPROPERTY(`'productversion`') Version, SERVERPROPERTY (`'productlevel`') SP, SERVERPROPERTY (`'ProductUpdateLevel`') CU"
   $SQLConfig = Invoke-SqlDataReader -ServerInstance $SQLServer -Database Master -Query "SELECT name ServerSetting,value_in_use Value FROM sys.configurations where configuration_id = 1543 OR configuration_id = 1544 OR configuration_id = 1539"
   $DatabaseFiles = Invoke-SqlDataReader -ServerInstance $SQLServer -Database Master -Query "SELECT db.name `'DatabaseName`',type_desc `'FileType`',physical_name `'FilePath`',mf.state_desc `'Status`',size*8/1024 `'FileSizeMB`',max_size `'MaximumSize`',growth `'GrowthRate`',(CASE WHEN is_percent_growth = 1 THEN `'Percent`' ELSE `'MB`' END) `'GrowthUnit`',create_date `'DateCreated`',compatibility_level `'DBLevel`',user_access_desc `'AccessMode`',recovery_model_desc `'RecoveryModel`' FROM sys.master_files mf INNER JOIN sys.databases db ON db.database_id = mf.database_id where db.name = `'$CMDatabase`'"
-  $SQLVersion = $SQLVersion | Select Edition,Version,SP
+  $SQLVersion = $SQLVersion | Select Edition,Version,SP,CU
   $SQLConfig = $SQLConfig | Select @{Name='Server Setting';Expression={$_.ServerSetting}},Value
   $DatabaseFiles = $DatabaseFiles | Select @{Name='File Type';Expression={$_.FileType}},@{Name='File Path';Expression={$_.FilePath}},Status,@{Name='File Size MB';Expression={'{0:N0}' -f $_.FileSizeMB}},@{Name='Maximum Size';Expression={$(IF($_.MaximumSize -eq -1){"Unlimited"}else{'{0:N0}' -f ($_.MaximumSize/128)})}},@{Name='Growth Rate';Expression={"$(IF($_.GrowthUnit -eq "Percent"){"$($_.GrowthRate)%"}Else{"$($_.GrowthRate/128)MB"})"}},@{Name='Recovery Model';Expression={$_.RecoveryModel}}
   $IndexFragmentation = Invoke-SqlDataReader -ServerInstance $SQLServer -Database $CMDatabase -Query "SELECT SUM(CASE WHEN indexstats.avg_fragmentation_in_percent > 75 THEN  1 ELSE 0 END) [Over 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 50 AND indexstats.avg_fragmentation_in_percent <= 75) THEN  1 ELSE 0 END) [Over 50],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 25 AND indexstats.avg_fragmentation_in_percent <= 50) THEN  1 ELSE 0 END) [Over 25],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 1 AND indexstats.avg_fragmentation_in_percent <= 25) THEN  1 ELSE 0 END) [Under 25],SUM(CASE WHEN indexstats.avg_fragmentation_in_percent < 1 THEN  1 ELSE 0 END) [Not Fragmented] FROM sys.dm_db_index_physical_stats (DB_ID(), NULL, NULL, NULL, NULL) AS indexstats JOIN sys.tables dbtables on dbtables.[object_id] = indexstats.[object_id] WHERE indexstats.database_id = DB_ID()"
@@ -3539,7 +3539,7 @@ $Applications = Get-CMApplication
 $Applications = $Applications|sort LocalizedDisplayName
 if ($ListAllInformation){
     if (-not [string]::IsNullOrEmpty($Applications)) {
-        Write-HTMLParagraph -Text 'Below are a summary of all application installers defined in this site. These are applications that are installed with the configuration manager application model.  Packages are covered later in the documentation' -Level 3 -File $FilePath
+        Write-HTMLParagraph -Text "Below are a summary of all $($Applications.Count) application installers defined in this site. These are applications that are installed with the configuration manager application model.  Packages are covered later in the documentation." -Level 3 -File $FilePath
         foreach ($App in $Applications) {
             Write-Verbose "$(Get-Date):   Found App: $($App.LocalizedDisplayName)"
             Write-HTMLHeading -Level 4 -Text "$($App.LocalizedDisplayName)" -File $FilePath
@@ -3648,8 +3648,14 @@ if ($ListAllInformation){
         Write-HTMLParagraph -Text 'There are no Applications configured in this site.' -Level 4 -File $FilePath
     }
 }
-elseif ($Applications) {
+elseif (-not [string]::IsNullOrEmpty($Applications)) {
     Write-HTMLParagraph -Text "There are $($Applications.count) applications configured." -Level 4 -File $FilePath
+    $AppBasics = @()
+    foreach ($App in $Applications){
+        $AppBasics += New-Object -TypeName PSObject -Property @{'Name'="$($App.LocalizedDisplayName)"; 'Created by' = $($App.CreatedBy); 'Date created'=$($App.DateCreated)}
+    }
+    $AppBasics = $AppBasics | Select 'Name','Created by','Date Created'
+    Write-HtmlTable -InputObject $AppBasics -Border 1 -Level 4 -File $FilePath
 }
 else {
     Write-HTMLParagraph -Text 'There are no Applications configured in this site.' -Level 4 -File $FilePath
@@ -3664,7 +3670,8 @@ Write-HTMLHeading -PageBreak -Level 3 -Text 'Packages' -File $FilePath
 $Packages = Get-CMPackage
 if ($ListAllInformation){
     if (-not [string]::IsNullOrEmpty($Packages)){
-        Write-HTMLParagraph -Text 'Below is a summary of all packages defined in this site. These are applications that are installed using traditional packages.' -Level 3 -File $FilePath
+        Write-HTMLParagraph -Text "There are $($Packages.count) packages configured." -Level 5 -File $FilePath
+        Write-HTMLParagraph -Text "Below is a summary of all $($Packages.count) packages defined in this site. These are applications that are installed using traditional packages." -Level 3 -File $FilePath
         foreach ($Package in $Packages) {
             Write-Verbose "$(Get-Date):   Found Package: $($Package.Name)"
             Write-HTMLHeading -Level 4 -Text "$($Package.Name)" -File $FilePath
@@ -3771,10 +3778,16 @@ if ($ListAllInformation){
         Write-HTMLParagraph -Text 'There are no Packages configured in this site.' -Level 5 -File $FilePath
     }
 }
-elseif ($Packages){
+elseif (-not [string]::IsNullOrEmpty($Packages)){
     Write-HTMLParagraph -Text "There are $($Packages.count) packages configured." -Level 5 -File $FilePath
+    $PackageBasics = @()
+    foreach ($Package in $Packages){
+        $PackageBasics += New-Object -TypeName PSObject -Property @{'Name'="$($Package.Name)"; 'Programs' = $($Package.NumOfPrograms); 'Content Date'=$($Package.SourceDate)}
+    }
+    $PackageBasics = $PackageBasics | Select 'Name','Programs','Content Date'
+    Write-HtmlTable -InputObject $PackageBasics -Border 1 -Level 4 -File $FilePath
 }else{
-    Write-HTMLParagraph -Text 'There are no packages configured.' -Level 5 -File $FilePath
+    Write-HTMLParagraph -Text 'There are no packages configured in this site.' -Level 5 -File $FilePath
 }
 Write-Verbose "$(Get-Date):   Completed processing Packages."
 #endregion Packages
@@ -3832,10 +3845,12 @@ Write-HtmliLink -ReturnTOC -File $FilePath
 
 
 #region ADRs
+Write-Verbose "$(Get-Date):   Beginning processing of ADRs..."
 Write-HTMLHeading -Level 3 -PageBreak -Text 'Automatic Deployment Rules' -File $FilePath
 $CMPSSuppressFastNotUsedCheck = $true
-$ADRs=Get-CMSoftwareUpdateAutoDeploymentRule -WarningAction SilentlyContinue
+$ADRs=Get-CMSoftwareUpdateAutoDeploymentRule
 foreach ($ADR in $ADRs){
+    Write-Verbose "$(Get-Date):   Processing ADR $($ADR.Name)"
     $ADRListDetails = @()
     $ADRListTitle = "Name: $($ADR.Name)"
     Write-HTMLHeading -Level 4 -Text "$($ADR.Name)" -File $FilePath
@@ -3884,6 +3899,7 @@ foreach ($ADR in $ADRs){
     Remove-Variable Categories -ErrorAction SilentlyContinue
     Add-Type -AssemblyName System.Web
     $UpdateRuleList = @()
+    Write-Verbose "$(Get-Date):   Getting a list of configured update rules for this ADR: $($ADR.Name)"
     foreach ($UpdateRule in $rules.UpdateXML.UpdateXMLDescriptionItems.UpdateXMLDescriptionItem){
         Switch($UpdateRule.PropertyName){
             '_Product'{
@@ -3998,79 +4014,85 @@ foreach ($ADR in $ADRs){
     #$UpdateRuleList
     Write-HtmlList -InputObject $UpdateRuleList -Description 'Software Update Property Filters (Update Rules):' -Level 3 -File $FilePath
     Write-HtmlTable -InputObject $Package -Level 5 -File $FilePath
-    Foreach ($Deployment in $ADRDeployments){
-        $ADRDTListDetails = @()
-        $DTxml=([xml]$Deployment.DeploymentTemplate).DeploymentCreationActionXML
-        $ADRDTListTitle = "Deployment Collection: $($Deployment.CollectionName) ($($Deployment.CollectionID))"
-        $ADRDTListDetails += "Enable the deployment after this rule is run: $($DTxml.EnableDeployment)"
-        $ADRDTListDetails += "Use Wake-on-LAN to wake up clients for required deployments: $($DTxml.EnableWakeOnLan)"
-        Switch ($($DTxml.StateMessageVerbosity)){
-            1 {$StateMessages = 'Only error messages'}
-            5 {$StateMessages = 'Only success and error messages'}
-            10 {$StateMessages = 'All messages'}
+    Write-HTMLHeading -Level 5 -Text "Deployments for ADR: $($ADR.Name)" -File $FilePath
+    If ($ListAllInformation){
+        Foreach ($Deployment in $ADRDeployments){
+            $ADRDTListDetails = @()
+            $DTxml=([xml]$Deployment.DeploymentTemplate).DeploymentCreationActionXML
+            $ADRDTListTitle = "Deployment Collection: $($Deployment.CollectionName) ($($Deployment.CollectionID))"
+            $ADRDTListDetails += "Enable the deployment after this rule is run: $($DTxml.EnableDeployment)"
+            $ADRDTListDetails += "Use Wake-on-LAN to wake up clients for required deployments: $($DTxml.EnableWakeOnLan)"
+            Switch ($($DTxml.StateMessageVerbosity)){
+                1 {$StateMessages = 'Only error messages'}
+                5 {$StateMessages = 'Only success and error messages'}
+                10 {$StateMessages = 'All messages'}
+            }
+            $ADRDTListDetails += "Choose how much state detail you want clients to report back. Detail level: $StateMessages"
+            Switch ($($DTxml.Utc)){
+                false{$timebase = 'Client local time'}
+                true{$timebase = 'UTC'}
+            }
+            $ADRDTListDetails += "Time based on: $timebase"
+            If ($DTxml.AvailableDeltaDuration -eq 0){
+                $ADRDTListDetails += "Software available time: As soon as possible"
+            }else{
+                $ADRDTListDetails += "Software available time: $($DTxml.AvailableDeltaDuration) $($DTxml.AvailableDeltaDurationUnits)"
+            }
+            If ($DTxml.Duration -eq 0){
+                $ADRDTListDetails += "Installation Deadline: As soon as possible"
+            }else{
+                $ADRDTListDetails += "Installation Deadline: $($DTxml.Duration) $($DTxml.DurationUnits)"
+            }
+            $ADRDTListDetails += "Delay Enforcement of this deployment according to user preferences, up to the grace period defined in client settings: $($DTxml.SoftDeadlineEnabled)"
+            Switch ($($DTxml.UserNotificationOption)){
+                'DisplayAll'{$UserNotification = 'Display in Software Center and show all notifications'}
+                'DisplaySoftwareCenterOnly'{$UserNotification = 'Display in Software Center, and only show nitifications for computer restarts'}
+                'HideAll'{$UserNotification = 'Hide in Software Center and all notifications'}
+            }
+            $ADRDTListDetails += "User notifications: $UserNotification"
+            Switch ($($DTxml.AllowInstallOutSW)){
+                false{$InstallOutMW = 'Do not allow'}
+                true{$InstallOutMW = 'Allow installations'}
+            }
+            $ADRDTListDetails += "Deadline behavior for Software Update installation outside of maintenance windows: $InstallOutMW"
+            Switch ($($DTxml.AllowRestart)){
+                false{$RestartOutMW = 'Do not allow'}
+                true{$RestartOutMW = 'Allow restarts'}
+            }
+            $ADRDTListDetails += "Deadline behavior for System restarts outside of maintenance windows: $RestartOutMW"
+            $ADRDTListDetails += "Suppress reboots on servers if update requires reboot: $($DTxml.SuppressServers)"
+            $ADRDTListDetails += "Suppress reboots on workstations if update requires reboot: $($DTxml.SuppressWorkstations)"
+            $ADRDTListDetails += "Windows Embedded devices, Commit changes at deadline: $($DTxml.PersistOnWriteFilterDevices)"
+            $ADRDTListDetails += "If any update in this deployment requires a system restart, run updates deployment evaluation cycle after restart: $($DTxml.RequirePostRebootFullScan)"
+            If($($DTxml.EnableAlert) -eq $false){
+                $ADRDTListDetails += "Configuration Manager alerts.  Generate an alert when the following conditions are met: False"
+            }else{
+                $ADRDTListDetails += "Configuration Manager alerts.  Generate an alert when the following conditions are met: True<br />Client Compliance is below the following percent: $($DTxml.AlertThresholdPercentage)<br />Offset from the deadline: $($DTxml.AlertDuration)"
+            }
+            $ADRDTListDetails += "Disable Operations Manager alerts while software updates run: $($DTxml.DisableMomAlert)"
+            $ADRDTListDetails += "Generate Operations Manager alert when a software update installation fails: $($DTxml.GenerateMomAlert)"
+            switch ($DTxml.UseRemoteDP){
+                false{$deploymentopt = 'Do not install software updates'}
+                true{$deploymentopt = 'Download software updates from distribution point and install'}
+            }
+            $ADRDTListDetails += "Select deployment options to use when when client uses neighbor or default boundary group: $deploymentopt"
+            switch ($DTxml.UseUnprotectedDP){
+                false{$deploymentopt2 = 'Do not install software updates'}
+                true{$deploymentopt2 = 'Download and install software updates from the distribution points in the site default boundary group'}
+            }
+            $ADRDTListDetails += "When software updates are not available on any distribution point in current or neighbor boundary group, download from default boundary group: $deploymentopt2"
+            $ADRDTListDetails += "Allow clients to share content with other clients on the same subnet: $($DTxml.UseBranchCache)"
+            $ADRDTListDetails += "If software updates are not available on distribution point in current, neighbor or site boundary groups, download content from Microsoft Updates: $($DTxml.AllowWUMU)"
+            $ADRDTListDetails += "Allow clients on a metered Internet connection to download content after the installation deadline which might incur additional costs: $($DTxml.AllowUseMeteredNetwork)"
+            Write-HtmlList -InputObject $ADRDTListDetails -Title $ADRDTListTitle -Level 5 -File $FilePath
+            #$DTxml
         }
-        $ADRDTListDetails += "Choose how much state detail you want clients to report back. Detail level: $StateMessages"
-        Switch ($($DTxml.Utc)){
-            false{$timebase = 'Client local time'}
-            true{$timebase = 'UTC'}
-        }
-        $ADRDTListDetails += "Time based on: $timebase"
-        If ($DTxml.AvailableDeltaDuration -eq 0){
-            $ADRDTListDetails += "Software available time: As soon as possible"
-        }else{
-            $ADRDTListDetails += "Software available time: $($DTxml.AvailableDeltaDuration) $($DTxml.AvailableDeltaDurationUnits)"
-        }
-        If ($DTxml.Duration -eq 0){
-            $ADRDTListDetails += "Installation Deadline: As soon as possible"
-        }else{
-            $ADRDTListDetails += "Installation Deadline: $($DTxml.Duration) $($DTxml.DurationUnits)"
-        }
-        $ADRDTListDetails += "Delay Enforcement of this deployment according to user preferences, up to the grace period defined in client settings: $($DTxml.SoftDeadlineEnabled)"
-        Switch ($($DTxml.UserNotificationOption)){
-            'DisplayAll'{$UserNotification = 'Display in Software Center and show all notifications'}
-            'DisplaySoftwareCenterOnly'{$UserNotification = 'Display in Software Center, and only show nitifications for computer restarts'}
-            'HideAll'{$UserNotification = 'Hide in Software Center and all notifications'}
-        }
-        $ADRDTListDetails += "User notifications: $UserNotification"
-        Switch ($($DTxml.AllowInstallOutSW)){
-            false{$InstallOutMW = 'Do not allow'}
-            true{$InstallOutMW = 'Allow installations'}
-        }
-        $ADRDTListDetails += "Deadline behavior for Software Update installation outside of maintenance windows: $InstallOutMW"
-        Switch ($($DTxml.AllowRestart)){
-            false{$RestartOutMW = 'Do not allow'}
-            true{$RestartOutMW = 'Allow restarts'}
-        }
-        $ADRDTListDetails += "Deadline behavior for System restarts outside of maintenance windows: $RestartOutMW"
-        $ADRDTListDetails += "Suppress reboots on servers if update requires reboot: $($DTxml.SuppressServers)"
-        $ADRDTListDetails += "Suppress reboots on workstations if update requires reboot: $($DTxml.SuppressWorkstations)"
-        $ADRDTListDetails += "Windows Embedded devices, Commit changes at deadline: $($DTxml.PersistOnWriteFilterDevices)"
-        $ADRDTListDetails += "If any update in this deployment requires a system restart, run updates deployment evaluation cycle after restart: $($DTxml.RequirePostRebootFullScan)"
-        If($($DTxml.EnableAlert) -eq $false){
-            $ADRDTListDetails += "Configuration Manager alerts.  Generate an alert when the following conditions are met: False"
-        }else{
-            $ADRDTListDetails += "Configuration Manager alerts.  Generate an alert when the following conditions are met: True<br />Client Compliance is below the following percent: $($DTxml.AlertThresholdPercentage)<br />Offset from the deadline: $($DTxml.AlertDuration)"
-        }
-        $ADRDTListDetails += "Disable Operations Manager alerts while software updates run: $($DTxml.DisableMomAlert)"
-        $ADRDTListDetails += "Generate Operations Manager alert when a software update installation fails: $($DTxml.GenerateMomAlert)"
-        switch ($DTxml.UseRemoteDP){
-            false{$deploymentopt = 'Do not install software updates'}
-            true{$deploymentopt = 'Download software updates from distribution point and install'}
-        }
-        $ADRDTListDetails += "Select deployment options to use when when client uses neighbor or default boundary group: $deploymentopt"
-        switch ($DTxml.UseUnprotectedDP){
-            false{$deploymentopt2 = 'Do not install software updates'}
-            true{$deploymentopt2 = 'Download and install software updates from the distribution points in the site default boundary group'}
-        }
-        $ADRDTListDetails += "When software updates are not available on any distribution point in current or neighbor boundary group, download from default boundary group: $deploymentopt2"
-        $ADRDTListDetails += "Allow clients to share content with other clients on the same subnet: $($DTxml.UseBranchCache)"
-        $ADRDTListDetails += "If software updates are not available on distribution point in current, neighbor or site boundary groups, download content from Microsoft Updates: $($DTxml.AllowWUMU)"
-        $ADRDTListDetails += "Allow clients on a metered Internet connection to download content after the installation deadline which might incur additional costs: $($DTxml.AllowUseMeteredNetwork)"
-        Write-HtmlList -InputObject $ADRDTListDetails -Title $ADRDTListTitle -Level 4 -File $FilePath
-        #$DTxml
+    }Else{
+        Write-HtmlTable -InputObject ($ADRDeployments|select @{Name='Collection';expression={$_.CollectionName}},Enabled) -Level 5 -File $FilePath
     }
 }
 Write-HtmliLink -ReturnTOC -File $FilePath
+Write-Verbose "$(Get-Date):   Completed processing of ADRs."
 #endregion ADRs
 
 
@@ -4352,9 +4374,15 @@ if ($ListAllInformation){
         Write-HTMLParagraph -Level 3 -Text 'The following Task Sequences are configured:' -File $FilePath
         $TSList =@()
         foreach ($TaskSequence in $TaskSequences){
-            $TSList += "$($TaskSequence.Name)"
+            $OSImage = $TaskSequence.References.Package|foreach {(Get-CMOperatingSystemImage -id $_).Name}
+            $BootImage = $TaskSequence.References.Package|foreach {(Get-CMBootImage -id $_).Name} 
+            $TSName = "$($TaskSequence.Name)"
+            If([string]::IsNullOrEmpty($OSImage)){$OSImage="None"}
+            If([string]::IsNullOrEmpty($BootImage)){$BootImage="None"}
+            $TSList += New-Object -TypeName PSObject -Property @{'Name'="$TSName";'Operating System Image'="$OSImage";'Boot Image'="$BootImage"}
         }
-        Write-HtmlList -InputObject $TSList -Level 3 -File $FilePath
+        $TSList = $TSList | Select-Object 'Name','Operating System Image','Boot Image'
+        Write-HtmlTable -InputObject $TSList -Level 3 -File $FilePath
     }else{
         Write-HTMLParagraph -Level 3 -Text 'There are no Task Sequences present in this environment.' -File $FilePath
     }
@@ -4371,7 +4399,8 @@ Write-HtmliLink -ReturnTOC -File $FilePath
 
 ###Work in progress...
 
-$ServicingPlans=((Get-CMWindowsServicingPlan).UpdateRuleXML).updatexml.UpdateXMLDescriptionItems.UpdateXMLDescriptionItem
+#$ServicingPlans = Get-CMWindowsServicingPlan
+#$ServicingPlans=((Get-CMWindowsServicingPlan).UpdateRuleXML).updatexml.UpdateXMLDescriptionItems.UpdateXMLDescriptionItem
 
 foreach ($ServicingPlan in $ServicingPlans){
     [xml]$UR = $ServicingPlan.UpdateRuleXML
