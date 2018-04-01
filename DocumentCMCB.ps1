@@ -4353,9 +4353,12 @@ if ($ListAllInformation){
                 Write-HTMLHeading -Level 4 -Text "$($TaskSequence.Name)" -File $FilePath
                 $TSDetails = @()
                 $TSDetails += "Package ID: $($TaskSequence.PackageID)"
-                if ($TaskSequence.BootImageID){
-                    $TSDetails += "Task Sequence Boot Image: $((Get-CMBootImage -Id $TaskSequence.BootImageID -ErrorAction SilentlyContinue ).Name)"
-                }
+                $BootImage = $TaskSequence.References.Package|foreach {(Get-CMBootImage -id $_).Name} 
+                If([string]::IsNullOrEmpty($BootImage)){$BootImage="None"}
+                $TSDetails += "Task Sequence Boot Image: $BootImage"
+                $OSImage = $TaskSequence.References.Package|foreach {(Get-CMOperatingSystemImage -id $_).Name}
+                If([string]::IsNullOrEmpty($OSImage)){$OSImage="None"}
+                $TSDetails += "Task Sequence Operating System Image: $OSImage"
                 $TSDetails += "Sequence Steps:"
                 Write-HtmlList -InputObject $TSDetails -Level 4 -File $FilePath
                 $Sequence = $Null
