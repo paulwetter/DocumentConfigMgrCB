@@ -1113,8 +1113,8 @@ foreach ($CMSite in $CMSites)
   Write-HTMLParagraph -Text "Below is a fragmentation summary (%) for indexes on the site database ($CMDatabase):" -Level 2 -File $FilePath
   Write-HtmlTable -InputObject $IndexFragmentation -Border 1 -Level 3 -File $FilePath
   Write-Verbose "$(Get-Date):   SQL detailed info complete."
-  Write-HtmliLink -ReturnTOC -File $FilePath
   }
+  Write-HtmliLink -ReturnTOC -File $FilePath
   #endregion Getting Site SQL Info
 
   #region Management Points
