@@ -98,7 +98,10 @@ Param(
 	[Switch]$AddDateTime=$False,
 	
 	[parameter(Mandatory=$False)] 
-    [switch]$UnknownClientSettings
+    [switch]$UnknownClientSettings,
+    
+    	[parameter(Mandatory=$False)] 
+    [switch]$NoSqlDetail
 
 	)
 #endregion
@@ -1089,6 +1092,9 @@ foreach ($CMSite in $CMSites)
   }
   Write-HtmlList -InputObject $SQLHWInfo -Description $SQLHWDesc -Level 2 -File $FilePath
   
+  If ($NoSqlDetail){
+	  Write-Verbose "$(Get-Date):   Skipping SQL detailed info."
+  }Else{
   Write-Verbose "$(Get-Date):   Getting SQL Database detailed info."
   $SQLVersion = Invoke-SqlDataReader -ServerInstance $SQLServer -Database Master -Query "SELECT SERVERPROPERTY (`'edition`') Edition, SERVERPROPERTY(`'productversion`') Version, SERVERPROPERTY (`'productlevel`') SP, SERVERPROPERTY (`'ProductUpdateLevel`') CU"
   $SQLConfig = Invoke-SqlDataReader -ServerInstance $SQLServer -Database Master -Query "SELECT name ServerSetting,value_in_use Value FROM sys.configurations where configuration_id = 1543 OR configuration_id = 1544 OR configuration_id = 1539"
@@ -1108,6 +1114,7 @@ foreach ($CMSite in $CMSites)
   Write-HtmlTable -InputObject $IndexFragmentation -Border 1 -Level 3 -File $FilePath
   Write-Verbose "$(Get-Date):   SQL detailed info complete."
   Write-HtmliLink -ReturnTOC -File $FilePath
+  }
   #endregion Getting Site SQL Info
 
   #region Management Points
