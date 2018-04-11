@@ -38,6 +38,8 @@
     Drivers in Driver packages, Task Squence Details
 .PARAMETER ListAppDetails
     Like ListAllInformation, but instead of all details, lists only Application Details.
+.PARAMETER NoSqlDetail
+    Skip additional details from the SQL server.  Useful when you do not have full database access to the SQL server (Normally requires access via SQL to the Master and CM database).
 .PARAMETER SMSProvider
     Some information rely on WMI queries that need to be executed against the SMS Provider directly. 
     Please specify as FQDN.
