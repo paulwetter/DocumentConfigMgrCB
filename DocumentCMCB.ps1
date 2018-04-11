@@ -34,7 +34,10 @@
     Specifies whether the script should run an inventory of Applications, Packages and OSD related objects.
 .PARAMETER ListAllInformation
     Specifies whether the script should only output an overview of what is configured (like count of collections) or 
-    a full output with verbose information.
+    a full output with verbose information. This includes: User & Device collections, Application, Packages, ADR Deployments, 
+    Drivers in Driver packages, Task Squence Details
+.PARAMETER ListAppDetails
+    Like ListAllInformation, but instead of all details, lists only Application Details.
 .PARAMETER SMSProvider
     Some information rely on WMI queries that need to be executed against the SMS Provider directly. 
     Please specify as FQDN.
@@ -55,7 +58,7 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 1.00
+	VERSION: 3.00
 	AUTHOR: Paul Wetter, David O'Brien
 	LASTEDIT: March 07, 2018
 #>
@@ -75,6 +78,9 @@ Param(
 
 	[parameter(Mandatory=$False)] 
 	[Switch]$ListAllInformation,
+
+	[parameter(Mandatory=$False)] 
+	[Switch]$ListAppDetails,
 
 	[parameter(Mandatory=$False)] 
 	[string]$Author="Paul Wetter",
@@ -100,7 +106,7 @@ Param(
 	[parameter(Mandatory=$False)] 
     [switch]$UnknownClientSettings,
     
-    	[parameter(Mandatory=$False)] 
+    [parameter(Mandatory=$False)] 
     [switch]$NoSqlDetail
 
 	)
@@ -873,7 +879,7 @@ $LocationBeforeExecution = Get-Location
 
 Write-HTMLHeader -Title $Title -File $FilePath
 Write-HTMLCoverPage -Title $Title -Author $Author -Vendor $Vendor -Org $CompanyName -ImagePath $CompanyLogo -File $FilePath
-
+Add-Type -AssemblyName System.Web
 
 
 #Import the CM Powershell cmdlets
@@ -1057,10 +1063,19 @@ foreach ($CMSite in $CMSites)
   Write-HtmliLink -ReturnTOC -File $FilePath
   
   #region Site SQL Info
+  Write-Verbose "$(Get-Date):   Getting site SQL server and database information."
   Write-HTMLHeading -Text "Summary of SQL database info for Site $($CMSite.SiteCode)" -PageBreak -Level 2 -File $FilePath
   $SiteDef = Get-CMSiteDefinition -SiteCode $($CMSite.SiteCode)
   $SQLServer = $SiteDef.SQLServerName
-  $CMDatabase = $SiteDef.SQLDatabaseName
+  $CMDB = $SiteDef.SQLDatabaseName
+  if (($CMDB.split('\')).count -eq 2){
+    $CMDatabase = $CMDB.split('\')[1]
+    $SQLInstance = $CMDB.split('\')[0]
+  }else{
+    $CMDatabase = $CMDB
+    $SQLInstance = ''
+  }
+  Write-Verbose "$(Get-Date):   SQL server: [$SQLServer]  SQL database: [$CMDatabase]  SQL Instance: [$SQLInstance]"
   $SQLInfo = @("Site SQL Server: <b>$SQLServer</b>","Site Database Name: <b>$CMDatabase</b>")
   Write-HtmlList -InputObject $SQLInfo -Level 2 -File $FilePath
   #Write-HTMLParagraph -Text "$($SQLInfo)" -Level 2 -File $FilePath
@@ -1095,24 +1110,35 @@ foreach ($CMSite in $CMSites)
   If ($NoSqlDetail){
 	  Write-Verbose "$(Get-Date):   Skipping SQL detailed info."
   }Else{
-  Write-Verbose "$(Get-Date):   Getting SQL Database detailed info."
-  $SQLVersion = Invoke-SqlDataReader -ServerInstance $SQLServer -Database Master -Query "SELECT SERVERPROPERTY (`'edition`') Edition, SERVERPROPERTY(`'productversion`') Version, SERVERPROPERTY (`'productlevel`') SP, SERVERPROPERTY (`'ProductUpdateLevel`') CU"
-  $SQLConfig = Invoke-SqlDataReader -ServerInstance $SQLServer -Database Master -Query "SELECT name ServerSetting,value_in_use Value FROM sys.configurations where configuration_id = 1543 OR configuration_id = 1544 OR configuration_id = 1539"
-  $DatabaseFiles = Invoke-SqlDataReader -ServerInstance $SQLServer -Database Master -Query "SELECT db.name `'DatabaseName`',type_desc `'FileType`',physical_name `'FilePath`',mf.state_desc `'Status`',size*8/1024 `'FileSizeMB`',max_size `'MaximumSize`',growth `'GrowthRate`',(CASE WHEN is_percent_growth = 1 THEN `'Percent`' ELSE `'MB`' END) `'GrowthUnit`',create_date `'DateCreated`',compatibility_level `'DBLevel`',user_access_desc `'AccessMode`',recovery_model_desc `'RecoveryModel`' FROM sys.master_files mf INNER JOIN sys.databases db ON db.database_id = mf.database_id where db.name = `'$CMDatabase`'"
-  $SQLVersion = $SQLVersion | Select Edition,Version,SP,CU
-  $SQLConfig = $SQLConfig | Select @{Name='Server Setting';Expression={$_.ServerSetting}},Value
-  $DatabaseFiles = $DatabaseFiles | Select @{Name='File Type';Expression={$_.FileType}},@{Name='File Path';Expression={$_.FilePath}},Status,@{Name='File Size MB';Expression={'{0:N0}' -f $_.FileSizeMB}},@{Name='Maximum Size';Expression={$(IF($_.MaximumSize -eq -1){"Unlimited"}else{'{0:N0}' -f ($_.MaximumSize/128)})}},@{Name='Growth Rate';Expression={"$(IF($_.GrowthUnit -eq "Percent"){"$($_.GrowthRate)%"}Else{"$($_.GrowthRate/128)MB"})"}},@{Name='Recovery Model';Expression={$_.RecoveryModel}}
-  $IndexFragmentation = Invoke-SqlDataReader -ServerInstance $SQLServer -Database $CMDatabase -Query "SELECT SUM(CASE WHEN indexstats.avg_fragmentation_in_percent > 75 THEN  1 ELSE 0 END) [Over 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 50 AND indexstats.avg_fragmentation_in_percent <= 75) THEN  1 ELSE 0 END) [Over 50],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 25 AND indexstats.avg_fragmentation_in_percent <= 50) THEN  1 ELSE 0 END) [Over 25],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 1 AND indexstats.avg_fragmentation_in_percent <= 25) THEN  1 ELSE 0 END) [Under 25],SUM(CASE WHEN indexstats.avg_fragmentation_in_percent < 1 THEN  1 ELSE 0 END) [Not Fragmented] FROM sys.dm_db_index_physical_stats (DB_ID(), NULL, NULL, NULL, NULL) AS indexstats JOIN sys.tables dbtables on dbtables.[object_id] = indexstats.[object_id] WHERE indexstats.database_id = DB_ID()"
-  $IndexFragmentation = $IndexFragmentation | Select 'Over 75','Over 50','Over 25','Under 25','Not Fragmented'
-  Write-HTMLParagraph -Text "SQL instance version information:" -Level 2 -File $FilePath
-  Write-HtmlTable -InputObject $SQLVersion -Border 1 -Level 3 -File $FilePath
-  Write-HTMLParagraph -Text "The following are important global settings on the SQL server.  Typically, this SQL server should be dedicated to Configuration Manager." -Level 2 -File $FilePath
-  Write-HtmlTable -InputObject $SQLConfig -Border 1 -Level 3 -File $FilePath
-  Write-HTMLParagraph -Text "Below are the database files for the site database ($CMDatabase):" -Level 2 -File $FilePath
-  Write-HtmlTable -InputObject $DatabaseFiles -Border 1 -Level 3 -File $FilePath
-  Write-HTMLParagraph -Text "Below is a fragmentation summary (%) for indexes on the site database ($CMDatabase):" -Level 2 -File $FilePath
-  Write-HtmlTable -InputObject $IndexFragmentation -Border 1 -Level 3 -File $FilePath
-  Write-Verbose "$(Get-Date):   SQL detailed info complete."
+      Write-Verbose "$(Get-Date):   Getting SQL Database detailed info."
+      Try{
+          If ($SQLInstance){
+                $SQLConnectString = "$SQLServer\$SQLInstance"
+          }else{
+                $SQLConnectString = "$SQLServer"
+          }
+          Write-HTMLParagraph -Text "SQL instance version information:" -Level 2 -File $FilePath
+          $SQLVersion = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -Query "SELECT SERVERPROPERTY (`'edition`') Edition, SERVERPROPERTY(`'productversion`') Version, SERVERPROPERTY (`'productlevel`') SP, SERVERPROPERTY (`'ProductUpdateLevel`') CU"
+          $SQLVersion = $SQLVersion | Select Edition,Version,SP,CU
+          Write-HtmlTable -InputObject $SQLVersion -Border 1 -Level 3 -File $FilePath
+          Write-HTMLParagraph -Text "The following are important global settings on the SQL server.  Typically, this SQL server should be dedicated to Configuration Manager." -Level 2 -File $FilePath
+          $SQLConfig = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -Query "SELECT name ServerSetting,value_in_use Value FROM sys.configurations where configuration_id = 1543 OR configuration_id = 1544 OR configuration_id = 1539"
+          $SQLConfig = $SQLConfig | Select @{Name='Server Setting';Expression={$_.ServerSetting}},Value
+          Write-HtmlTable -InputObject $SQLConfig -Border 1 -Level 3 -File $FilePath
+          Write-HTMLParagraph -Text "Below are the database files for the site database ($CMDatabase):" -Level 2 -File $FilePath
+          $DatabaseFiles = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -Query "SELECT db.name `'DatabaseName`',type_desc `'FileType`',physical_name `'FilePath`',mf.state_desc `'Status`',size*8/1024 `'FileSizeMB`',max_size `'MaximumSize`',growth `'GrowthRate`',(CASE WHEN is_percent_growth = 1 THEN `'Percent`' ELSE `'MB`' END) `'GrowthUnit`',create_date `'DateCreated`',compatibility_level `'DBLevel`',user_access_desc `'AccessMode`',recovery_model_desc `'RecoveryModel`' FROM sys.master_files mf INNER JOIN sys.databases db ON db.database_id = mf.database_id where db.name = `'$CMDatabase`'"
+          $DatabaseFiles = $DatabaseFiles | Select @{Name='File Type';Expression={$_.FileType}},@{Name='File Path';Expression={$_.FilePath}},Status,@{Name='File Size MB';Expression={'{0:N0}' -f $_.FileSizeMB}},@{Name='Maximum Size';Expression={$(IF($_.MaximumSize -eq -1){"Unlimited"}else{'{0:N0}' -f ($_.MaximumSize/128)})}},@{Name='Growth Rate';Expression={"$(IF($_.GrowthUnit -eq "Percent"){"$($_.GrowthRate)%"}Else{"$($_.GrowthRate/128)MB"})"}},@{Name='Recovery Model';Expression={$_.RecoveryModel}}
+          Write-HtmlTable -InputObject $DatabaseFiles -Border 1 -Level 3 -File $FilePath
+          Write-HTMLParagraph -Text "Below is a fragmentation summary (%) for indexes on the site database ($CMDatabase):" -Level 2 -File $FilePath
+          $IndexFragmentation = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database $CMDatabase -Query "SELECT SUM(CASE WHEN indexstats.avg_fragmentation_in_percent > 75 THEN  1 ELSE 0 END) [Over 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 50 AND indexstats.avg_fragmentation_in_percent <= 75) THEN  1 ELSE 0 END) [Over 50],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 25 AND indexstats.avg_fragmentation_in_percent <= 50) THEN  1 ELSE 0 END) [Over 25],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 1 AND indexstats.avg_fragmentation_in_percent <= 25) THEN  1 ELSE 0 END) [Under 25],SUM(CASE WHEN indexstats.avg_fragmentation_in_percent < 1 THEN  1 ELSE 0 END) [Not Fragmented] FROM sys.dm_db_index_physical_stats (DB_ID(), NULL, NULL, NULL, NULL) AS indexstats JOIN sys.tables dbtables on dbtables.[object_id] = indexstats.[object_id] WHERE indexstats.database_id = DB_ID()"
+          $IndexFragmentation = $IndexFragmentation | Select 'Over 75','Over 50','Over 25','Under 25','Not Fragmented'
+          Write-HtmlTable -InputObject $IndexFragmentation -Border 1 -Level 3 -File $FilePath
+      }
+      Catch{
+          Write-Host -ForegroundColor Yellow 'Failed to collect all detailed SQL data.'
+          Write-Verbose "$(Get-Date):   Error exception: $($Error[0].exception)"
+      }
+      Write-Verbose "$(Get-Date):   SQL detailed info complete."
   }
   Write-HtmliLink -ReturnTOC -File $FilePath
   #endregion Getting Site SQL Info
@@ -3544,7 +3570,7 @@ Write-HTMLHeading -Level 3 -Text 'Applications' -File $FilePath
 #Get-CMApplication | select LocalizedDisplayName,LocalizedDescription,Manufacturer,SoftwareVersion,PackageID,ISExpired,ISDeployed,NumberOfDeploymentTypes
 $Applications = Get-CMApplication
 $Applications = $Applications|sort LocalizedDisplayName
-if ($ListAllInformation){
+if ($ListAllInformation -or $ListAppDetails){
     if (-not [string]::IsNullOrEmpty($Applications)) {
         Write-HTMLParagraph -Text "Below are a summary of all $($Applications.Count) application installers defined in this site. These are applications that are installed with the configuration manager application model.  Packages are covered later in the documentation." -Level 3 -File $FilePath
         foreach ($App in $Applications) {
@@ -4147,8 +4173,12 @@ if ($ListAllInformation){
             }else{
                 Write-HtmlList -Title $PackageName -InputObject $DPackArray -Level 4 -File $FilePath
             }
-            $DriverArray = $DriverArray | Select-Object 'Driver Name','Manufacturer','Source Path','Source Status','INF File'
-            Write-HtmlTable -InputObject $DriverArray -Border 1 -Level 5 -File $FilePath
+            if (-not [string]::IsNullOrEmpty($DriverPackages)){
+                $DriverArray = $DriverArray | Select-Object 'Driver Name','Manufacturer','Source Path','Source Status','INF File'
+                Write-HtmlTable -InputObject $DriverArray -Border 1 -Level 5 -File $FilePath
+            }else{
+                Write-HTMLParagraph -Text 'No driver details were found' -Level 5 -File $FilePath
+            }
         }
     }else{
         Write-HTMLParagraph -Text 'There are no Driver Packages configured in this site.' -Level 4 -File $FilePath
@@ -4156,6 +4186,9 @@ if ($ListAllInformation){
 }else{
     if (-not [string]::IsNullOrEmpty($DriverPackages)){
         Write-HTMLParagraph -Text "There are $($DriverPackages.count) Driver Packages configured." -Level 4 -File $FilePath
+        if (-not [string]::IsNullOrEmpty($DriverPackages)){
+            Write-HtmlList -InputObject ($DriverPackages.Name) -Level 4 -File $FilePath
+        }
     }else{
         Write-HTMLParagraph -Text 'There are no Driver Packages configured in this site.' -Level 4 -File $FilePath
     }
