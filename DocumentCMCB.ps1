@@ -1,5 +1,4 @@
 #Requires -Version 4.0
-
 #region help text
 
 <#
@@ -60,7 +59,7 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.00
+	VERSION: 3.1
 	AUTHOR: Paul Wetter, David O'Brien
 	LASTEDIT: March 07, 2018
 #>
@@ -114,19 +113,13 @@ Param(
 	)
 #endregion
 
-<#
-$FilePath = "C:\Users\Administrator\Desktop\TestDocumentation.html"
-$Title = "Configuration Manager Site Documentation"
-$Author = "Snow Lizard"
-$Vendor = "FYLCP"
-$Org = "Wetter Servicing"
-$SMSProvider = 'localhost'
-$UnknownClientSettings = $true
-$ListAllInformation = $true
-#>
+$DocumenationScriptVersion = 3.1
+
 
 $CMPSSuppressFastNotUsedCheck = $true
 $Global:DocTOC = @()
+$ScriptStartTime = Get-date
+Write-host "Beginning Execution of version $DocumenationScriptVersion at: $($ScriptStartTime.ToShortTimeString())"
 
 Function Write-HtmlTable{
 <#
@@ -188,9 +181,14 @@ Function Write-HtmlTable{
         9 {$Indent=85} 
         default {$Indent=5}
     }
-    $table = $InputObject|ConvertTo-Html -Fragment
-    $table[0] = "<table cellpadding=$Padding cellspacing=$Spacing border=$Border style=`"margin-left:$($Indent)px;`">"
-    $table = $table -replace "--CRLF--","<BR />"
+    if (-not [string]::IsNullOrEmpty($DriverPackages)){
+        $table = $InputObject|ConvertTo-Html -Fragment
+        $table[0] = "<table cellpadding=$Padding cellspacing=$Spacing border=$Border style=`"margin-left:$($Indent)px;`">"
+        $table = $table -replace "--CRLF--","<BR />"
+    }else{
+        Write-Verbose 'Input object was empty outputting empty object paragraph text...'
+        Write-HTMLParagraph -Text 'There was no data to output from this query.' -Level $Level -File $file
+    }
     If ($File) {$table | Out-File -filepath $File -Append}
     Else {Return $table}
 }
@@ -436,6 +434,35 @@ Function Write-HTMLHeader{
     If ($File) {$header | Out-File -filepath $File -Append}
     Else {Return $Header}
 }
+
+Function Write-HTMLFooter{
+<#
+.SYNOPSIS
+    This will write the end of the file for the document/HTML.
+.PARAMETER File
+    This is the file that the HTML will be written to.
+.EXAMPLE
+    Write-HTMLHeader
+.EXAMPLE
+    Write-HTMLHeader -file "C:\test.html"
+.NOTES
+    Author: Paul Wetter
+    Website: 
+    Email: tellwetter[at]gmail.com
+
+#>
+
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is the amount of space that the table will indent by")]
+        [string]$File
+    )
+    $Footer += "</body></html>"
+    If ($File) {$Footer | Out-File -filepath $File -Append}
+    Else {Return $Footer}
+}
+
 
 Function Write-HTMLCoverPage{
 <#
@@ -1741,14 +1768,14 @@ foreach ($ClientSetting in $AllClientSettings)
           if ($InvFiles.count -gt 0) {
               $ConfigList += 'Inventory these file types:'
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
-              Write-HtmlTable -InputObject $InvFiles -Level 7 -Border 1 -File $FilePath
+              Write-HtmlTable -InputObject $InvFiles -Level 6 -Border 1 -File $FilePath
           } else {
               $ConfigList += 'Inventory these file types: None'
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
           }
           if ($CollectedFiles.count -gt 0) {
               Write-HtmlList -InputObject 'Collect Files:' -Level 3 -File $FilePath
-              Write-HtmlTable -InputObject $CollectedFiles -Level 7 -Border 1 -File $FilePath
+              Write-HtmlTable -InputObject $CollectedFiles -Level 6 -Border 1 -File $FilePath
           } else {
               Write-HtmlList -InputObject 'Collect Files: None' -Level 3 -File $FilePath
           }
@@ -4177,7 +4204,9 @@ if ($ListAllInformation){
             }
             if (-not [string]::IsNullOrEmpty($DriverPackages)){
                 $DriverArray = $DriverArray | Select-Object 'Driver Name','Manufacturer','Source Path','Source Status','INF File'
-                Write-HtmlTable -InputObject $DriverArray -Border 1 -Level 5 -File $FilePath
+                if (-not [string]::IsNullOrEmpty($DriverArray)){
+                    Write-HtmlTable -InputObject $DriverArray -Border 1 -Level 5 -File $FilePath
+                }
             }else{
                 Write-HTMLParagraph -Text 'No driver details were found' -Level 5 -File $FilePath
             }
@@ -4518,6 +4547,25 @@ Write-HtmliLink -ReturnTOC -File $FilePath
 
 #endregion Software Library
 
+#region Statistics
+Write-Verbose "$(Get-Date):   Writing final Script Statistics."
+Write-HTMLHeading -Level 1 -PageBreak -Text 'Script Execution Details' -File $FilePath
+Set-Location -Path "$StartingPath"
+$ScriptEndTime = Get-date
+$ExecTime = $ScriptEndTime - $ScriptStartTime
+$ExecTimeString = $(if($ExecTime.Days -gt 0){"$($ExecTime.Days) day(s), "}) + $(if($ExecTime.Hours -gt 0){"$($ExecTime.Hours) hour(s), "}) + $(if($ExecTime.Minutes -gt 0){"$($ExecTime.Minutes) minute(s), and "}) + "$($ExecTime.Seconds) second(s)."
+$ScriptDetailsList = @()
+$ScriptDetailsList += "Execution Start Time: $($ScriptStartTime.ToString())"
+$ScriptDetailsList += "Execution End Time: $($ScriptEndTime.ToString())"
+$ScriptDetailsList += "Total Execution Time: $ExecTimeString"
+$ScriptDetailsList += "Executed Script Version: $DocumenationScriptVersion"
+Write-HtmlList -InputObject $ScriptDetailsList -Level 2 -Type UL -File $FilePath
+Write-HtmliLink -ReturnTOC -File $FilePath
+#endregion Statistics
+
+Write-HTMLFooter -File $FilePath
+
 Write-HTMLTOC -InputObject $Global:DocTOC -File $FilePath
 
-Set-Location -Path "$StartingPath"
+Write-host "Completed execution at: $($ScriptEndTime.ToShortTimeString())."
+Write-Host "Total execution time: $ExecTimeString" 
