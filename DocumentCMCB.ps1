@@ -59,7 +59,7 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.1
+	VERSION: 3.11
 	AUTHOR: Paul Wetter, David O'Brien
 	LASTEDIT: March 07, 2018
 #>
@@ -113,7 +113,7 @@ Param(
 	)
 #endregion
 
-$DocumenationScriptVersion = 3.1
+$DocumenationScriptVersion = 3.11
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -181,7 +181,7 @@ Function Write-HtmlTable{
         9 {$Indent=85} 
         default {$Indent=5}
     }
-    if (-not [string]::IsNullOrEmpty($DriverPackages)){
+    if (-not [string]::IsNullOrEmpty($InputObject)){
         $table = $InputObject|ConvertTo-Html -Fragment
         $table[0] = "<table cellpadding=$Padding cellspacing=$Spacing border=$Border style=`"margin-left:$($Indent)px;`">"
         $table = $table -replace "--CRLF--","<BR />"
