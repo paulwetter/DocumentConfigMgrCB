@@ -1044,7 +1044,7 @@ foreach ($CMSite in $CMSites)
   Write-HtmlTable -InputObject $FeatureTable -Border 1 -Level 4 -File $FilePath
   #endregion release features
 
-  #region PreRelease features
+  #region PreReleaseFeatures
   $PreReleaseFeatures = $features | Where{$_.FeatureType -eq 0}|Sort-Object Name
   $PreFeatureTable = @()
   Foreach ($feature in $PreReleaseFeatures){
@@ -1059,7 +1059,7 @@ foreach ($CMSite in $CMSites)
   Write-HTMLHeading -Text "Pre-Release Features" -Level 4 -File $FilePath
   Write-HTMLParagraph -Text "Below is a list of all pre-release features in this Configuration Manager site and which ones are enabled and which are not.  Once a feature is turned on, it cannot be turned off." -Level 4 -File $FilePath
   Write-HtmlTable -InputObject $PreFeatureTable -Border 1 -Level 4 -File $FilePath
-  #region PreRelease features
+  #endregion PreReleaseFeatures
   Write-HtmliLink -ReturnTOC -File $FilePath
   Write-Verbose "$(Get-Date):   Completed Configuration Manager Site Features"
   #endregion Site Features
@@ -1658,6 +1658,19 @@ foreach ($ClientSetting in $AllClientSettings)
   }
   Write-HTMLHeading -Level 3 -Text "Client Settings Name: $($ClientSetting.Name)" -File $FilePath
   Write-HtmlList -InputObject $SettingInfo -Description $SettingDescription -Level 2 -File $FilePath
+    If("$($ClientSetting.AssignmentCount)" -gt 0){
+        $CSDeployments=Get-WmiObject -Query "SELECT * FROM SMS_ClientSettingsAssignment WHERE ClientSettingsID=$($ClientSetting.SettingsID)" -Namespace 'ROOT\SMS\site_FYL'
+        $CSDeploymentArray = @()
+        foreach ($CSD in $CSDeployments){
+            $CreationTime = [datetime]::ParseExact("$($CSD.CreationTime.Split('.')[0])",'yyyyMMddHHmmss',$null)
+            $CSDeploymentArray += New-Object -TypeName psobject -Property @{'Collection ID'="$($CSD.CollectionID)";'Collection Name'="$($CSD.CollectionName)";'Date Created'="$CreationTime"}
+        }
+        Write-HTMLParagraph -Text "This client setting policy is deployed to the following $($CSDeploymentArray.count) collections:" -Level 3 -File $FilePath
+        $CSDeploymentArray = $CSDeploymentArray | Select-Object 'Collection Name','Collection ID','Date Created'
+        Write-HtmlTable -InputObject $CSDeploymentArray -Border 1 -Level 4 -File $FilePath
+    }else{
+        Write-HTMLParagraph -Text "This client setting policy is not deployed to any collections." -Level 3 -File $FilePath
+    }
   Write-HTMLParagraph -Level 3 -Text "<u><b>Setting Configuration</b></u>:" -File $FilePath
   foreach ($AgentConfig in $ClientSetting.AgentConfigurations)
   {
@@ -3343,6 +3356,19 @@ if (-not ($(Get-CMEndpointProtectionPoint) -eq $Null)){
                     Write-HTMLHeading -Level 4 -Text "$($AntiMalwarePolicy.Name)" -File $FilePath
                     If("$($AntiMalwarePolicy.Description)" -ne ""){
                         Write-HTMLParagraph -Text "Description: $($AntiMalwarePolicy.Description)" -Level 4 -File $FilePath
+                    }
+                    If("$($AntiMalwarePolicy.AssignmentCount)" -gt 0){
+                        $APDeployments=Get-WmiObject -Query "SELECT * FROM SMS_ClientSettingsAssignment WHERE ClientSettingsID=$($AntiMalwarePolicy.SettingsID)" -Namespace 'ROOT\SMS\site_FYL'
+                        $APDeploymentArray = @()
+                        foreach ($APD in $APDeployments){
+                            $CreationTime = [datetime]::ParseExact("$($APD.CreationTime.Split('.')[0])",'yyyyMMddHHmmss',$null)
+                            $APDeploymentArray += New-Object -TypeName psobject -Property @{'Collection ID'="$($APD.CollectionID)";'Collection Name'="$($APD.CollectionName)";'Date Created'="$CreationTime"}
+                        }
+                        Write-HTMLParagraph -Text "This antimalware policy is deployed to the following $($APDeploymentArray.count) collections:" -Level 4 -File $FilePath
+                        $APDeploymentArray = $APDeploymentArray | Select-Object 'Collection Name','Collection ID','Date Created'
+                        Write-HtmlTable -InputObject $APDeploymentArray -Border 1 -Level 4 -File $FilePath
+                    }else{
+                        Write-HTMLParagraph -Text "This antimalware policy is not deployed to any collections." -Level 4 -File $FilePath
                     }
                     foreach ($Agentconfig in $AgentConfig_custom){
                         switch ($AgentConfig.AgentID){
