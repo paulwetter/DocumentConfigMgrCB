@@ -61,9 +61,10 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.11
-	AUTHOR: Paul Wetter, David O'Brien
-	LASTEDIT: March 07, 2018
+	VERSION: 3.12
+	AUTHOR: Paul Wetter
+        Based on original script developed by David O'Brien
+	LASTEDIT: April 28, 2018
 #>
 
 #endregion
