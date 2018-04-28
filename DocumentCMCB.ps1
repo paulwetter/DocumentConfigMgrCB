@@ -46,6 +46,8 @@
 .PARAMETER UnknownClientSettings
     With new releases of CM come new client settings.  If this parameter is added, it will display raw 
     information for these client settings.
+.PARAMETER MaskAccounts
+    This will mask about half of the account name in the documentation
 .EXAMPLE
 	DocumentCMCB.ps1 -ListAllInformation
 .EXAMPLE
@@ -108,12 +110,15 @@ Param(
     [switch]$UnknownClientSettings,
     
     [parameter(Mandatory=$False)] 
-    [switch]$NoSqlDetail
+    [switch]$NoSqlDetail,
+
+    [parameter(Mandatory=$False)] 
+    [switch]$MaskAccounts
 
 	)
 #endregion
 
-$DocumenationScriptVersion = 3.11
+$DocumenationScriptVersion = 3.12
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -893,6 +898,28 @@ Function Process-TSSteps{
     }
 }
 
+Function Set-AccountMask{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$True,ValueFromPipeline=$true,
+        HelpMessage="This is the SQL server for the SCCM Site")]
+        [string]$Account
+    )
+    Begin{}
+        Process{
+            IF ($Account -match '\\'){
+            $SamAcct = $Account.Split('\')[1]
+            $MaskAcct = "$($SamAcct.substring(0,$SamAcct.Length/2))"+"*"*($SamAcct.Length/2+1)
+            $MaskAcct = $Account -replace "$SamAcct","$MaskAcct"
+        }else{
+            $SamAcct = $Account
+            $MaskAcct = "$($SamAcct.substring(0,$SamAcct.Length/2))"+"*"*($SamAcct.Length/2+1)
+            $MaskAcct = $Account -replace "$SamAcct","$MaskAcct"        
+        }
+        $MaskAcct
+    }
+    End{}
+}
 ####################################################################################################################################################################
 ####################################################################################################################################################################
 #####################################################################Starting#######################################################################################
@@ -2718,7 +2745,12 @@ foreach ($Admin in $Admins)
     1 { $AccountType = 'Group' }
     2 { $AccountType = 'Machine' } 
   } 
-  $AdminArray +=  New-Object -TypeName psobject -Property @{Name = $Admin.LogonName; 'Account Type' = $AccountType; 'Security Roles' = "$($($Admin.RoleNames) -join '--CRLF--')"; 'Security Scopes' = "$($($Admin.CategoryNames) -join '--CRLF--')"; Collections = "$($($Admin.CollectionNames) -join '--CRLF--')";}
+  If ($MaskAccounts){
+    $LogonName = Set-AccountMask $Admin.LogonName
+  }else{
+    $LogonName = $Admin.LogonName
+  }
+  $AdminArray +=  New-Object -TypeName psobject -Property @{Name = $LogonName; 'Account Type' = $AccountType; 'Security Roles' = "$($($Admin.RoleNames) -join '--CRLF--')"; 'Security Scopes' = "$($($Admin.CategoryNames) -join '--CRLF--')"; Collections = "$($($Admin.CollectionNames) -join '--CRLF--')";}
 }
 $AdminArray = $AdminArray| Select-Object -Property 'Name','Account Type','Security Roles','Security Scopes','Collections'
 Write-HtmlTable -InputObject $AdminArray -Border 1 -Level 3 -File $FilePath
@@ -2741,7 +2773,11 @@ if (-not [string]::IsNullOrEmpty($SecurityRoles))
     {
       $Members = $(Get-CMAdministrativeUser | Where-Object -FilterScript {$_.Roles -ilike "$($SecurityRole.RoleID)"}).LogonName
     }
-    $SecRoleArray += New-Object -TypeName psobject -Property @{Name = $SecurityRole.RoleName; Description = $SecurityRole.RoleDescription; 'Copied From' = $((Get-CMSecurityRole -Id $SecurityRole.CopiedFromID).RoleName); Members = "$($Members -join '--CRLF--')"; 'Role ID' = $SecurityRole.RoleID;}
+    If($MaskAccounts){
+        $SecRoleArray += New-Object -TypeName psobject -Property @{Name = $SecurityRole.RoleName; Description = $SecurityRole.RoleDescription; 'Copied From' = $((Get-CMSecurityRole -Id $SecurityRole.CopiedFromID).RoleName); Members = "$(($Members|Set-AccountMask) -join '--CRLF--')"; 'Role ID' = $SecurityRole.RoleID;}
+    }else{
+        $SecRoleArray += New-Object -TypeName psobject -Property @{Name = $SecurityRole.RoleName; Description = $SecurityRole.RoleDescription; 'Copied From' = $((Get-CMSecurityRole -Id $SecurityRole.CopiedFromID).RoleName); Members = "$($Members -join '--CRLF--')"; 'Role ID' = $SecurityRole.RoleID;}
+    }
   }
   $SecRoleArray = $SecRoleArray | Select-Object -Property 'Name','Description','Copied From','Members','Role ID'
   Write-HtmlTable -InputObject $SecRoleArray -Border 1 -Level 3 -File $FilePath  
@@ -2765,7 +2801,11 @@ If(-not [string]::IsNullOrEmpty($Accounts)){
 
     foreach ($Account in $Accounts)
     {
-      $AccountsArray += New-Object -TypeName psobject -Property @{'User Name'= $Account.UserName; 'Account Usage' = if ([string]::IsNullOrEmpty($Account.AccountUsage)) {'not assigned'} else {"$($Account.AccountUsage)"}; 'Site Code' = $Account.SiteCode};
+      If($MaskAccounts){
+        $AccountsArray += New-Object -TypeName psobject -Property @{'User Name'= $($Account.UserName|Set-AccountMask); 'Account Usage' = if ([string]::IsNullOrEmpty($Account.AccountUsage)) {'not assigned'} else {"$($Account.AccountUsage)"}; 'Site Code' = $Account.SiteCode};
+      }else{
+        $AccountsArray += New-Object -TypeName psobject -Property @{'User Name'= $Account.UserName; 'Account Usage' = if ([string]::IsNullOrEmpty($Account.AccountUsage)) {'not assigned'} else {"$($Account.AccountUsage)"}; 'Site Code' = $Account.SiteCode};
+      }
     }
 
     $AccountsArray = $AccountsArray | Select-Object -Property 'User Name','Account Usage','Site Code'
@@ -4223,6 +4263,22 @@ if ($ListAllInformation){
                 }
                 $DriverArray += New-Object -TypeName psobject -Property @{'Driver Name'="$($Driver.LocalizedDisplayName)";'Manufacturer'="$($Driver.DriverProvider)";'Source Path'="$($Driver.ContentSourcePath)";'Source Status' = "$Verified";'INF File'="$($Driver.DriverINFFile)"}
             }
+            $StartBase = ($DriverArray.'source path')[0]
+            $BaseLenght = $StartBase.length
+            $ArrayLenght = $DriverArray.Count
+            $counter = 0
+            Do{
+                $RelBase = $StartBase.Substring(0,$BaseLenght-$counter)
+                #$RelBase
+                $newcount = ($DriverArray.'source path'|Select-String -SimpleMatch "$RelBase").count
+                $counter++
+            }While (($newcount -lt $ArrayLenght) -and ($counter -lt $BaseLenght))
+            if ($StartBase.length -gt 15){
+                foreach ($Drvr in $DriverArray){
+                    $SP = ($drvr.'source path').replace("$RelBase","***.\")
+                    $drvr.'source path' = "$SP"
+                }
+            }
             If ($PackageDescription){
                 Write-HtmlList -Title $PackageName -Description $PackageDescription -InputObject $DPackArray -Level 4 -File $FilePath
             }else{
@@ -4231,6 +4287,9 @@ if ($ListAllInformation){
             if (-not [string]::IsNullOrEmpty($DriverPackages)){
                 $DriverArray = $DriverArray | Select-Object 'Driver Name','Manufacturer','Source Path','Source Status','INF File'
                 if (-not [string]::IsNullOrEmpty($DriverArray)){
+                    If (-not [string]::IsNullOrEmpty($RelBase)){
+                        Write-HTMLParagraph -Text "Paths that start with ***. have drivers located in this root path:<br />$RelBase" -Level 5 -File $FilePath
+                    }
                     Write-HtmlTable -InputObject $DriverArray -Border 1 -Level 5 -File $FilePath
                 }
             }else{
