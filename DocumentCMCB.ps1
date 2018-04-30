@@ -61,10 +61,10 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.12
+	VERSION: 3.13
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
-	LASTEDIT: April 28, 2018
+	LASTEDIT: April 30, 2018
 #>
 
 #endregion
@@ -119,7 +119,7 @@ Param(
 	)
 #endregion
 
-$DocumenationScriptVersion = 3.12
+$DocumenationScriptVersion = 3.13
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -1426,9 +1426,104 @@ foreach ($CMSite in $CMSites)
   {
     Write-HTMLParagraph -Text "This site has no Software Update Points installed." -Level 3 -File $FilePath
   }
+  Write-Verbose "$(Get-Date):   Completed Enumeration of Software Update Points"
   Write-HtmliLink -ReturnTOC -File $FilePath
   #endregion enumerating Software Update Points and Configuration
+  #region enumerating client push settings
+    Write-Verbose "$(Get-Date):   Enumerating Client Push Settings for Site"
+    Write-HTMLHeading -Text "Client Push Settings for Site $($CMSite.SiteCode)" -Level 2 -PageBreak -File $FilePath
+    #Client push settings are found in WMI.  They are all in the list of global properties: SMS_DISCOVERY_DATA_MANAGER
+    $CPProps = (Get-WmiObject -Namespace ROOT\SMS\site_$($CMSite.SiteCode) -ComputerName $SMSProvider -Query "SELECT * FROM SMS_SCI_SCProperty where ItemType='SMS_DISCOVERY_DATA_MANAGER'")|select PropertyName,Value,Value1,Value2
+    If(($CPProps|Where{$_.PropertyName -eq 'SETTINGS'}).Value1 -eq 'Active'){
+        Write-HTMLParagraph -Level 3 -Text "Automatic site-wide client push is enabled with the below settings." -File $FilePath
+    }else{
+        Write-HTMLParagraph -Level 3 -Text "Automatic site-wide client push is NOT enabled." -File $FilePath
+    }
+
+    $InstallClientsEnabledTitle = "Install Configuration Manager client software on the following computers"
+    $InstallClientsEnabled = @()
+    $InstallClientsDisabledTitle = "Exclude Configuration Manager client software from the following computers"
+    $InstallClientsDisabled = @()
+
+    #FILTERS Property has the following known values.  Evaluating in a Switch: 0=install on all systems; 1=Do not Install Workstations; 2=Do not install on DCs; 4=Do not install servers; 5=Do not install on servers and workstations 7=Do not install servers, workstations or DCs
+    Switch(($CPProps|Where{$_.PropertyName -eq 'FILTERS'}).Value){
+        0{
+            $InstallClientsEnabled += "Servers"
+            $InstallClientsEnabled += "Workstations"
+            $InstallDC = $true
+        }
+        1{
+            $InstallClientsEnabled += "Servers"
+            $InstallClientsDisabled += "Workstations"
+            $InstallDC = $true
+        }
+        2{
+            $InstallClientsEnabled += "Servers"
+            $InstallClientsEnabled += "Workstations"
+        }
+        3{
+            $InstallClientsEnabled += "Servers"
+            $InstallClientsDisabled += "Workstations"
+            $InstallDC = $false
+        }
+        4{
+            $InstallClientsDisabled += "Servers"
+            $InstallClientsEnabled += "Workstations"
+            $InstallDC = $true
+        }
+        5{
+            $InstallClientsDisabled += "Servers"
+            $InstallClientsDisabled += "Workstations"
+            $InstallDC = $true
+        }
+        7{
+            $InstallClientsDisabled += "Servers"
+            $InstallClientsDisabled += "Workstations"
+            $InstallDC = $false
+        }
+    }
+    #AutoInstallSiteSystem: 1=Enabled on Site system servers; 0=Disable install on site system servers
+    switch(($CPProps|Where{$_.PropertyName -eq 'AutoInstallSiteSystem'}).Value){
+        1{$InstallClientsEnabled +="Configuration Manager site system servers"}
+        0{$InstallClientsDisabled +="Configuration Manager site system servers"}
+    }
+    If(-not [string]::IsNullOrEmpty($InstallClientsEnabled)){
+        Write-HtmlList -Title $InstallClientsEnabledTitle -InputObject $InstallClientsEnabled -Level 4 -File $FilePath
+    }
+    If(-not [string]::IsNullOrEmpty($InstallClientsDisabled)){
+        Write-HtmlList -Title $InstallClientsDisabledTitle -InputObject $InstallClientsDisabled -Level 4 -File $FilePath
+    }
+    Switch($InstallDC){
+        $true{$DCBehavior="Always install the Configuration Manager client on domain controllers"}
+        $false{$DCBehavior="Never install the Configuration Manager client on domain controllers unless specified in the Client Push Installation Wizard"}
+    }
+    If(-not [string]::IsNullOrEmpty($DCBehavior)){
+        Write-HtmlList -Title "Domain Controller Client Install Behavior" -InputObject $DCBehavior -Level 4 -File $FilePath
+    }
+    $CPSettings = Get-CMClientPushInstallation
+    $CPAccounts=($CPSettings.PropLists|where {$_.PropertyListName -eq 'Reserved2'}).values
+    If(-not [string]::IsNullOrEmpty($CPAccounts)){
+        if ($MaskAccounts){
+            Write-HtmlList -Title "Defined Client Push Accounts" -InputObject ($CPAccounts|Set-AccountMask) -Level 4 -File $FilePath
+        }else{
+            Write-HtmlList -Title "Defined Client Push Accounts" -InputObject $CPAccounts -Level 4 -File $FilePath
+        }
+    }else{
+        Write-HtmlList -Title "Defined Client Push Accounts" -InputObject "None defined" -Level 4 -File $FilePath
+    }
+    $InstallProps=($CPSettings.props|where {$_.PropertyName -eq 'Advanced Client Command Line'}).Value1
+    If(-not [string]::IsNullOrEmpty($InstallProps)){
+        Write-HtmlList -Title "Client Push MSI Installation Properties" -InputObject $InstallProps -Level 4 -File $FilePath
+    }else{
+        Write-HtmlList -Title "Client Push MSI Installation Properties" -InputObject "None defined" -Level 4 -File $FilePath
+    }
+    Write-Verbose "$(Get-Date):   Completed Enumeration of Client Push Settings for Site"
+    Write-HtmliLink -ReturnTOC -File $FilePath
+  #endregion enumerating client push settings
+  Write-Verbose "$(Get-Date):   Completed checking site configuration for $($CMSite.SiteCode)"
 }
+Write-Verbose "$(Get-Date):   Completed Checking each site's configuration."
+#endregion Site Configuration report
 
 
 ##### Hierarchy wide configuration
