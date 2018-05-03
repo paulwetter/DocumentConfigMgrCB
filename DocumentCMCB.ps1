@@ -61,7 +61,7 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.14
+	VERSION: 3.15
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
 	LASTEDIT: May 1, 2018
@@ -115,7 +115,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.14
+$DocumenationScriptVersion = 3.15
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -929,6 +929,15 @@ Function Set-AccountMask{
 ####################################################################################################################################################################
 ####################################################################################################################################################################
 $StartingPath = (get-location).Path
+if ($FilePath -notlike "$([System.IO.Path]::GetDirectoryName($myInvocation.MyCommand.Definition))\CMDocumentation.html"){
+    if ([System.IO.Path]::IsPathRooted("$FilePath")){
+        Write-Verbose "$(Get-Date):   File path is $FilePath"
+    }else{
+        $FilePath = "$((get-location).Path)\$($FilePath.TrimStart('.\'))"
+        Write-Verbose "$(Get-Date):   File path is $FilePath"
+    }
+}
+write-host "Outputting documentation to: $FilePath"
 
 $SiteCode = Get-SiteCode
 
@@ -1432,6 +1441,7 @@ foreach ($CMSite in $CMSites)
   #region enumerating client push settings
     Write-Verbose "$(Get-Date):   Enumerating Client Push Settings for Site"
     Write-HTMLHeading -Text "Client Push Settings for Site $($CMSite.SiteCode)" -Level 2 -PageBreak -File $FilePath
+    Write-HTMLParagraph -Text "Client push allows SCCM to install the client to computers in the domain directly from SCCM using admin credentials on the remote computer.  This is <a href=`"https://docs.microsoft.com/en-us/sccm/core/clients/deploy/plan/client-installation-methods`" target=`"_blank`">one of several</a> ways to install the SCCM client on computers." -Level 3 -File $FilePath
     #Client push settings are found in WMI.  They are all in the list of global properties: SMS_DISCOVERY_DATA_MANAGER
     $CPProps = (Get-WmiObject -Namespace ROOT\SMS\site_$($CMSite.SiteCode) -ComputerName $SMSProvider -Query "SELECT * FROM SMS_SCI_SCProperty where ItemType='SMS_DISCOVERY_DATA_MANAGER'")|select PropertyName,Value,Value1,Value2
     If(($CPProps|Where{$_.PropertyName -eq 'SETTINGS'}).Value1 -eq 'Active'){
@@ -1502,14 +1512,15 @@ foreach ($CMSite in $CMSites)
     }
     $CPSettings = Get-CMClientPushInstallation
     $CPAccounts=($CPSettings.PropLists|where {$_.PropertyListName -eq 'Reserved2'}).values
+    $CPAccountsDescription="Even if client push is not enabled on the site, client push accounts are important/required for installing and reinstalling clients from the console."
     If(-not [string]::IsNullOrEmpty($CPAccounts)){
         if ($MaskAccounts){
-            Write-HtmlList -Title "Defined Client Push Accounts" -InputObject ($CPAccounts|Set-AccountMask) -Level 4 -File $FilePath
+            Write-HtmlList -Title "Defined Client Push Accounts" -Description $CPAccountsDescription -InputObject ($CPAccounts|Set-AccountMask) -Level 4 -File $FilePath
         }else{
-            Write-HtmlList -Title "Defined Client Push Accounts" -InputObject $CPAccounts -Level 4 -File $FilePath
+            Write-HtmlList -Title "Defined Client Push Accounts" -Description $CPAccountsDescription -InputObject $CPAccounts -Level 4 -File $FilePath
         }
     }else{
-        Write-HtmlList -Title "Defined Client Push Accounts" -InputObject "None defined" -Level 4 -File $FilePath
+        Write-HtmlList -Title "Defined Client Push Accounts" -Description $CPAccountsDescription -InputObject "None defined" -Level 4 -File $FilePath
     }
     $InstallProps=($CPSettings.props|where {$_.PropertyName -eq 'Advanced Client Command Line'}).Value1
     If(-not [string]::IsNullOrEmpty($InstallProps)){
@@ -2999,7 +3010,11 @@ Write-HtmliLink -ReturnTOC -File $FilePath
 #region enumerating all Device Collections
 Write-Verbose "$(Get-Date):   Getting Device Collections."
 Write-HTMLHeading -Level 2 -PageBreak -Text 'Summary of Device Collections' -File $FilePath
-Write-HTMLParagraph -Text 'This section contains a brief summary of built-in device collections as well as a more detailed summary of custom device collections.' -Level 3 -File $FilePath
+if ($ListAllInformation){
+    Write-HTMLParagraph -Text 'This section contains a brief summary of built-in device collections as well as a more detailed summary of custom device collections.' -Level 3 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'This section contains a brief summary of device collections.' -Level 3 -File $FilePath
+}
 $DeviceCollections = Get-CMDeviceCollection
 $BuiltInDeviceCollections = $DeviceCollections | where {$_.IsBuiltIn -eq $true}
 $CustomDeviceCollections = $DeviceCollections | where {$_.IsBuiltIn -eq $false}
@@ -4776,25 +4791,51 @@ Write-HTMLHeading -Level 2 -PageBreak -Text 'Configuration Manager Scripts' -Fil
 $ScriptFeature = Get-CMSiteFeature|where{$_.FeatureGuid -like '566F8720-F415-4E10-9A51-CDE682BA2B2E'}
 if (-not [string]::IsNullOrEmpty($ScriptFeature)){
     If ($ScriptFeature.Status -eq 1){
-        $CMScripts = Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider -Query 'select ScriptName,Author,Approver,ApprovalState,ScriptType,LastUpdateTime from SMS_Scripts'
-        Write-Verbose "$(Get-Date):   working on $($TaskSequences.count) Task Sequences"
-
+        $CMScripts = Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider -Class SMS_Scripts
+        Write-Verbose "$(Get-Date):   Working on $($CMScripts.count) Scripts"
         if ([string]::IsNullOrEmpty($CMScripts)){
             Write-HTMLParagraph -Text "No Scripts are defined in this site." -Level 3 -File $FilePath
         }else{
-            $Scripts = @()
-            foreach ($Script in $CMScripts){
-                SWitch($script.ApprovalState){
-                    0{$Approval = "Waiting for Approval"}
-                    1{$Approval = "Declined"}
-                    3{$Approval = "Approved"}
-                    default{$Approval = "Unknown"}
+            if ($ListAllInformation){
+                Write-Verbose "$(Get-Date):   Working on detailed script information"
+                #Detailed Script Information
+                foreach ($Script in $CMScripts){
+                    #Get details of each script here
+                    $ScriptList = @()
+                    $Script.Get()
+                    Switch($script.ApprovalState){
+                        0{$Approval = "Waiting for Approval"}
+                        1{$Approval = "Declined"}
+                        3{$Approval = "Approved"}
+                        default{$Approval = "Unknown"}
+                    }
+                    $UpdateTime = [Management.ManagementDateTimeConverter]::ToDateTime($Script.LastUpdateTime)
+                    Write-HTMLHeading -Level 3 -Text "$($Script.ScriptName)" -File $FilePath
+                    #$ScriptTitle = "$($Script.ScriptName)"
+                    $ScriptList += "Author: $($Script.Author)"
+                    $ScriptList += "Approved By: $($Script.Approver)"
+                    $ScriptList += "Approval State: $Approval"
+                    $ScriptList += "Last Updated: $UpdateTime"
+                    #Write-HtmlList -Title $ScriptTitle -InputObject $ScriptList -Level 3 -File $FilePath
+                    Write-HtmlList -InputObject $ScriptList -Level 3 -File $FilePath
+                    $ScriptText = ([System.Text.Encoding]::unicode.GetString([System.Convert]::FromBase64String($($Script.Script)))).Substring(1)
+                    Write-HTMLParagraph -Text "<B>Script Contents:</B><pre style=`"margin-left:60px; background-color:#eeeeee;`">$ScriptText</pre>" -Level 4 -File $FilePath
                 }
-                $UpdateTime = [Management.ManagementDateTimeConverter]::ToDateTime($Script.LastUpdateTime)
-                $Scripts += New-Object -TypeName PSObject -Property @{'Script Name'="$($Script.ScriptName)";'Author'="$($Script.Author)";'Approver'=$($Script.Approver);'Approval State'="$Approval";'Last Update Time' = "$UpdateTime"}
+            }Else{
+                $Scripts = @()
+                foreach ($Script in $CMScripts){
+                    Switch($script.ApprovalState){
+                        0{$Approval = "Waiting for Approval"}
+                        1{$Approval = "Declined"}
+                        3{$Approval = "Approved"}
+                        default{$Approval = "Unknown"}
+                    }
+                    $UpdateTime = [Management.ManagementDateTimeConverter]::ToDateTime($Script.LastUpdateTime)
+                    $Scripts += New-Object -TypeName PSObject -Property @{'Script Name'="$($Script.ScriptName)";'Author'="$($Script.Author)";'Approver'=$($Script.Approver);'Approval State'="$Approval";'Last Update Time' = "$UpdateTime"}
+                }
+                $Scripts = $Scripts | Select-Object 'Script Name','Author','Approver','Approval State','Last Update Time'
+                Write-HtmlTable -InputObject $Scripts -Border 1 -Level 3 -File $FilePath
             }
-            $Scripts = $Scripts | Select-Object 'Script Name','Author','Approver','Approval State','Last Update Time'
-            Write-HtmlTable -InputObject $Scripts -Border 1 -Level 3 -File $FilePath
         }
     }else{
         Write-HTMLParagraph -Text "Scripts feature, `"$($ScriptFeature.Name)`", not enabled in this site." -Level 3 -File $FilePath
@@ -4806,11 +4847,12 @@ Write-Verbose "$(Get-Date):   Completed Configuration Manager Scripts"
 Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion Scripts
 
+
 #endregion Software Library
 
 #region Statistics
 Write-Verbose "$(Get-Date):   Writing final Script Statistics."
-Write-HTMLHeading -Level 1 -PageBreak -Text 'Script Execution Details' -File $FilePath
+Write-HTMLHeading -Level 1 -PageBreak -Text 'Documentation Script Execution Details' -File $FilePath
 Set-Location -Path "$StartingPath"
 $ScriptEndTime = Get-date
 $ExecTime = $ScriptEndTime - $ScriptStartTime
