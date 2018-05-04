@@ -5,9 +5,11 @@ This is a nearly full rewrite of the System Center Configuration Manager (SCCM) 
 
 I am attempting to document most everything in Current Branch.
 
-The requirement for Microsoft Word has been dropped in favor of a pure HTML output.
+The requirement for Microsoft Word has been dropped in favor of a pure formatted HTML output.
 
-Please submit issues if you find bug or have ideas on additional data that should be collected.
+Please submit issues if you find a bug or have ideas on additional data that should be collected.
+
+Note:  This has not been tested against an environment with a CAS or secondary sites.  But, most of us should not be running a CAS or secondary site in the age of Current Branch.
 
 My updated script contains pretty much everything collected from the original.  Below is a summary of what’s New:  
   *	Removed dependence on Microsoft Word.  
