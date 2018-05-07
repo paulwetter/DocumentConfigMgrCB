@@ -1,4 +1,4 @@
-ConfigMgr
+DocumentCMCB
 =========
 
 This is a nearly full rewrite of the System Center Configuration Manager (SCCM) documentation script so kindly shared with everyone by David O'Brien (@davidobrien1985, Twitter:@david_obrien).
@@ -29,3 +29,18 @@ My updated script contains pretty much everything collected from the original.  
   *	Lists Task Sequence steps.  
   *	Summary or detailed options.  
   *	CM Scripts  
+
+Script Usage Examples
+--------------------
+### EXAMPLE 1
+This will document everything with just the summary information of each component:  
+ ```DocumentCMCB.ps1```
+### EXAMPLE 2
+This will document everything with detailed information.  Will make a very large file!  
+ ```DocumentCMCB.ps1 -ListAllInformation```
+### EXAMPLE 3
+This will document everything with detailed information. It will also embed a custom logo from the provided URL into the cover page.  
+ ```DocumentCMCB.ps1 -CompanyLogo 'http://www.contoso.com/logo.jpg' -ListAllInformation```
+### EXAMPLE 4
+This will document everything with summary information, a custom logo, and a custom Author and Vendor.  
+ ```DocumentCMCB.ps1 -CompanyLogo 'http://www.contoso.com/logo.jpg' -Author "Bugs Bunny" -Vendor "Acme"```
