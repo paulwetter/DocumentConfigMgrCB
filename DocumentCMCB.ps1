@@ -61,10 +61,10 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.15
+	VERSION: 3.16
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
-	LASTEDIT: May 1, 2018
+	LASTEDIT: May 7, 2018
 #>
 
 #endregion
@@ -115,7 +115,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.15
+$DocumenationScriptVersion = 3.16
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -357,8 +357,8 @@ Function Write-HTMLParagraph{
 
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$true,ValueFromPipeline=$false,
-        HelpMessage="This is the text that will appear inside the heading <P> tag")]
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is the text that will appear inside the <P> tag")]
         [string]$Text,
         [Parameter(Mandatory=$false,ValueFromPipeline=$false,
         HelpMessage="This is the indent level of the paragraph")]
@@ -762,6 +762,7 @@ function Invoke-SqlDataReader {
         
         $ErrorActionPreference = 'Continue'
         $command = $connection.CreateCommand()
+        $command.CommandTimeout = 120
     }
  
     PROCESS {
@@ -4700,10 +4701,10 @@ if ($ListAllInformation){
                 Write-HTMLHeading -Level 4 -Text "$($TaskSequence.Name)" -File $FilePath
                 $TSDetails = @()
                 $TSDetails += "Package ID: $($TaskSequence.PackageID)"
-                $BootImage = $TaskSequence.References.Package|foreach {(Get-CMBootImage -id $_).Name} 
+                $BootImage = $TaskSequence.References.Package|foreach {(Get-CMBootImage -id $_ -ErrorAction Ignore).Name} 
                 If([string]::IsNullOrEmpty($BootImage)){$BootImage="None"}
                 $TSDetails += "Task Sequence Boot Image: $BootImage"
-                $OSImage = $TaskSequence.References.Package|foreach {(Get-CMOperatingSystemImage -id $_).Name}
+                $OSImage = $TaskSequence.References.Package|foreach {(Get-CMOperatingSystemImage -id $_ -ErrorAction Ignore).Name}
                 If([string]::IsNullOrEmpty($OSImage)){$OSImage="None"}
                 $TSDetails += "Task Sequence Operating System Image: $OSImage"
                 $TSDetails += "Sequence Steps:"
