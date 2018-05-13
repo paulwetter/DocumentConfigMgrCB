@@ -61,10 +61,10 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.16
+	VERSION: 3.21
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
-	LASTEDIT: May 7, 2018
+	LASTEDIT: May 13, 2018
 #>
 
 #endregion
@@ -115,7 +115,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.16
+$DocumenationScriptVersion = 3.21
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -693,6 +693,9 @@ function Invoke-SqlDataReader {
 .PARAMETER Query
     Specifies one Transact-SQL select statement query to be run.
  
+.PARAMETER QueryTimeout
+    Specifies how long to wait until the SQL Query times out. default 300 Seconds
+ 
 .PARAMETER Credential
     SQL Authentication userid and password in the form of a credential object.
  
@@ -732,6 +735,10 @@ function Invoke-SqlDataReader {
                    ValueFromPipeline)]
         [string]$Query,
         
+        [Parameter(Mandatory=$false,
+                   ValueFromPipeline=$false)]
+        [int]$QueryTimeout = 300,
+
         [System.Management.Automation.Credential()]$Credential = [System.Management.Automation.PSCredential]::Empty
     )
     
@@ -762,7 +769,7 @@ function Invoke-SqlDataReader {
         
         $ErrorActionPreference = 'Continue'
         $command = $connection.CreateCommand()
-        $command.CommandTimeout = 120
+        $command.CommandTimeout = $QueryTimeout
     }
  
     PROCESS {
@@ -4745,43 +4752,215 @@ Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion Operating Systems
 
 #region Windows 10 Servicing
+Write-HTMLHeading -Level 2 -PageBreak -Text 'Windows 10 Servicing' -File $FilePath
 
 #region Servicing Plan
-
-###Work in progress...
-
-#$ServicingPlans = Get-CMWindowsServicingPlan
-#$ServicingPlans=((Get-CMWindowsServicingPlan).UpdateRuleXML).updatexml.UpdateXMLDescriptionItems.UpdateXMLDescriptionItem
-
-foreach ($ServicingPlan in $ServicingPlans){
-    [xml]$UR = $ServicingPlan.UpdateRuleXML
-    #Name
-    #Description
-    #Target Collection
-    #Deployment Ring: Channel, Deployment Delay
-    ($UR.UpdateXML.UpdateXMLDescriptionItems.UpdateXMLDescriptionItem | where {$_.PropertyName -eq 'AfterDays'}).Matchrules.string
-    #Evaluation Schedule
-    #Deployment Schedule
-    #Deployment Package
-    #Language Selection
-    #User Experience: User Notification
+Write-Verbose "$(Get-Date):   Enumerating Windows 10 Servicing Plans"
+Write-HTMLHeading -Level 3 -Text 'Servicing Plans' -File $FilePath
+$CMPSSuppressFastNotUsedCheck = $true
+$ServicingPlans = Get-CMWindowsServicingPlan -WarningAction Ignore
+if(-not [string]::IsNullOrEmpty($ServicingPlans)){
+    Write-HTMLParagraph -Text 'Below are details on all servicing plans defined in this site.' -Level 3 -File $FilePath
+    foreach ($ServicingPlan in $ServicingPlans){
+        Write-HTMLHeading -Level 4 -Text "$($ServicingPlan.Name)" -File $FilePath
+        Write-HTMLParagraph -Text "$($ServicingPlan.Description)" -Level 4 -File $FilePath
+        $DTxml = ([xml]($ServicingPlan).DeploymentTemplate).DeploymentCreationActionXML
+        $SPListDetails = @()
+        $SPListDetails += "Use Wake-on-LAN to wake up clients for required deployments: $($DTxml.EnableWakeOnLan)"
+        Switch ($($DTxml.StateMessageVerbosity)){
+	        1 {$StateMessages = 'Only error messages'}
+	        5 {$StateMessages = 'Only success and error messages'}
+	        10 {$StateMessages = 'All messages'}
+        }
+        $SPListDetails += "Choose how much state detail you want clients to report back. Detail level: $StateMessages"
+        Switch(([xml]($ServicingPlan).AutoDeploymentProperties).AutoDeploymentRule.NoEULAUpdates){
+	        true{$EULAUpdates = "Automatically deploy only software updates found by this rule that do not include a license agreement, or for which the license agreement has already been approved."}
+	        false{$EULAUpdates = "Automatically deploy all software updates found by this rule, and approve any license agreements."}
+        }
+        $SPListDetails += "Updates with License Agreements: $EULAUpdates"
+        Write-HtmlList -Description 'Deployment Settings' -InputObject $SPListDetails -Level 4 -File $FilePath
+        $SPListDetails = @()
+        $TargetCollection = (Get-CMCollection -id ($ServicingPlan.CollectionID)).Name
+        $SPListDetails += "Target Collection: $TargetCollection"
+        Write-HtmlList -Description 'Servicing Plan' -InputObject $SPListDetails -Level 4 -File $FilePath
+        $SPListDetails = @()
+        Switch(([xml]($ServicingPlan).UpdateRuleXML).UpdateXML.OSBranch){
+	        0{$DeployBranch="Semi-Annual Channel (Targeted)"}
+	        1{$DeployBranch="Semi-Annual Channel"}
+        }
+        $WaitDays = (((([xml]($ServicingPlan).UpdateRuleXML).UpdateXML.UpdateXMLDescriptionItems.UpdateXMLDescriptionItem| where {$_.PropertyName -eq 'AfterDays'}).Matchrules.string).Split(':'))[2]
+        $SPListDetails += "Specify the Windows readiness state to which this Servicing Plan should apply: $DeployBranch"
+        $SPListDetails += "How many days after Microsoft has published a new upgrade would you like to wait before deploying in your environment: $WaitDays"
+        Write-HtmlList -Description 'Deployment Ring' -InputObject $SPListDetails -Level 4 -File $FilePath
+        $SPListDetails = @()
+        Switch ($($DTxml.Utc)){
+	        false{$timebase = 'Client local time'}
+	        true{$timebase = 'UTC'}
+        }
+        $SPListDetails += "Time based on: $timebase"
+        If ($DTxml.AvailableDeltaDuration -eq 0){
+	        $SPListDetails += "Software available time: As soon as possible"
+        }else{
+	        $SPListDetails += "Software available time: $($DTxml.AvailableDeltaDuration) $($DTxml.AvailableDeltaDurationUnits)"
+        }
+        If ($DTxml.Duration -eq 0){
+	        $SPListDetails += "Installation Deadline: As soon as possible"
+        }else{
+	        $SPListDetails += "Installation Deadline: $($DTxml.Duration) $($DTxml.DurationUnits)"
+        }
+        $SPListDetails += "Delay Enforcement of this deployment according to user preferences, up to the grace period defined in client settings: $($DTxml.SoftDeadlineEnabled)"
+        Write-HtmlList -Description 'Deployment Schedule' -InputObject $SPListDetails -Level 4 -File $FilePath
+        $SPListDetails = @()
+        Switch ($($DTxml.UserNotificationOption)){
+	        'DisplayAll'{$UserNotification = 'Display in Software Center and show all notifications'}
+	        'DisplaySoftwareCenterOnly'{$UserNotification = 'Display in Software Center, and only show nitifications for computer restarts'}
+	        'HideAll'{$UserNotification = 'Hide in Software Center and all notifications'}
+        }
+        $SPListDetails += "User notifications: $UserNotification"
+        Switch ($($DTxml.AllowInstallOutSW)){
+	        false{$InstallOutMW = 'Do not allow'}
+	        true{$InstallOutMW = 'Allow installations'}
+        }
+        $SPListDetails += "Deadline behavior for Software Update installation outside of maintenance windows: $InstallOutMW"
+        Switch ($($DTxml.AllowRestart)){
+	        false{$RestartOutMW = 'Do not allow'}
+	        true{$RestartOutMW = 'Allow restarts'}
+        }
+        $SPListDetails += "Deadline behavior for System restarts outside of maintenance windows: $RestartOutMW"
+        $SPListDetails += "Suppress reboots on servers if update requires reboot: $($DTxml.SuppressServers)"
+        $SPListDetails += "Suppress reboots on workstations if update requires reboot: $($DTxml.SuppressWorkstations)"
+        $SPListDetails += "Windows Embedded devices, Commit changes at deadline: $($DTxml.PersistOnWriteFilterDevices)"
+        $SPListDetails += "If any update in this deployment requires a system restart, run updates deployment evaluation cycle after restart: $($DTxml.RequirePostRebootFullScan)"
+        Write-HtmlList -Description 'User Experience' -InputObject $SPListDetails -Level 4 -File $FilePath
+        $SPListDetails = @()
+        If($($DTxml.EnableAlert) -eq $false){
+	        $SPListDetails += "Configuration Manager alerts.  Generate an alert when the following conditions are met: False"
+        }else{
+	        $SPListDetails += "Configuration Manager alerts.  Generate an alert when the following conditions are met: True<br />Client Compliance is below the following percent: $($DTxml.AlertThresholdPercentage)<br />Offset from the deadline: $($DTxml.AlertDuration) $($DTxml.AlertDurationUnits)"
+        }
+        $SPListDetails += "Disable Operations Manager alerts while software updates run: $($DTxml.DisableMomAlert)"
+        $SPListDetails += "Generate Operations Manager alert when a software update installation fails: $($DTxml.GenerateMomAlert)"
+        Write-HtmlList -Description 'Alerts' -InputObject $SPListDetails -Level 4 -File $FilePath
+        $SPListDetails = @()
+        switch ($DTxml.UseRemoteDP){
+	        false{$deploymentopt = 'Do not install software updates'}
+	        true{$deploymentopt = 'Download software updates from distribution point and install'}
+        }
+        $SPListDetails += "Select deployment options to use when when client uses neighbor or default boundary group: $deploymentopt"
+        switch ($DTxml.UseUnprotectedDP){
+	        false{$deploymentopt2 = 'Do not install software updates'}
+	        true{$deploymentopt2 = 'Download and install software updates from the distribution points in the site default boundary group'}
+        }
+        $SPListDetails += "When software updates are not available on any distribution point in current or neighbor boundary group, download from default boundary group: $deploymentopt2"
+        $SPListDetails += "If software updates are not available on distribution point in current, neighbor or site boundary groups, download content from Microsoft Updates: $($DTxml.AllowWUMU)"
+        $SPListDetails += "Allow clients on a metered Internet connection to download content after the installation deadline which might incur additional costs: $($DTxml.AllowUseMeteredNetwork)"
+        Write-HtmlList -Description 'Download Settings' -InputObject $SPListDetails -Level 4 -File $FilePath
+        $SPListDetails = @()
+        If (-not [string]::IsNullOrEmpty($ServicingPlan.Schedule)){
+	        $Schedule=Convert-CMSchedule $ServicingPlan.Schedule
+	        if ($Schedule.DaySpan -gt 0){
+		        $SPListDetails += "Evaluation Schedule: Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
+	        }
+	        elseif ($Schedule.HourSpan -gt 0){
+		        $SPListDetails += "Evaluation Schedule: Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
+	        }
+	        elseif ($Schedule.MinuteSpan -gt 0){
+		        $SPListDetails += "Evaluation Schedule: Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
+	        }
+	        elseif ($Schedule.ForNumberOfWeeks){
+		        $SPListDetails += "Evaluation Schedule: Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
+	        }
+	        elseif ($Schedule.ForNumberOfMonths){
+		        if ($Schedule.MonthDay -gt 0){
+			        $SPListDetails += "Evaluation Schedule: Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+		        }
+		        elseif ($Schedule.MonthDay -eq 0){
+			        $SPListDetails += "Evaluation Schedule: Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+		        }
+		        elseif ($Schedule.WeekOrder -gt 0){
+			        switch ($Schedule.WeekOrder){
+				        0 {$order = 'last'}
+				        1 {$order = 'first'}
+				        2 {$order = 'second'}
+				        3 {$order = 'third'}
+				        4 {$order = 'fourth'}
+			        }
+			        $SPListDetails += "Evaluation Schedule: Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+		        }
+	        }
+        }elseif (([xml]$ServicingPlan.AutoDeploymentProperties).AutoDeploymentRule.AlignWithSyncSchedule -eq "true") {
+	        $SPListDetails += "Evaluation Schedule: Run the rule after any software update point synchronization"
+        }else{
+	        $SPListDetails += "Evaluation Schedule: Do not run this rule automatically"
+        }
+        Write-HtmlList -Description 'Evaluation Schedule' -InputObject $SPListDetails -Level 4 -File $FilePath
+    }
+}else{
+    Write-HTMLParagraph -Text 'No servicing plans defined in this site.' -Level 3 -File $FilePath
 }
+
+Write-Verbose "$(Get-Date):   Completed Enumerating Windows 10 Servicing Plans"
 #endregion Servicing Plan
 
 #region Windows Update for Business Policies
-<#
- General
-	Name: Test WUB Policy
-	Description: Test Policy for deploying windows updates.
- Deferral Settings
-	Branch Readiness Level: Semi-Annual Channel
-	Feature Updates deferral period (in days): 30
-	Pause Feature Updates: No
-	Quality Updates deferral period (in days): 12
-	Pause Quality Updates: No
-	Install updates for other Microsoft products: Yes
-	Include drivers: No
-#>
+Write-Verbose "$(Get-Date):   Enumerating Windows Update for Business Policies"
+Write-HTMLHeading -Level 3 -Text 'Windows Update for Business Policies' -File $FilePath
+Write-HTMLParagraph -Text 'Below are details on all Windows Update for Business Policies defined in this site.' -Level 3 -File $FilePath
+$WUBPolicies = Get-CMConfigurationPolicy | where {'SettingsAndPolicy:SMS_WindowsUpdateForBusinessConfigurationSettings' -in $_.CategoryInstance_UniqueIDs}
+if(-not [string]::IsNullOrEmpty($WUBPolicies)){
+    foreach($WUBPolicy in $WUBPolicies){
+        Remove-Variable rules -ErrorAction Ignore
+        $rules=([XML]($WUBPolicy).SDMPackageXML).DesiredConfigurationDigest.ConfigurationPolicy.rules.rule.Expression.Operands
+        foreach($rule in $rules){
+            Switch ($rule.SettingReference.SettingLogicalName){
+                'WindowsUpdateForBusinessConfigurationSettings_BranchReadinessLevel'{
+                    Switch($rule.ConstantValue.Value){
+                        2{$BranchLevel = 'Branch readiness level: Windows Insider Build - Fast'}
+                        4{$BranchLevel = 'Branch readiness level: Windows Insider Build - Slow'}
+                        8{$BranchLevel = 'Branch readiness level: Release Windows Insider Build'}
+                        16{$BranchLevel = 'Branch readiness level: Semi-Annual Channel (Targeted)'}
+                        32{$BranchLevel = 'Branch readiness level: Semi-Annual Channel'}
+                    }
+                }
+                'WindowsUpdateForBusinessConfigurationSettings_DeferFeatureUpdatesPeriodInDays'{$DFUDays = "Defer Feature Updates - Deferral Period (days): $($rule.ConstantValue.Value)"}
+                'WindowsUpdateForBusinessConfigurationSettings_PauseFeatureUpdates'{
+                    Switch($rule.ConstantValue.Value){
+                        1{$PauseFU = "Pause Feature Updates Starting: True"}
+                        0{$PauseFU = "Pause Feature Updates Starting: False"}
+                    }
+                }
+                'WindowsUpdateForBusinessConfigurationSettings_PauseFeatureUpdatesStartTime'{$PauseFUDate = "Pause Feature Updates starting: $($rule.ConstantValue.Value) (only if enabled)"}
+                'WindowsUpdateForBusinessConfigurationSettings_DeferQualityUpdatesPeriodInDays'{$DQUDays = "Defer Quality Updates - Deferral Period (days): $($rule.ConstantValue.Value)"}
+                'WindowsUpdateForBusinessConfigurationSettings_PauseQualityUpdates'{
+                    Switch($rule.ConstantValue.Value){
+                        1{$PauseQU = "Pause Quality Updates Starting: True"}
+                        0{$PauseQU = "Pause Quality Updates Starting: False"}
+                    }
+                }
+                'WindowsUpdateForBusinessConfigurationSettings_PauseQualityUpdatesStartTime'{$PauseQUDate = "Pause Quality Updates starting: $($rule.ConstantValue.Value) (only if enabled)"}
+                'WindowsUpdateForBusinessConfigurationSettings_ExcludeWUDriversInQualityUpdate'{
+                    Switch($rule.ConstantValue.Value){
+                        0{$WUDrivers = "Include drivers with Windows Updates: True"}
+                        1{$WUDrivers = "Include drivers with Windows Updates: False"}
+                    }
+                }
+                'WindowsUpdateForBusinessConfigurationSettings_AllowMUUpdateService'{
+                    switch($rule.ConstantValue.Value){
+                        0{$OtherProducts = "Install updates from other Microsoft Products: False"}
+                        1{$OtherProducts = "Install updates from other Microsoft Products: True"}
+                    }
+                }
+            }
+        }
+        Remove-Variable WUBList -ErrorAction Ignore
+        $WUBList = @($BranchLevel,$DFUDays,$PauseFU,$(if(-not [string]::IsNullOrEmpty($PauseFUDate)){$PauseFUDate}),$DQUDays,$PauseQU,$(if(-not [string]::IsNullOrEmpty($PauseQUDate)){$PauseQUDate}),$WUDrivers,$OtherProducts)
+        Write-HtmlList -InputObject $WUBList -Title "$($WUBPolicy.LocalizedDisplayName)" -Description "$($WUBPolicy.LocalizedDescription)" -Level 4 -File $FilePath
+    }
+}else{
+    Write-HTMLParagraph -Text 'No Windows Update for Business Policies defined in this site.' -Level 3 -File $FilePath
+}
+Write-Verbose "$(Get-Date):   Completed Enumerating Windows Update for Business Policies"
+
 #endregion Windows Update for Business Policies
 
 #endregion Windows 10 Servicing
