@@ -61,10 +61,10 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.22
+	VERSION: 3.23
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
-	LASTEDIT: May 14, 2018
+	LASTEDIT: May 16, 2018
 #>
 
 #endregion
@@ -115,7 +115,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.22
+$DocumenationScriptVersion = 3.23
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -1282,7 +1282,7 @@ foreach ($CMSite in $CMSites)
     {
       Write-Verbose "Ping Succeeded: $($CMDPServerName)"
       Write-HTMLParagraph -Text "<B>Disk Information:</B>" -Level 4 -File $FilePath
-      $CMDPDrives = (Get-WmiObject -Class SMS_DistributionPointDriveInfo -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider).Where({$PSItem.NALPath -like "*$CMDPServerName*"})
+      $CMDPDrives = @(Get-WmiObject -Class SMS_DistributionPointDriveInfo -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider).Where({$PSItem.NALPath -like "*$CMDPServerName*"})
       $DPDrives = @()
       foreach ($CMDPDrive in $CMDPDrives){
             $Size = 0
