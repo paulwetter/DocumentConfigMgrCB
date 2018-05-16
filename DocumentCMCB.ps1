@@ -61,7 +61,7 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.23
+	VERSION: 3.24
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
 	LASTEDIT: May 16, 2018
@@ -101,7 +101,7 @@ Param(
 	[string]$SMSProvider='localhost',
 
 	[parameter(Mandatory=$False)] 
-	[Switch]$AddDateTime=$False,
+	[Switch]$AddDateTime,
 	
 	[parameter(Mandatory=$False)] 
     [switch]$UnknownClientSettings,
@@ -115,7 +115,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.23
+$DocumenationScriptVersion = 3.24
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -944,6 +944,12 @@ if ($FilePath -notlike "$([System.IO.Path]::GetDirectoryName($myInvocation.MyCom
         $FilePath = "$((get-location).Path)\$($FilePath.TrimStart('.\'))"
         Write-Verbose "$(Get-Date):   File path is $FilePath"
     }
+}
+if ($AddDateTime){
+    $dirName = [io.path]::GetDirectoryName($FilePath)
+    $filename = [io.path]::GetFileNameWithoutExtension($FilePath)
+    $ext = [io.path]::GetExtension($FilePath)
+    $FilePath = "$dirName\$($filename)_$(get-date -f yyyyMMddThhmmss)$ext"
 }
 write-host "Outputting documentation to: $FilePath"
 
