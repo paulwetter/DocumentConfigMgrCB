@@ -61,10 +61,10 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.24
+	VERSION: 3.25
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
-	LASTEDIT: May 16, 2018
+	LASTEDIT: May 21, 2018
 #>
 
 #endregion
@@ -115,7 +115,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.24
+$DocumenationScriptVersion = 3.25
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -4250,8 +4250,9 @@ foreach ($ADR in $ADRs){
             '_UpdateClassification'{
                 $UpdateClassification = @()
                 foreach ($UC in $UpdateRule.MatchRules.string.Trim("'")){
-                    $UPClasses = Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -Query "SELECT LocalizedCategoryInstanceName FROM SMS_CIAllCategories WHERE CategoryTypeName=`'UpdateClassification`' and CategoryInstance_UniqueID=`'$UC`'" -ComputerName $SMSProvider
-                    $UpdateClassification += $UPClasses[0].LocalizedCategoryInstanceName
+                    #$UPClasses = @(Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -Query "SELECT LocalizedCategoryInstanceName FROM SMS_CategoryInstance WHERE CategoryTypeName=`'UpdateClassification`' and CategoryInstance_UniqueID=`'$UC`'" -ComputerName $SMSProvider)
+                    $UPClass = Get-CMSoftwareUpdateCategory -UniqueId $UC -Fast
+                    $UpdateClassification += $UPClass.LocalizedCategoryInstanceName
                 }
                 $UC = "Update Classifications: $($UpdateClassification -join ' OR ')"
                 $UpdateRuleList += [System.Web.HttpUtility]::HtmlEncode("$UC")
