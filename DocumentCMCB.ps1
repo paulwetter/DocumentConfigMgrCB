@@ -61,10 +61,10 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.25
+	VERSION: 3.26
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
-	LASTEDIT: May 21, 2018
+	LASTEDIT: May 22, 2018
 #>
 
 #endregion
@@ -94,8 +94,9 @@ Param(
 	[parameter(Mandatory=$False)] 
 	[String]$Title = "Configuration Manager Site Documentation",
 
-	[parameter(Mandatory=$False)] 
-	[String]$FilePath = "$([System.IO.Path]::GetDirectoryName($myInvocation.MyCommand.Definition))\CMDocumentation.html",
+	[parameter(Mandatory=$False)]
+    [ValidateScript({$_ -match '\.html$'})]  
+	[String]$FilePath = "CMDocumentation.html",
 
 	[parameter(Mandatory=$False)] 
 	[string]$SMSProvider='localhost',
@@ -115,7 +116,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.25
+$DocumenationScriptVersion = 3.26
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -937,11 +938,11 @@ Function Set-AccountMask{
 ####################################################################################################################################################################
 ####################################################################################################################################################################
 $StartingPath = (get-location).Path
-if ($FilePath -notlike "$([System.IO.Path]::GetDirectoryName($myInvocation.MyCommand.Definition))\CMDocumentation.html"){
+if ($FilePath -notlike "$PSScriptRoot\CMDocumentation.html"){
     if ([System.IO.Path]::IsPathRooted("$FilePath")){
         Write-Verbose "$(Get-Date):   File path is $FilePath"
     }else{
-        $FilePath = "$((get-location).Path)\$($FilePath.TrimStart('.\'))"
+        $FilePath = "$($StartingPath)\$($FilePath.TrimStart('.\'))"
         Write-Verbose "$(Get-Date):   File path is $FilePath"
     }
 }
@@ -4463,47 +4464,51 @@ if ($ListAllInformation){
             }
             $DPackArray += "Source Files exist: $Verified"
             $DPackArray += 'This package consists of the following Drivers:'
-            $Drivers = Get-CMDriver -DriverPackageId "$($DriverPackage.PackageID)"
-            $DriverArray = @()
-            foreach ($Driver in $Drivers){
-                if (Test-Path "filesystem::$($Driver.ContentSourcePath)" -ErrorAction SilentlyContinue){
-                    $Verified = "Path Verified"
-                }else{
-                    $Verified = "Path not found"
-                }
-                $DriverArray += New-Object -TypeName psobject -Property @{'Driver Name'="$($Driver.LocalizedDisplayName)";'Manufacturer'="$($Driver.DriverProvider)";'Source Path'="$($Driver.ContentSourcePath)";'Source Status' = "$Verified";'INF File'="$($Driver.DriverINFFile)"}
-            }
-            $StartBase = ($DriverArray.'source path')[0]
-            $BaseLenght = $StartBase.length
-            $ArrayLenght = $DriverArray.Count
-            $counter = 0
-            Do{
-                $RelBase = $StartBase.Substring(0,$BaseLenght-$counter)
-                #$RelBase
-                $newcount = ($DriverArray.'source path'|Select-String -SimpleMatch "$RelBase").count
-                $counter++
-            }While (($newcount -lt $ArrayLenght) -and ($counter -lt $BaseLenght))
-            if ($StartBase.length -gt 15){
-                foreach ($Drvr in $DriverArray){
-                    $SP = ($drvr.'source path').replace("$RelBase","***.\")
-                    $drvr.'source path' = "$SP"
-                }
-            }
             If ($PackageDescription){
                 Write-HtmlList -Title $PackageName -Description $PackageDescription -InputObject $DPackArray -Level 4 -File $FilePath
             }else{
                 Write-HtmlList -Title $PackageName -InputObject $DPackArray -Level 4 -File $FilePath
             }
-            if (-not [string]::IsNullOrEmpty($DriverPackages)){
-                $DriverArray = $DriverArray | Select-Object 'Driver Name','Manufacturer','Source Path','Source Status','INF File'
-                if (-not [string]::IsNullOrEmpty($DriverArray)){
-                    If (-not [string]::IsNullOrEmpty($RelBase)){
-                        Write-HTMLParagraph -Text "Paths that start with ***. have drivers located in this root path:<br />$RelBase" -Level 5 -File $FilePath
+            Write-Verbose "$(Get-Date):   Getting Drivers in Package: $PackageName"
+            $Drivers = @(Get-CMDriver -DriverPackageId "$($DriverPackage.PackageID)")
+            if ($Drivers.Count -gt 0){
+                Write-Verbose "$(Get-Date):   Drivers found in package. Processing the drivers"
+                $DriverArray = @()
+                foreach ($Driver in $Drivers){
+                    if (Test-Path "filesystem::$($Driver.ContentSourcePath)" -ErrorAction SilentlyContinue){
+                        $Verified = "Path Verified"
+                    }else{
+                        $Verified = "Path not found"
                     }
-                    Write-HtmlTable -InputObject $DriverArray -Border 1 -Level 5 -File $FilePath
+                    $DriverArray += New-Object -TypeName psobject -Property @{'Driver Name'="$($Driver.LocalizedDisplayName)";'Manufacturer'="$($Driver.DriverProvider)";'Driver Version'="$($Driver.DriverVersion)";'Source Path'="$($Driver.ContentSourcePath)";'Source Status' = "$Verified";'INF File'="$($Driver.DriverINFFile)"}
+                }
+                $StartBase = ($DriverArray.'source path')[0]
+                $BaseLenght = $StartBase.length
+                $ArrayLenght = $DriverArray.Count
+                $counter = 0
+                Do{
+                    $RelBase = $StartBase.Substring(0,$BaseLenght-$counter)
+                    #$RelBase
+                    $newcount = ($DriverArray.'source path'|Select-String -SimpleMatch "$RelBase").count
+                    $counter++
+                }While (($newcount -lt $ArrayLenght) -and ($counter -lt $BaseLenght))
+                if ($StartBase.length -gt 15){
+                    foreach ($Drvr in $DriverArray){
+                        $SP = ($drvr.'source path').replace("$RelBase","***.\")
+                        $drvr.'source path' = "$SP"
+                    }
+                }
+                if (-not [string]::IsNullOrEmpty($DriverPackages)){
+                    $DriverArray = $DriverArray | Select-Object 'Driver Name','Manufacturer','Driver Version','Source Path','Source Status','INF File'
+                    if (-not [string]::IsNullOrEmpty($DriverArray)){
+                        If (-not [string]::IsNullOrEmpty($RelBase)){
+                            Write-HTMLParagraph -Text "Paths that start with ***. have drivers located in this root path:<br />$RelBase" -Level 5 -File $FilePath
+                        }
+                        Write-HtmlTable -InputObject $DriverArray -Border 1 -Level 5 -File $FilePath
+                    }
                 }
             }else{
-                Write-HTMLParagraph -Text 'No driver details were found' -Level 5 -File $FilePath
+                Write-HTMLParagraph -Text 'No drivers were found in the package.' -Level 5 -File $FilePath
             }
         }
     }else{
@@ -4653,7 +4658,7 @@ if (-not [string]::IsNullOrEmpty($BootImages)){
             $ImportedDriverIDs = ($BootImage.ReferencedDrivers).ID
             foreach ($ImportedDriverID in $ImportedDriverIDs){
                 $ImportedDriver = Get-CMDriver -ID $ImportedDriverID
-                $DriverArray += New-Object -TypeName psobject -Property @{'Driver Name'="$($ImportedDriver.LocalizedDisplayName)";'Driver Class'="$($ImportedDriver.DriverClass)";'Inf File'="$($ImportedDriver.DriverINFFile)"}
+                $DriverArray += New-Object -TypeName psobject -Property @{'Driver Name'="$($ImportedDriver.LocalizedDisplayName)";'Driver Class'="$($ImportedDriver.DriverClass)";'Inf File'="$($ImportedDriver.DriverINFFile)";'Driver Version'="$($ImportedDriver.DriverVersion)"}
             }
             Write-HtmlTable -InputObject $DriverArray -Border 1 -Level 6 -File $FilePath
         }else{
