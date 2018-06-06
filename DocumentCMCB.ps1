@@ -61,7 +61,7 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.26
+	VERSION: 3.27
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
 	LASTEDIT: May 22, 2018
@@ -116,7 +116,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.26
+$DocumenationScriptVersion = 3.27
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -1007,13 +1007,14 @@ else {
 #endregion CAS
 
 #region Child Primary Sites
-if (-not [string]::IsNullOrEmpty($ChildPrimarySites))
-{
-  Write-Verbose "$(Get-Date):   Enumerating all child Primary Site."
-  Write-HTMLParagraph -Text 'The following child Primary Sites are installed:' -level 1 -File $FilePath
-  $ChildSite = New-Object -TypeName psobject -Property @{'Site Name' = $ChildPrimarySites.SiteName; 'Site Code' = $ChildPrimarySites.SiteCode; Version = $ChildPrimarySites.Version };
-  
-  Write-HtmlTable -InputObject $ChildSite -Border 1 -Level 1 -File $FilePath
+if (-not [string]::IsNullOrEmpty($ChildPrimarySites)){
+    Write-Verbose "$(Get-Date):   Enumerating all child Primary Site."
+    Write-HTMLParagraph -Text 'The following child Primary Sites are installed:' -level 1 -File $FilePath
+    $ChildSites = @()
+    foreach ($ChildSite in $ChildPrimarySites){
+        $ChildSites += New-Object -TypeName psobject -Property @{'Site Name' = "$($ChildSite.SiteName)"; 'Site Code' = "$($ChildSite.SiteCode)"; Version = "$($ChildSite.Version)"};
+    }
+    Write-HtmlTable -InputObject $ChildSites -Border 1 -Level 1 -File $FilePath
 }
 #endregion Child Primary Sites
 
@@ -1033,13 +1034,14 @@ if (-not [string]::IsNullOrEmpty($StandAlonePrimarySite))
 #endregion Standalone Primary
 
 #region Secondary Sites
-if (-not [string]::IsNullOrEmpty($SecondarySites))
-{
-  Write-Verbose "$(Get-Date):   Enumerating all secondary sites."
-  Write-HTMLParagraph -Text 'The following Secondary Sites are installed:' -level 1 -File $FilePath
-  $SecondarySites = New-Object -TypeName psobject -Property @{'Site Name' = $SecondarySites.SiteName; 'Site Code' = $SecondarySites.SiteCode; Version = $SecondarySites.Version };
-  
-  Write-HtmlTable -InputObject $SecondarySites -Border 1 -Level 1 -File $FilePath
+if (-not [string]::IsNullOrEmpty($SecondarySites)){
+    Write-Verbose "$(Get-Date):   Enumerating all secondary sites."
+    Write-HTMLParagraph -Text 'The following Secondary Sites are installed:' -level 1 -File $FilePath
+    $SecSites = @()
+    foreach ($SecondarySite in $SecondarySites){
+        $SecSites += New-Object -TypeName psobject -Property @{'Site Name' = "$($SecondarySite.SiteName)"; 'Site Code' = "$($SecondarySite.SiteCode)"; Version = "$($SecondarySite.Version)"}
+    }
+    Write-HtmlTable -InputObject $SecSites -Border 1 -Level 1 -File $FilePath
 }
 #endregion Secondary Sites
 
