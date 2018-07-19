@@ -1815,7 +1815,7 @@ If ($ListAllInformation){
       Write-HTMLHeading -Level 3 -Text "Client Settings Name: $($ClientSetting.Name)" -File $FilePath
       Write-HtmlList -InputObject $SettingInfo -Description $SettingDescription -Level 2 -File $FilePath
         If("$($ClientSetting.AssignmentCount)" -gt 0){
-            $CSDeployments=Get-WmiObject -Query "SELECT * FROM SMS_ClientSettingsAssignment WHERE ClientSettingsID=$($ClientSetting.SettingsID)" -Namespace ROOT\SMS\site_$SiteCode
+            $CSDeployments=Get-WmiObject -Query "SELECT * FROM SMS_ClientSettingsAssignment WHERE ClientSettingsID=$($ClientSetting.SettingsID)" -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider
             $CSDeploymentArray = @()
             foreach ($CSD in $CSDeployments){
                 $CreationTime = [datetime]::ParseExact("$($CSD.CreationTime.Split('.')[0])",'yyyyMMddHHmmss',$null)
@@ -2388,7 +2388,7 @@ If ($ListAllInformation){
                   If ($AgentConfig.EnableDeviceEnrollment -eq '1'){
                     $ConfigList += 'Allow users to enroll mobile devices and Mac computers: Yes'
                     $MacDEID = "$($AgentConfig.DeviceEnrollmentProfileID)"
-                    $MacDEName = (Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -Query "Select * from SMS_DeviceEnrollmentProfile where ProfileID = `'$($AgentConfig.DeviceEnrollmentProfileID)`'").Name
+                    $MacDEName = (Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -Query "Select * from SMS_DeviceEnrollmentProfile where ProfileID = `'$($AgentConfig.DeviceEnrollmentProfileID)`'" -ComputerName $SMSProvider).Name
                     $ConfigList += "Enrollment Profile: $MacDEName (ID: $MacDEID)"
                   }else{
                     $ConfigList += 'Allow users to enroll mobile devices and Mac computers: Yes'
@@ -2873,7 +2873,7 @@ If ($ListAllInformation){
       Write-HTMLHeading -Level 3 -Text "Client Settings Name: $($ClientSetting.Name)" -File $FilePath -ExcludeTOC
       Write-HtmlList -InputObject $SettingInfo -Description $SettingDescription -Level 2 -File $FilePath
         If("$($ClientSetting.AssignmentCount)" -gt 0){
-            $CSDeployments=Get-WmiObject -Query "SELECT * FROM SMS_ClientSettingsAssignment WHERE ClientSettingsID=$($ClientSetting.SettingsID)" -Namespace ROOT\SMS\site_$SiteCode
+            $CSDeployments=Get-WmiObject -Query "SELECT * FROM SMS_ClientSettingsAssignment WHERE ClientSettingsID=$($ClientSetting.SettingsID)" -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider
             $CSDeploymentArray = @()
             foreach ($CSD in $CSDeployments){
                 $CreationTime = [datetime]::ParseExact("$($CSD.CreationTime.Split('.')[0])",'yyyyMMddHHmmss',$null)
@@ -3675,7 +3675,7 @@ if (-not ($(Get-CMEndpointProtectionPoint) -eq $Null)){
                             Write-HTMLParagraph -Text "Description: $($AntiMalwarePolicy.Description)" -Level 4 -File $FilePath
                         }
                         If("$($AntiMalwarePolicy.AssignmentCount)" -gt 0){
-                            $APDeployments=Get-WmiObject -Query "SELECT * FROM SMS_ClientSettingsAssignment WHERE ClientSettingsID=$($AntiMalwarePolicy.SettingsID)" -Namespace ROOT\SMS\site_$SiteCode
+                            $APDeployments=Get-WmiObject -Query "SELECT * FROM SMS_ClientSettingsAssignment WHERE ClientSettingsID=$($AntiMalwarePolicy.SettingsID)" -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider
                             $APDeploymentArray = @()
                             foreach ($APD in $APDeployments){
                                 $CreationTime = [datetime]::ParseExact("$($APD.CreationTime.Split('.')[0])",'yyyyMMddHHmmss',$null)
@@ -3881,7 +3881,7 @@ if (-not ($(Get-CMEndpointProtectionPoint) -eq $Null)){
                             Write-HTMLParagraph -Text "Description: $($AntiMalwarePolicy.Description)" -Level 4 -File $FilePath
                         }
                         If("$($AntiMalwarePolicy.AssignmentCount)" -gt 0){
-                            $APDeployments=Get-WmiObject -Query "SELECT * FROM SMS_ClientSettingsAssignment WHERE ClientSettingsID=$($AntiMalwarePolicy.SettingsID)" -Namespace ROOT\SMS\site_$SiteCode
+                            $APDeployments=Get-WmiObject -Query "SELECT * FROM SMS_ClientSettingsAssignment WHERE ClientSettingsID=$($AntiMalwarePolicy.SettingsID)" -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider
                             $APDeploymentArray = @()
                             foreach ($APD in $APDeployments){
                                 $CreationTime = [datetime]::ParseExact("$($APD.CreationTime.Split('.')[0])",'yyyyMMddHHmmss',$null)
