@@ -3050,9 +3050,11 @@ if ($ListAllInformation)
   foreach ($DeviceCollection in $BuiltInDeviceCollections)
   {
     Write-Verbose "$(Get-Date):   Found Built-in Device Collection: $($DeviceCollection.Name)"
-    $DevCols += New-Object -TypeName psobject -Property @{'Name' = "$($DeviceCollection.Name)"; 'Collection ID' = "$($DeviceCollection.CollectionID)"; 'Member Count' = "$($DeviceCollection.MemberCount)";}
+    # Get collection folder (not visible from Get-CMDeviceCollection cmdlet)
+    $CollectionFolder = (Get-WmiObject -Namespace "root\sms\site_$SiteCode" -Class "SMS_Collection" -Filter "CollectionId = '$($DeviceCollection.CollectionID)'" -ComputerName $SMSProvider).ObjectPath
+    $DevCols += New-Object -TypeName psobject -Property @{'Name' = "$($DeviceCollection.Name)"; 'Collection ID' = "$($DeviceCollection.CollectionID)"; 'Member Count' = "$($DeviceCollection.MemberCount)"; 'Folder' = "Root$CollectionFolder";}
   }
-  $DevCols = $DevCols | Select-Object 'Name','Collection ID','Member Count'
+  $DevCols = $DevCols | Select-Object 'Name','Collection ID','Member Count','Folder'
   Write-HTMLParagraph -Level 4 -File $FilePath -Text 'Summary of membership of the built-in device collections:'
   Write-HtmlTable -InputObject $DevCols -Border 1 -Level 5 -File $FilePath
   Write-HTMLHeading -Level 3 -Text 'User Defined Device Collections' -File $FilePath
@@ -3070,6 +3072,9 @@ if ($ListAllInformation)
     Write-Verbose "$(Get-Date):   Found Custom Device Collection: $($DeviceCollection.Name)"
     $CollectionInfo = @()
     $CollectionName = "$($DeviceCollection.Name)"
+    # Get collection folder (not visible from Get-CMDeviceCollection cmdlet)
+    $CollectionFolder = (Get-WmiObject -Namespace "root\sms\site_$SiteCode" -Class "SMS_Collection" -Filter "CollectionId = '$($DeviceCollection.CollectionID)'" -ComputerName $SMSProvider).ObjectPath
+    $CollectionInfo += "Folder: Root$CollectionFolder"
     $CollectionInfo += "Description: $($DeviceCollection.Comment)"
     $CollectionInfo += "Collection ID: $($DeviceCollection.CollectionID)"
     $CollectionInfo += "Total count of members: $($DeviceCollection.MemberCount)"
