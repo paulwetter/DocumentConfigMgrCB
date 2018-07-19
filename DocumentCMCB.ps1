@@ -3001,23 +3001,105 @@ if ($ListAllInformation)
   foreach ($UserCollection in $BuiltinUserCollections)
   {
     Write-Verbose "$(Get-Date):   Found Built-in User Collection: $($UserCollection.Name)"
-    $BuiltInUCArray += New-Object -TypeName psobject -Property @{'Collection Name' = $UserCollection.Name; 'Collection ID' = $UserCollection.CollectionID; 'Member Count' = $UserCollection.MemberCount;};
+    # Get collection folder (not visible from Get-CMUserCollection cmdlet)
+    $CollectionFolder = (Get-WmiObject -Namespace "root\sms\site_$SiteCode" -Class "SMS_Collection" -Filter "CollectionId = '$($UserCollection.CollectionID)'" -ComputerName $SMSProvider).ObjectPath
+    $BuiltInUCArray += New-Object -TypeName psobject -Property @{'Collection Name' = $UserCollection.Name; 'Collection ID' = $UserCollection.CollectionID; 'Member Count' = $UserCollection.MemberCount; 'Folder' = "Root$CollectionFolder";};
   }
-  $BuiltInUCArray = $BuiltInUCArray | Select-Object -Property 'Collection Name','Collection ID','Member Count'
+  $BuiltInUCArray = $BuiltInUCArray | Select-Object -Property 'Collection Name','Collection ID','Member Count','Folder'
   Write-HtmlTable -InputObject $BuiltInUCArray -Border 1 -Level 4 -File $FilePath
 
   Write-HTMLHeading -Level 3 -Text 'User Defined User Collections' -File $FilePath
   foreach ($UserCollection in $CustomUserCollections)
   {
     Write-Verbose "$(Get-Date):   Found Custom User Collection: $($UserCollection.Name)"
-    $CustomUCArray += New-Object -TypeName psobject -Property @{'Collection Name' = $UserCollection.Name; 'Collection ID' = $UserCollection.CollectionID; 'Member Count' = $UserCollection.MemberCount;};
-  }
-  if($CustomUCArray.Count -gt 0){
-      Write-HTMLParagraph -Text "There are $($CustomUserCollections.count) user defined user collections.  Their names and member counts are listed below:" -Level 3 -File $FilePath
-      $CustomUCArray = $CustomUCArray | Select-Object -Property 'Collection Name','Collection ID','Member Count'
-      Write-HtmlTable -InputObject $CustomUCArray -Border 1 -Level 4 -File $FilePath
-  }else{
-      Write-HTMLParagraph -Text "There are no user defined user collection." -Level 3 -File $FilePath
+    $CollectionInfo = @()
+    $CollectionName = "$($UserCollection.Name)"
+    # Get collection folder (not visible from Get-CMUserCollection cmdlet)
+    $CollectionFolder = (Get-WmiObject -Namespace "root\sms\site_$SiteCode" -Class "SMS_Collection" -Filter "CollectionId = '$($UserCollection.CollectionID)'" -ComputerName $SMSProvider).ObjectPath
+    $CollectionInfo += "Folder: Root$CollectionFolder"
+    $CollectionInfo += "Description: $($UserCollection.Comment)"
+    $CollectionInfo += "Collection ID: $($UserCollection.CollectionID)"
+    $CollectionInfo += "Total count of members: $($UserCollection.MemberCount)"
+    $CollectionInfo += "Limiting Collection: $($UserCollection.LimitToCollectionName) ($($UserCollection.LimitToCollectionID))"
+    Switch ($UserCollection.RefreshType)
+    {
+        1 {$UpdateSchedule = "No schedule configured"}
+        2 {$UpdateSchedule = "Full update schedule only"}
+        4 {$UpdateSchedule = "Incremental update only"}
+        6 {$UpdateSchedule = "Full and Incremental updates configured"}
+    }
+    $CollectionInfo += "Selected Update Schedule: $UpdateSchedule"
+    Write-HTMLHeading -Level 4 -Text $CollectionName -File $FilePath -ExcludeTOC
+
+    Write-HtmlList -InputObject $CollectionInfo -Description "<u><b>Collection Information:</b></u>" -Level 4 -File $FilePath
+
+    ### enumerating the Collection Membership Rules
+    Write-HTMLParagraph -Level 4 -File $FilePath -Text '<u><b>Collection Membership Rules:</b></u>'
+    $QueryRules = $Null
+    $DirectRules = $Null
+    $IncludeRules = $Null
+    $ExcludeRules = $Null
+
+    try {
+        $DirectRules = $UserCollection | Get-CMUserCollectionDirectMembershipRule -ErrorAction SilentlyContinue
+    }
+    catch [System.Management.Automation.PropertyNotFoundException] {
+        Write-Verbose "$(Get-Date):   Collection Direct Rule info not found"
+    }
+    try {
+        $QueryRules = $UserCollection | Get-CMUserCollectionQueryMembershipRule -ErrorAction SilentlyContinue
+    }
+    catch [System.Management.Automation.PropertyNotFoundException] {
+        Write-Verbose "$(Get-Date):   Collection Query Rule info not found"
+    }
+    try {
+        $IncludeRules = $UserCollection | Get-CMUserCollectionIncludeMembershipRule -ErrorAction SilentlyContinue
+    }
+    catch [System.Management.Automation.PropertyNotFoundException] {
+        Write-Verbose "$(Get-Date):   Collection Include Rule info not found"
+    }
+    try {
+        $ExcludeRules = $UserCollection | Get-CMUserCollectionExcludeMembershipRule -ErrorAction SilentlyContinue
+    }
+    catch [System.Management.Automation.PropertyNotFoundException] {
+        Write-Verbose "$(Get-Date):   Collection Include Rule info not found"
+    }
+
+    if (-not [string]::IsNullOrEmpty($QueryRules)) {
+        Write-HTMLParagraph -Level 4 -File $FilePath -Text '<b>Query Rule(s):</b>'
+        $QueryRulesArray = @();
+        foreach ($QueryRule in $QueryRules) {
+            $QueryRulesArray += New-Object -TypeName psobject -Property @{'Query Name'= $QueryRule.RuleName; 'Query Expression' = $($QueryRule.QueryExpression -replace ',',', ')}
+        }
+        Write-HtmlTable -InputObject $QueryRulesArray -Border 1 -Level 5 -File $FilePath
+    }
+    if (-not [string]::IsNullOrEmpty($DirectRules)) {
+        Write-HTMLParagraph -Level 4 -File $FilePath -Text '<b>Direct Rule(s):</b>'
+        $DirectRulesArray = @();
+        foreach ($DirectRule in $DirectRules) {
+            $DirectRulesArray += New-Object -TypeName psobject -Property @{'Resource Name'= $DirectRule.RuleName; 'Resource ID' = $DirectRule.ResourceId}
+        }
+        Write-HtmlTable -InputObject $DirectRulesArray -Border 1 -Level 5 -File $FilePath
+    }
+    if (-not [String]::IsNullOrEmpty($IncludeRules)) {
+        Write-HTMLParagraph -Level 4 -File $FilePath -Text '<b>Include Rule(s):</b>'
+        $IncludeRulesArray = @()
+        foreach ($IncludeRule in $IncludeRules) {
+            $IncludeRulesArray += New-Object -TypeName psobject -Property @{'Collection Name'= $IncludeRule.RuleName; 'Collection ID' = $IncludeRule.IncludeCollectionId}
+        }
+        Write-HtmlTable -InputObject $IncludeRulesArray -Border 1 -Level 5 -File $FilePath
+    }
+    if (-not [String]::IsNullOrEmpty($ExcludeRules)) {
+        Write-HTMLParagraph -Level 4 -File $FilePath -Text '<b>Exclude Rule(s):</b>'
+        $ExcludeRulesArray = @()
+        foreach ($ExcludeRule in $ExcludeRules) {
+            $ExcludeRulesArray += New-Object -TypeName psobject -Property @{'Collection Name'= $ExcludeRule.RuleName; 'Collection ID' = $ExcludeRule.ExcludeCollectionId}
+        }
+        Write-HtmlTable -InputObject $ExcludeRulesArray -Border 1 -Level 5 -File $FilePath
+    }
+    if (([String]::IsNullOrEmpty($IncludeRules)) -and ([String]::IsNullOrEmpty($ExcludeRules)) -and ([string]::IsNullOrEmpty($DirectRules)) -and ([string]::IsNullOrEmpty($QueryRules))){
+    Write-HTMLParagraph -Level 5 -File $FilePath -Text 'No collection membership rules defined.'
+    }
   }
 }
 else
