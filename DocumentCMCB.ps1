@@ -61,10 +61,10 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.28
+	VERSION: 3.29
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
-	LASTEDIT: July 19, 2018
+	LASTEDIT: July 25, 2018
 #>
 
 #endregion
@@ -116,7 +116,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.28
+$DocumenationScriptVersion = 3.29
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -4581,7 +4581,7 @@ if ($ListAllInformation){
                     }
                     $DriverArray += New-Object -TypeName psobject -Property @{'Driver Name'="$($Driver.LocalizedDisplayName)";'Manufacturer'="$($Driver.DriverProvider)";'Driver Version'="$($Driver.DriverVersion)";'Source Path'="$($Driver.ContentSourcePath)";'Source Status' = "$Verified";'INF File'="$($Driver.DriverINFFile)"}
                 }
-                $StartBase = ($DriverArray.'source path')[0]
+                $StartBase = $DriverArray[0].'source path'
                 $BaseLenght = $StartBase.length
                 $ArrayLenght = $DriverArray.Count
                 $counter = 0
@@ -4806,6 +4806,7 @@ if (-not [string]::IsNullOrEmpty($BootImages)){
 }else{
     Write-HTMLParagraph -Text 'There are no Boot Images present in this site.' -Level 4 -File $FilePath
 }
+Remove-Variable BootImage -ErrorAction Ignore
 Write-Verbose "$(Get-Date):   Completed processing Boot Images."
 Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion Boot Images
@@ -4823,12 +4824,29 @@ if ($ListAllInformation){
                 Write-HTMLHeading -Level 4 -Text "$($TaskSequence.Name)" -File $FilePath
                 $TSDetails = @()
                 $TSDetails += "Package ID: $($TaskSequence.PackageID)"
-                $BootImage = $TaskSequence.References.Package|foreach {(Get-CMBootImage -id $_ -ErrorAction Ignore).Name} 
-                If([string]::IsNullOrEmpty($BootImage)){$BootImage="None"}
+                $TSBootImage = $TaskSequence.BootImageID
+                If([string]::IsNullOrEmpty($TSBootImage)){
+                    $BootImage="None"
+                }else{
+                    $BootImage = (Get-CMBootImage -id $TSBootImage -ErrorAction Ignore).Name
+                }
+                Write-Verbose "$(Get-Date):   Task Sequence Boot Image: $BootImage"
                 $TSDetails += "Task Sequence Boot Image: $BootImage"
-                $OSImage = $TaskSequence.References.Package|foreach {(Get-CMOperatingSystemImage -id $_ -ErrorAction Ignore).Name}
-                If([string]::IsNullOrEmpty($OSImage)){$OSImage="None"}
-                $TSDetails += "Task Sequence Operating System Image: $OSImage"
+                $TSRefs = $TaskSequence.References.Package
+                $OSImages = Get-CMOperatingSystemImage
+                If([string]::IsNullOrEmpty($TSRefs) -or [string]::IsNullOrEmpty($OSImages)){
+                    $TSOSImage="None"
+                }else{
+                    foreach ($Ref in $TSRefs){
+                        If($Ref -in $OSImages.PackageID){
+                            Write-Verbose "$(Get-Date):   (Get-CMOperatingSystemImage -id $($Ref)).Name"
+                            $TSOSImage = (Get-CMOperatingSystemImage -id $Ref).Name
+                        }
+                    }
+                }
+                If([string]::IsNullOrEmpty($TSOSImage)){$TSOSImage="None"}
+                Write-Verbose "$(Get-Date):   Task Sequence Operating System Image: $TSOSImage"
+                $TSDetails += "Task Sequence Operating System Image: $TSOSImage"
                 $TSDetails += "Sequence Steps:"
                 Write-HtmlList -InputObject $TSDetails -Level 4 -File $FilePath
                 $Sequence = $Null
@@ -4838,6 +4856,8 @@ if ($ListAllInformation){
                 foreach ($Step in $AllSteps){$c++;$Step|Add-Member -MemberType NoteProperty -Name 'Step' -Value $c}
                 $AllSteps = $AllSteps |Select-Object 'Step','Group Name','Step Name','Description','Action','Status'
                 Write-HtmlTable -InputObject $AllSteps -Border 1 -Level 6 -File $FilePath
+                Remove-Variable TSOSImage -ErrorAction Ignore
+                Remove-Variable BootImage -ErrorAction Ignore
             }
     }else{
         Write-HTMLParagraph -Level 3 -Text 'There are no Task Sequences present in this environment.' -File $FilePath
