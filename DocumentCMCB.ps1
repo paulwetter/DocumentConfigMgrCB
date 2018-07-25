@@ -61,10 +61,10 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.27
+	VERSION: 3.28
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
-	LASTEDIT: May 22, 2018
+	LASTEDIT: July 19, 2018
 #>
 
 #endregion
@@ -116,7 +116,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.27
+$DocumenationScriptVersion = 3.28
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -185,7 +185,7 @@ Function Write-HtmlTable{
         9 {$Indent=85} 
         default {$Indent=5}
     }
-    if (-not [string]::IsNullOrEmpty($InputObject)){
+    if ($InputObject){
         $table = $InputObject|ConvertTo-Html -Fragment
         $table[0] = "<table cellpadding=$Padding cellspacing=$Spacing border=$Border style=`"margin-left:$($Indent)px;`">"
         $table = $table -replace "--CRLF--","<BR />"
@@ -1815,7 +1815,7 @@ If ($ListAllInformation){
       Write-HTMLHeading -Level 3 -Text "Client Settings Name: $($ClientSetting.Name)" -File $FilePath
       Write-HtmlList -InputObject $SettingInfo -Description $SettingDescription -Level 2 -File $FilePath
         If("$($ClientSetting.AssignmentCount)" -gt 0){
-            $CSDeployments=Get-WmiObject -Query "SELECT * FROM SMS_ClientSettingsAssignment WHERE ClientSettingsID=$($ClientSetting.SettingsID)" -Namespace ROOT\SMS\site_$SiteCode
+            $CSDeployments=Get-WmiObject -Query "SELECT * FROM SMS_ClientSettingsAssignment WHERE ClientSettingsID=$($ClientSetting.SettingsID)" -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider
             $CSDeploymentArray = @()
             foreach ($CSD in $CSDeployments){
                 $CreationTime = [datetime]::ParseExact("$($CSD.CreationTime.Split('.')[0])",'yyyyMMddHHmmss',$null)
@@ -2388,7 +2388,7 @@ If ($ListAllInformation){
                   If ($AgentConfig.EnableDeviceEnrollment -eq '1'){
                     $ConfigList += 'Allow users to enroll mobile devices and Mac computers: Yes'
                     $MacDEID = "$($AgentConfig.DeviceEnrollmentProfileID)"
-                    $MacDEName = (Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -Query "Select * from SMS_DeviceEnrollmentProfile where ProfileID = `'$($AgentConfig.DeviceEnrollmentProfileID)`'").Name
+                    $MacDEName = (Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -Query "Select * from SMS_DeviceEnrollmentProfile where ProfileID = `'$($AgentConfig.DeviceEnrollmentProfileID)`'" -ComputerName $SMSProvider).Name
                     $ConfigList += "Enrollment Profile: $MacDEName (ID: $MacDEID)"
                   }else{
                     $ConfigList += 'Allow users to enroll mobile devices and Mac computers: Yes'
@@ -2873,7 +2873,7 @@ If ($ListAllInformation){
       Write-HTMLHeading -Level 3 -Text "Client Settings Name: $($ClientSetting.Name)" -File $FilePath -ExcludeTOC
       Write-HtmlList -InputObject $SettingInfo -Description $SettingDescription -Level 2 -File $FilePath
         If("$($ClientSetting.AssignmentCount)" -gt 0){
-            $CSDeployments=Get-WmiObject -Query "SELECT * FROM SMS_ClientSettingsAssignment WHERE ClientSettingsID=$($ClientSetting.SettingsID)" -Namespace ROOT\SMS\site_$SiteCode
+            $CSDeployments=Get-WmiObject -Query "SELECT * FROM SMS_ClientSettingsAssignment WHERE ClientSettingsID=$($ClientSetting.SettingsID)" -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider
             $CSDeploymentArray = @()
             foreach ($CSD in $CSDeployments){
                 $CreationTime = [datetime]::ParseExact("$($CSD.CreationTime.Split('.')[0])",'yyyyMMddHHmmss',$null)
@@ -3001,23 +3001,105 @@ if ($ListAllInformation)
   foreach ($UserCollection in $BuiltinUserCollections)
   {
     Write-Verbose "$(Get-Date):   Found Built-in User Collection: $($UserCollection.Name)"
-    $BuiltInUCArray += New-Object -TypeName psobject -Property @{'Collection Name' = $UserCollection.Name; 'Collection ID' = $UserCollection.CollectionID; 'Member Count' = $UserCollection.MemberCount;};
+    # Get collection folder (not visible from Get-CMUserCollection cmdlet)
+    $CollectionFolder = (Get-WmiObject -Namespace "root\sms\site_$SiteCode" -Class "SMS_Collection" -Filter "CollectionId = '$($UserCollection.CollectionID)'" -ComputerName $SMSProvider).ObjectPath
+    $BuiltInUCArray += New-Object -TypeName psobject -Property @{'Collection Name' = $UserCollection.Name; 'Collection ID' = $UserCollection.CollectionID; 'Member Count' = $UserCollection.MemberCount; 'Folder' = "Root$CollectionFolder";};
   }
-  $BuiltInUCArray = $BuiltInUCArray | Select-Object -Property 'Collection Name','Collection ID','Member Count'
+  $BuiltInUCArray = $BuiltInUCArray | Select-Object -Property 'Collection Name','Collection ID','Member Count','Folder'
   Write-HtmlTable -InputObject $BuiltInUCArray -Border 1 -Level 4 -File $FilePath
 
   Write-HTMLHeading -Level 3 -Text 'User Defined User Collections' -File $FilePath
   foreach ($UserCollection in $CustomUserCollections)
   {
     Write-Verbose "$(Get-Date):   Found Custom User Collection: $($UserCollection.Name)"
-    $CustomUCArray += New-Object -TypeName psobject -Property @{'Collection Name' = $UserCollection.Name; 'Collection ID' = $UserCollection.CollectionID; 'Member Count' = $UserCollection.MemberCount;};
-  }
-  if($CustomUCArray.Count -gt 0){
-      Write-HTMLParagraph -Text "There are $($CustomUserCollections.count) user defined user collections.  Their names and member counts are listed below:" -Level 3 -File $FilePath
-      $CustomUCArray = $CustomUCArray | Select-Object -Property 'Collection Name','Collection ID','Member Count'
-      Write-HtmlTable -InputObject $CustomUCArray -Border 1 -Level 4 -File $FilePath
-  }else{
-      Write-HTMLParagraph -Text "There are no user defined user collection." -Level 3 -File $FilePath
+    $CollectionInfo = @()
+    $CollectionName = "$($UserCollection.Name)"
+    # Get collection folder (not visible from Get-CMUserCollection cmdlet)
+    $CollectionFolder = (Get-WmiObject -Namespace "root\sms\site_$SiteCode" -Class "SMS_Collection" -Filter "CollectionId = '$($UserCollection.CollectionID)'" -ComputerName $SMSProvider).ObjectPath
+    $CollectionInfo += "Folder: Root$CollectionFolder"
+    $CollectionInfo += "Description: $($UserCollection.Comment)"
+    $CollectionInfo += "Collection ID: $($UserCollection.CollectionID)"
+    $CollectionInfo += "Total count of members: $($UserCollection.MemberCount)"
+    $CollectionInfo += "Limiting Collection: $($UserCollection.LimitToCollectionName) ($($UserCollection.LimitToCollectionID))"
+    Switch ($UserCollection.RefreshType)
+    {
+        1 {$UpdateSchedule = "No schedule configured"}
+        2 {$UpdateSchedule = "Full update schedule only"}
+        4 {$UpdateSchedule = "Incremental update only"}
+        6 {$UpdateSchedule = "Full and Incremental updates configured"}
+    }
+    $CollectionInfo += "Selected Update Schedule: $UpdateSchedule"
+    Write-HTMLHeading -Level 4 -Text $CollectionName -File $FilePath -ExcludeTOC
+
+    Write-HtmlList -InputObject $CollectionInfo -Description "<u><b>Collection Information:</b></u>" -Level 4 -File $FilePath
+
+    ### enumerating the Collection Membership Rules
+    Write-HTMLParagraph -Level 4 -File $FilePath -Text '<u><b>Collection Membership Rules:</b></u>'
+    $QueryRules = $Null
+    $DirectRules = $Null
+    $IncludeRules = $Null
+    $ExcludeRules = $Null
+
+    try {
+        $DirectRules = $UserCollection | Get-CMUserCollectionDirectMembershipRule -ErrorAction SilentlyContinue
+    }
+    catch [System.Management.Automation.PropertyNotFoundException] {
+        Write-Verbose "$(Get-Date):   Collection Direct Rule info not found"
+    }
+    try {
+        $QueryRules = $UserCollection | Get-CMUserCollectionQueryMembershipRule -ErrorAction SilentlyContinue
+    }
+    catch [System.Management.Automation.PropertyNotFoundException] {
+        Write-Verbose "$(Get-Date):   Collection Query Rule info not found"
+    }
+    try {
+        $IncludeRules = $UserCollection | Get-CMUserCollectionIncludeMembershipRule -ErrorAction SilentlyContinue
+    }
+    catch [System.Management.Automation.PropertyNotFoundException] {
+        Write-Verbose "$(Get-Date):   Collection Include Rule info not found"
+    }
+    try {
+        $ExcludeRules = $UserCollection | Get-CMUserCollectionExcludeMembershipRule -ErrorAction SilentlyContinue
+    }
+    catch [System.Management.Automation.PropertyNotFoundException] {
+        Write-Verbose "$(Get-Date):   Collection Include Rule info not found"
+    }
+
+    if (-not [string]::IsNullOrEmpty($QueryRules)) {
+        Write-HTMLParagraph -Level 4 -File $FilePath -Text '<b>Query Rule(s):</b>'
+        $QueryRulesArray = @();
+        foreach ($QueryRule in $QueryRules) {
+            $QueryRulesArray += New-Object -TypeName psobject -Property @{'Query Name'= $QueryRule.RuleName; 'Query Expression' = $($QueryRule.QueryExpression -replace ',',', ')}
+        }
+        Write-HtmlTable -InputObject $QueryRulesArray -Border 1 -Level 5 -File $FilePath
+    }
+    if (-not [string]::IsNullOrEmpty($DirectRules)) {
+        Write-HTMLParagraph -Level 4 -File $FilePath -Text '<b>Direct Rule(s):</b>'
+        $DirectRulesArray = @();
+        foreach ($DirectRule in $DirectRules) {
+            $DirectRulesArray += New-Object -TypeName psobject -Property @{'Resource Name'= $DirectRule.RuleName; 'Resource ID' = $DirectRule.ResourceId}
+        }
+        Write-HtmlTable -InputObject $DirectRulesArray -Border 1 -Level 5 -File $FilePath
+    }
+    if (-not [String]::IsNullOrEmpty($IncludeRules)) {
+        Write-HTMLParagraph -Level 4 -File $FilePath -Text '<b>Include Rule(s):</b>'
+        $IncludeRulesArray = @()
+        foreach ($IncludeRule in $IncludeRules) {
+            $IncludeRulesArray += New-Object -TypeName psobject -Property @{'Collection Name'= $IncludeRule.RuleName; 'Collection ID' = $IncludeRule.IncludeCollectionId}
+        }
+        Write-HtmlTable -InputObject $IncludeRulesArray -Border 1 -Level 5 -File $FilePath
+    }
+    if (-not [String]::IsNullOrEmpty($ExcludeRules)) {
+        Write-HTMLParagraph -Level 4 -File $FilePath -Text '<b>Exclude Rule(s):</b>'
+        $ExcludeRulesArray = @()
+        foreach ($ExcludeRule in $ExcludeRules) {
+            $ExcludeRulesArray += New-Object -TypeName psobject -Property @{'Collection Name'= $ExcludeRule.RuleName; 'Collection ID' = $ExcludeRule.ExcludeCollectionId}
+        }
+        Write-HtmlTable -InputObject $ExcludeRulesArray -Border 1 -Level 5 -File $FilePath
+    }
+    if (([String]::IsNullOrEmpty($IncludeRules)) -and ([String]::IsNullOrEmpty($ExcludeRules)) -and ([string]::IsNullOrEmpty($DirectRules)) -and ([string]::IsNullOrEmpty($QueryRules))){
+    Write-HTMLParagraph -Level 5 -File $FilePath -Text 'No collection membership rules defined.'
+    }
   }
 }
 else
@@ -3050,9 +3132,11 @@ if ($ListAllInformation)
   foreach ($DeviceCollection in $BuiltInDeviceCollections)
   {
     Write-Verbose "$(Get-Date):   Found Built-in Device Collection: $($DeviceCollection.Name)"
-    $DevCols += New-Object -TypeName psobject -Property @{'Name' = "$($DeviceCollection.Name)"; 'Collection ID' = "$($DeviceCollection.CollectionID)"; 'Member Count' = "$($DeviceCollection.MemberCount)";}
+    # Get collection folder (not visible from Get-CMDeviceCollection cmdlet)
+    $CollectionFolder = (Get-WmiObject -Namespace "root\sms\site_$SiteCode" -Class "SMS_Collection" -Filter "CollectionId = '$($DeviceCollection.CollectionID)'" -ComputerName $SMSProvider).ObjectPath
+    $DevCols += New-Object -TypeName psobject -Property @{'Name' = "$($DeviceCollection.Name)"; 'Collection ID' = "$($DeviceCollection.CollectionID)"; 'Member Count' = "$($DeviceCollection.MemberCount)"; 'Folder' = "Root$CollectionFolder";}
   }
-  $DevCols = $DevCols | Select-Object 'Name','Collection ID','Member Count'
+  $DevCols = $DevCols | Select-Object 'Name','Collection ID','Member Count','Folder'
   Write-HTMLParagraph -Level 4 -File $FilePath -Text 'Summary of membership of the built-in device collections:'
   Write-HtmlTable -InputObject $DevCols -Border 1 -Level 5 -File $FilePath
   Write-HTMLHeading -Level 3 -Text 'User Defined Device Collections' -File $FilePath
@@ -3070,10 +3154,13 @@ if ($ListAllInformation)
     Write-Verbose "$(Get-Date):   Found Custom Device Collection: $($DeviceCollection.Name)"
     $CollectionInfo = @()
     $CollectionName = "$($DeviceCollection.Name)"
-    $CollectionDesc = "$($DeviceCollection.Comment)"
+    # Get collection folder (not visible from Get-CMDeviceCollection cmdlet)
+    $CollectionFolder = (Get-WmiObject -Namespace "root\sms\site_$SiteCode" -Class "SMS_Collection" -Filter "CollectionId = '$($DeviceCollection.CollectionID)'" -ComputerName $SMSProvider).ObjectPath
+    $CollectionInfo += "Folder: Root$CollectionFolder"
+    $CollectionInfo += "Description: $($DeviceCollection.Comment)"
     $CollectionInfo += "Collection ID: $($DeviceCollection.CollectionID)"
     $CollectionInfo += "Total count of members: $($DeviceCollection.MemberCount)"
-    $CollectionInfo += "Limited to Device Collection: $($DeviceCollection.LimitToCollectionName) ($($DeviceCollection.LimitToCollectionID))"
+    $CollectionInfo += "Limiting Collection: $($DeviceCollection.LimitToCollectionName) ($($DeviceCollection.LimitToCollectionID))"
     Switch ($DeviceCollection.RefreshType)
     {
         1 {$UpdateSchedule = "No schedule configured"}
@@ -3083,11 +3170,9 @@ if ($ListAllInformation)
     }
     $CollectionInfo += "Selected Update Schedule: $UpdateSchedule"
     Write-HTMLHeading -Level 4 -Text $CollectionName -File $FilePath -ExcludeTOC
-    If ($CollectionDesc){
-        Write-HtmlList -InputObject $CollectionInfo -Description "Description: $CollectionDesc" -Level 4 -File $FilePath
-    }else{
-        Write-HtmlList -InputObject $CollectionInfo -Level 4 -File $FilePath
-    }
+
+    Write-HtmlList -InputObject $CollectionInfo -Description "<u><b>Collection Information:</b></u>" -Level 4 -File $FilePath
+    Write-HTMLParagraph -Level 4 -File $FilePath -Text '<u><b>Collection Maintenance Windows:</b></u>'
     If ($DeviceCollection.ServiceWindowsCount -gt 0) {
         $ServiceWindows = Get-CMMaintenanceWindow -CollectionId $DeviceCollection.CollectionID
         Write-Verbose "$(Get-Date):   Enumerating Maintenance Windows for collection: $($DeviceCollection.Name)"
@@ -3152,43 +3237,45 @@ if ($ListAllInformation)
                     }
                 $ServiceWindowArray += New-Object -TypeName psobject -Property @{'Name' = $SWName; 'Start Time' = $StartTime; 'UTC' = $UTCTime; 'Duration' = $Duration; 'Recurance' = $WindowRecurence; 'Type' = $WindowType; 'Enabled' = $WindowEnabled}
             }
-        Write-HTMLParagraph -Level 4 -File $FilePath -Text 'Collection Maintenance Windows:'
         $ServiceWindowArray = $ServiceWindowArray | Select-Object 'Name','Start Time','UTC','Duration','Recurance','Type','Enabled'
         Write-HtmlTable -InputObject $ServiceWindowArray -Border 1 -Level 5 -File $FilePath
     } else {
         Write-HTMLParagraph -Level 4 -File $FilePath -Text 'No maintenance windows configured on this collection.'
     }
         ### enumerating the Collection Membership Rules
-        Write-HTMLParagraph -Level 4 -File $FilePath -Text 'Collection Membership Rules:'
+        Write-HTMLParagraph -Level 4 -File $FilePath -Text '<u><b>Collection Membership Rules:</b></u>'
         $QueryRules = $Null
         $DirectRules = $Null
         $IncludeRules = $Null
-        $CollectionRules = $DeviceCollection.CollectionRules #just for Direct and Query
+        $ExcludeRules = $Null
 
-        $Collection = Get-WmiObject -Namespace root\sms\site_$SiteCode -Query "SELECT * FROM SMS_Collection WHERE CollectionID = '$($DeviceCollection.CollectionID)'" -ComputerName $SMSProvider
-        [wmi]$Collection = $Collection.__PATH
-                    
-        $OtherCollectionRules = $Collection.CollectionRules
         try {
-            $DirectRules = $CollectionRules | where {$_.ResourceID} -ErrorAction SilentlyContinue
+            $DirectRules = $DeviceCollection | Get-CMDeviceCollectionDirectMembershipRule -ErrorAction SilentlyContinue
         }
         catch [System.Management.Automation.PropertyNotFoundException] {
-            Write-Verbose "$(Get-Date):   Collection Rule info not found"
+            Write-Verbose "$(Get-Date):   Collection Direct Rule info not found"
         }
         try {
-            $QueryRules = $CollectionRules | where {$_.QueryExpression} -ErrorAction SilentlyContinue                            
+            $QueryRules = $DeviceCollection | Get-CMDeviceCollectionQueryMembershipRule -ErrorAction SilentlyContinue
         }
         catch [System.Management.Automation.PropertyNotFoundException] {
-            Write-Verbose "$(Get-Date):   Collection Rule info not found"
+            Write-Verbose "$(Get-Date):   Collection Query Rule info not found"
         }
         try {
-            $IncludeRules = $OtherCollectionRules | where {$_.IncludeCollectionID} -ErrorAction SilentlyContinue
+            $IncludeRules = $DeviceCollection | Get-CMDeviceCollectionIncludeMembershipRule -ErrorAction SilentlyContinue
         }
         catch [System.Management.Automation.PropertyNotFoundException] {
-            Write-Verbose "$(Get-Date):   Collection Rule info not found"
+            Write-Verbose "$(Get-Date):   Collection Include Rule info not found"
+        }
+        try {
+            $ExcludeRules = $DeviceCollection | Get-CMDeviceCollectionExcludeMembershipRule -ErrorAction SilentlyContinue
+        }
+        catch [System.Management.Automation.PropertyNotFoundException] {
+            Write-Verbose "$(Get-Date):   Collection Include Rule info not found"
         }
 
         if (-not [string]::IsNullOrEmpty($QueryRules)) {
+            Write-HTMLParagraph -Level 4 -File $FilePath -Text '<b>Query Rule(s):</b>'
             $QueryRulesArray = @();
             foreach ($QueryRule in $QueryRules) {
                 $QueryRulesArray += New-Object -TypeName psobject -Property @{'Query Name'= $QueryRule.RuleName; 'Query Expression' = $($QueryRule.QueryExpression -replace ',',', ')}
@@ -3196,6 +3283,7 @@ if ($ListAllInformation)
             Write-HtmlTable -InputObject $QueryRulesArray -Border 1 -Level 5 -File $FilePath
         }
         if (-not [string]::IsNullOrEmpty($DirectRules)) {
+            Write-HTMLParagraph -Level 4 -File $FilePath -Text '<b>Direct Rule(s):</b>'
             $DirectRulesArray = @();
             foreach ($DirectRule in $DirectRules) {
                 $DirectRulesArray += New-Object -TypeName psobject -Property @{'Resource Name'= $DirectRule.RuleName; 'Resource ID' = $DirectRule.ResourceId}
@@ -3203,13 +3291,22 @@ if ($ListAllInformation)
             Write-HtmlTable -InputObject $DirectRulesArray -Border 1 -Level 5 -File $FilePath
         }
         if (-not [String]::IsNullOrEmpty($IncludeRules)) {
+            Write-HTMLParagraph -Level 4 -File $FilePath -Text '<b>Include Rule(s):</b>'
             $IncludeRulesArray = @()
             foreach ($IncludeRule in $IncludeRules) {
                 $IncludeRulesArray += New-Object -TypeName psobject -Property @{'Collection Name'= $IncludeRule.RuleName; 'Collection ID' = $IncludeRule.IncludeCollectionId}
             }
             Write-HtmlTable -InputObject $IncludeRulesArray -Border 1 -Level 5 -File $FilePath
         }
-        if (([String]::IsNullOrEmpty($IncludeRules)) -and ([string]::IsNullOrEmpty($DirectRules)) -and ([string]::IsNullOrEmpty($QueryRules))){
+        if (-not [String]::IsNullOrEmpty($ExcludeRules)) {
+            Write-HTMLParagraph -Level 4 -File $FilePath -Text '<b>Exclude Rule(s):</b>'
+            $ExcludeRulesArray = @()
+            foreach ($ExcludeRule in $ExcludeRules) {
+                $ExcludeRulesArray += New-Object -TypeName psobject -Property @{'Collection Name'= $ExcludeRule.RuleName; 'Collection ID' = $ExcludeRule.ExcludeCollectionId}
+            }
+            Write-HtmlTable -InputObject $ExcludeRulesArray -Border 1 -Level 5 -File $FilePath
+        }
+        if (([String]::IsNullOrEmpty($IncludeRules)) -and ([String]::IsNullOrEmpty($ExcludeRules)) -and ([string]::IsNullOrEmpty($DirectRules)) -and ([string]::IsNullOrEmpty($QueryRules))){
         Write-HTMLParagraph -Level 5 -File $FilePath -Text 'No collection membership rules defined.'
         }
     }
@@ -3578,7 +3675,7 @@ if (-not ($(Get-CMEndpointProtectionPoint) -eq $Null)){
                             Write-HTMLParagraph -Text "Description: $($AntiMalwarePolicy.Description)" -Level 4 -File $FilePath
                         }
                         If("$($AntiMalwarePolicy.AssignmentCount)" -gt 0){
-                            $APDeployments=Get-WmiObject -Query "SELECT * FROM SMS_ClientSettingsAssignment WHERE ClientSettingsID=$($AntiMalwarePolicy.SettingsID)" -Namespace ROOT\SMS\site_$SiteCode
+                            $APDeployments=Get-WmiObject -Query "SELECT * FROM SMS_ClientSettingsAssignment WHERE ClientSettingsID=$($AntiMalwarePolicy.SettingsID)" -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider
                             $APDeploymentArray = @()
                             foreach ($APD in $APDeployments){
                                 $CreationTime = [datetime]::ParseExact("$($APD.CreationTime.Split('.')[0])",'yyyyMMddHHmmss',$null)
@@ -3784,7 +3881,7 @@ if (-not ($(Get-CMEndpointProtectionPoint) -eq $Null)){
                             Write-HTMLParagraph -Text "Description: $($AntiMalwarePolicy.Description)" -Level 4 -File $FilePath
                         }
                         If("$($AntiMalwarePolicy.AssignmentCount)" -gt 0){
-                            $APDeployments=Get-WmiObject -Query "SELECT * FROM SMS_ClientSettingsAssignment WHERE ClientSettingsID=$($AntiMalwarePolicy.SettingsID)" -Namespace ROOT\SMS\site_$SiteCode
+                            $APDeployments=Get-WmiObject -Query "SELECT * FROM SMS_ClientSettingsAssignment WHERE ClientSettingsID=$($AntiMalwarePolicy.SettingsID)" -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider
                             $APDeploymentArray = @()
                             foreach ($APD in $APDeployments){
                                 $CreationTime = [datetime]::ParseExact("$($APD.CreationTime.Split('.')[0])",'yyyyMMddHHmmss',$null)
