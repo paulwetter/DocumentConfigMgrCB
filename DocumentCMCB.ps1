@@ -111,7 +111,10 @@ Param(
     [switch]$NoSqlDetail,
 
     [parameter(Mandatory=$False)] 
-    [switch]$MaskAccounts
+    [switch]$MaskAccounts,
+    
+    [parameter(Mandatory=$False,HelpMessage="CSS file path")]
+    [string] $StyleSheet = ""
 
 	)
 #endregion script parameters
@@ -420,18 +423,24 @@ Function Write-HTMLHeader{
     $Header += "<html>"
     $Header += "<Head>"
     $Header += "<Title>$Title</Title>"
-    $Header += "<Style>"
-    $Header += 'H1  {background-color:royalblue; border-top: 1px solid black;}'
-    $Header += 'H2	{margin-left:10px;background-color:steelblue; border-top: 1px solid black;}'
-    $Header += 'H3	{margin-left:20px;background-color:lightblue; border-top: 1px solid black;}'
-    $Header += 'H4	{margin-left:30px;background-color:lightsteelblue; border-top: 1px solid black;}'
-    $Header += 'H5	{margin-left:40px;background-color:lightcyan; border-top: 1px solid black;}'
-    $Header += 'H6	{margin-left:50px;background-color:lavender; border-top: 1px solid black;}'
-    $Header += ".pagebreak { page-break-before: always; }"
-    $Header += "TH  {background-color:LightBlue;padding: 3px; border: 2px solid black;}"
-    $Header += "TD  {padding: 3px; border: 1px solid black;}"
-    $Header += "TABLE	{border-collapse: collapse;}"
-    $Header += "</Style>"
+    # if custom stylesheet parameter is invoked, apply to output, otherwise use hard-coded style
+    if ($StyleSheet -ne "") {
+        $Header += "<link rel=`"stylesheet`" type=`"text/css`" href=`"$StyleSheet`" />"
+    }
+    else {
+ 	$Header += "<Style>"
+    	$Header += 'H1  {background-color:royalblue; border-top: 1px solid black;}'
+    	$Header += 'H2	{margin-left:10px;background-color:steelblue; border-top: 1px solid black;}'
+    	$Header += 'H3	{margin-left:20px;background-color:lightblue; border-top: 1px solid black;}'
+    	$Header += 'H4	{margin-left:30px;background-color:lightsteelblue; border-top: 1px solid black;}'
+    	$Header += 'H5	{margin-left:40px;background-color:lightcyan; border-top: 1px solid black;}'
+    	$Header += 'H6	{margin-left:50px;background-color:lavender; border-top: 1px solid black;}'
+    	$Header += ".pagebreak { page-break-before: always; }"
+    	$Header += "TH  {background-color:LightBlue;padding: 3px; border: 2px solid black;}"
+    	$Header += "TD  {padding: 3px; border: 1px solid black;}"
+    	$Header += "TABLE	{border-collapse: collapse;}"
+    	$Header += "</Style>"
+    }
     $Header += "</Head>"
     $Header += "<Body>"
     If ($File) {IF (Test-Path -Path $File) {Remove-Item -Path $File -Force}}
