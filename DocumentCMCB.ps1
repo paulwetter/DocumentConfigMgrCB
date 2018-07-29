@@ -61,10 +61,10 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.29
+	VERSION: 3.30
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
-	LASTEDIT: July 25, 2018
+	LASTEDIT: July 29, 2018
 #>
 
 #endregion
@@ -116,13 +116,14 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.29
+$DocumenationScriptVersion = 3.30
 
 
 $CMPSSuppressFastNotUsedCheck = $true
 $Global:DocTOC = @()
 $ScriptStartTime = Get-date
 Write-host "Beginning Execution of version $DocumenationScriptVersion at: $($ScriptStartTime.ToShortTimeString())"
+Write-Verbose "Beginning Execution of version $DocumenationScriptVersion at: $($ScriptStartTime.ToShortTimeString())"
 
 #region HTML Writing Functions
 Function Write-HtmlTable{
