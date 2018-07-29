@@ -1424,8 +1424,8 @@ foreach ($CMSite in $CMSites)
   Write-Verbose "$(Get-Date):   Enumerating all Software Update Points"
   Write-HTMLHeading -Text "Software Update Point Servers for Site $($CMSite.SiteCode)" -Level 3 -File $FilePath
   Write-HTMLParagraph -Text "Below is the basic configuration and settings for each software update point in the site." -Level 4 -File $FilePath
-  Write-Verbose "Get-WmiObject -Class sms_sci_sysresuse -Namespace root\sms\site_$($CMSite.SiteCode) -ComputerName $CMMPServerName | Where-Object {$_.rolename -eq `'SMS Software Update Point`'}"
-  $CMSUPs = Get-WmiObject -Class sms_sci_sysresuse -Namespace root\sms\site_$($CMSite.SiteCode) -ComputerName $CMMPServerName | Where-Object {$_.rolename -eq 'SMS Software Update Point'}
+  Write-Verbose "Get-WmiObject -Class sms_sci_sysresuse -Namespace root\sms\site_$($CMSite.SiteCode) -ComputerName $SMSProvider | Where-Object {$_.rolename -eq `'SMS Software Update Point`'}"
+  $CMSUPs = Get-WmiObject -Class sms_sci_sysresuse -Namespace root\sms\site_$($CMSite.SiteCode) -ComputerName $SMSProvider | Where-Object {$_.rolename -eq 'SMS Software Update Point'}
   #$CMSUPs = (Get-CMSoftwareUpdatePoint).Where({$_.SiteCode -eq "$($CMSite.SiteCode)"})
   if (-not [string]::IsNullOrEmpty($CMSUPs))
   {
@@ -4867,12 +4867,28 @@ if ($ListAllInformation){
         Write-HTMLParagraph -Level 3 -Text 'The following Task Sequences are configured:' -File $FilePath
         $TSList =@()
         foreach ($TaskSequence in $TaskSequences){
-            $OSImage = $TaskSequence.References.Package|foreach {(Get-CMOperatingSystemImage -id $_).Name}
-            $BootImage = $TaskSequence.References.Package|foreach {(Get-CMBootImage -id $_).Name} 
+            $OSImages = Get-CMOperatingSystemImage
+            If([string]::IsNullOrEmpty($TSRefs) -or [string]::IsNullOrEmpty($OSImages)){
+                $TSOSImage="None"
+            }else{
+                foreach ($Ref in $TSRefs){
+                    If($Ref -in $OSImages.PackageID){
+                        Write-Verbose "$(Get-Date):   (Get-CMOperatingSystemImage -id $($Ref)).Name"
+                        $TSOSImage = (Get-CMOperatingSystemImage -id $Ref).Name
+                    }
+                }
+            }
+            If([string]::IsNullOrEmpty($TSOSImage)){$TSOSImage="None"}
+            Write-Verbose "$(Get-Date):   Task Sequence Operating System Image: $TSOSImage"
+            $TSBootImage = $TaskSequence.BootImageID
+            If([string]::IsNullOrEmpty($TSBootImage)){
+                $BootImage = "None"
+            }else{
+                $BootImage = (Get-CMBootImage -id $TSBootImage -ErrorAction Ignore).Name
+            }
+            Write-Verbose "$(Get-Date):   Task Sequence Boot Image: $BootImage"
             $TSName = "$($TaskSequence.Name)"
-            If([string]::IsNullOrEmpty($OSImage)){$OSImage="None"}
-            If([string]::IsNullOrEmpty($BootImage)){$BootImage="None"}
-            $TSList += New-Object -TypeName PSObject -Property @{'Name'="$TSName";'Operating System Image'="$OSImage";'Boot Image'="$BootImage"}
+            $TSList += New-Object -TypeName PSObject -Property @{'Name'="$TSName";'Operating System Image'="$TSOSImage";'Boot Image'="$BootImage"}
         }
         $TSList = $TSList | Select-Object 'Name','Operating System Image','Boot Image'
         Write-HtmlTable -InputObject $TSList -Level 3 -File $FilePath
