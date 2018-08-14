@@ -61,10 +61,10 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.30
+	VERSION: 3.31
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
-	LASTEDIT: July 29, 2018
+	LASTEDIT: August 13, 2018
 #>
 
 #endregion
@@ -1135,18 +1135,69 @@ foreach ($CMSite in $CMSites)
   Write-HtmlTable -InputObject $SiteRolesTable -Border 1 -Level 2 -File $FilePath
   Write-HtmliLink -ReturnTOC -File $FilePath
 
+  #region SiteMaintenanceTasks
   $SiteMaintenanceTaskTable = @()
-  $SiteMaintenanceTasks = Get-CMSiteMaintenanceTask -SiteCode $CMSite.SiteCode
+  $DaysOfWeek = @{
+    7='Sunday';
+    6='Monday';
+    5='Tuesday';
+    4='Wednesday';
+    3='Thursday';
+    2='Friday';
+    1='Saturday'
+  }
+
+  # Use WMI instead of cmdlet because WMI is more accurate and easy to use
+  #$SiteMaintenanceTasks = Get-CMSiteMaintenanceTask -SiteCode $CMSite.SiteCode
+  $SiteMaintenanceTasks = Get-WmiObject -Namespace "root\sms\site_$SiteCode" -Query "Select * from SMS_SCI_SQLTask" -ComputerName $SMSProvider
   Write-HTMLHeading -Text "Site Maintenance Tasks for Site $($CMSite.SiteCode)" -Level 2 -File $FilePath
   
   foreach ($SiteMaintenanceTask in $SiteMaintenanceTasks) {
-    $SiteMaintenanceTaskRowHash = New-Object -TypeName PSObject -Property @{'Task Name' = $SiteMaintenanceTask.TaskName; Enabled = $SiteMaintenanceTask.Enabled};
+    $DeleteOlderThan = ""
+    $BeginTime = ""
+    $LatestBeginTime = ""
+    $ScheduleTask = ""
+    $OtherDetails = ""
+
+    If ($SiteMaintenanceTask.Enabled) {
+        # Convert to binary DaysOfWeek integer
+        # 1=Sunday, 2=Monday, 4=Tuesday, 8=Wednesday, 16=Thursday, 32=Friday, 64=Saturday
+        # Example 1: DaysOfWeek = 64 -> 01000000 -> Display Saturday
+        # Example 2: DaysOfWeek = 68 -> 01000100 -> Display Tuesday + Saturday
+        $DaysToBinary = "{0:d8}" -f [Int32]([convert]::ToString($SiteMaintenanceTask.DaysOfWeek, 2))
+        $DaysToDisplay = @()
+        For ($i=$DaysToBinary.Length; $i -gt 0; $i--) {
+            If ($DaysToBinary[$i] -eq '1') {
+                $DaysToDisplay += @($DaysOfWeek[$i])
+            }
+        }
+        $ScheduleTask = ($DaysToDisplay -join ", ")
+    
+        If ($SiteMaintenanceTask.DeleteOlderThan -eq 0) { $DeleteOlderThan = "Not Applicable" }
+        Else { $DeleteOlderThan = "$($SiteMaintenanceTask.DeleteOlderThan) days" }
+
+        $BeginTime = ($SiteMaintenanceTask.BeginTime).Substring(8,2)+":"+($SiteMaintenanceTask.BeginTime).substring(10,2)
+        $LatestBeginTime = ($SiteMaintenanceTask.LatestBeginTime).Substring(8,2)+":"+($SiteMaintenanceTask.LatestBeginTime).substring(10,2)
+
+        $OtherDetails = "$($SiteMaintenanceTask.DeviceName)"
+    }
+
+    $SiteMaintenanceTaskRowHash = New-Object -TypeName PSObject -Property @{
+        'Task Name' = $SiteMaintenanceTask.TaskName;
+        'Enabled' = $SiteMaintenanceTask.Enabled;
+        'Delete older than' = $DeleteOlderThan;
+        'Start after' = $BeginTime;
+        'Latest start' = $LatestBeginTime;
+        'Schedule' = $ScheduleTask;
+        'Other details' = $OtherDetails
+    }
     $SiteMaintenanceTaskTable += $SiteMaintenanceTaskRowHash;
   }
 
-  $SiteMaintenanceTaskTable = $SiteMaintenanceTaskTable|Select 'Task Name',Enabled
+  $SiteMaintenanceTaskTable = $SiteMaintenanceTaskTable | Sort-Object -Property 'Task Name' | Select 'Task Name', 'Enabled', 'Delete older than', 'Start after', 'Latest start', 'Schedule', 'Other details'
   Write-HtmlTable -InputObject $SiteMaintenanceTaskTable -Border 1 -Level 2 -File $FilePath
   Write-HtmliLink -ReturnTOC -File $FilePath
+  #endregion SiteMaintenanceTasks
   
   #region Site SQL Info
   Write-Verbose "$(Get-Date):   Getting site SQL server and database information."
