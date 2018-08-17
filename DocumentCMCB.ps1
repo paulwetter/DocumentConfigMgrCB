@@ -64,7 +64,7 @@
 	VERSION: 3.32
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
-    CONTRIBUTOR: Florian Valente (BlackCatDeployment)
+    	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
 	LASTEDIT: August 17, 2018
 #>
 
@@ -1696,16 +1696,6 @@ foreach ($CMSite in $CMSites)
 
   #region SiteMaintenanceTasks
   $SiteMaintenanceTaskTable = @()
-  $DaysOfWeek = @{
-    7='Sunday';
-    6='Monday';
-    5='Tuesday';
-    4='Wednesday';
-    3='Thursday';
-    2='Friday';
-    1='Saturday'
-  }
-
   # Use WMI instead of cmdlet because WMI is more accurate and easy to use
   #$SiteMaintenanceTasks = Get-CMSiteMaintenanceTask -SiteCode $CMSite.SiteCode
   $SiteMaintenanceTasks = Get-WmiObject -Namespace "root\sms\site_$SiteCode" -Query "Select * from SMS_SCI_SQLTask" -ComputerName $SMSProvider
@@ -1727,7 +1717,7 @@ foreach ($CMSite in $CMSites)
         $DaysToDisplay = @()
         For ($i=$DaysToBinary.Length; $i -gt 0; $i--) {
             If ($DaysToBinary[$i] -eq '1') {
-                $DaysToDisplay += @($DaysOfWeek[$i])
+                $DaysToDisplay += @(Convert-WeekDay ($DaysToBinary.Length-$i))
             }
         }
         $ScheduleTask = ($DaysToDisplay -join ", ")
