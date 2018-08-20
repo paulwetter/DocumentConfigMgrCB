@@ -61,11 +61,11 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.32
+	VERSION: 3.33
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: August 17, 2018
+	LASTEDIT: August 20, 2018
 #>
 
 #endregion
@@ -1811,6 +1811,10 @@ foreach ($CMSite in $CMSites)
           $SQLConfig = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -Query "SELECT name ServerSetting,value_in_use Value FROM sys.configurations where configuration_id = 1543 OR configuration_id = 1544 OR configuration_id = 1539"
           $SQLConfig = $SQLConfig | Select @{Name='Server Setting';Expression={$_.ServerSetting}},Value
           Write-HtmlTable -InputObject $SQLConfig -Border 1 -Level 3 -File $FilePath
+          Write-HTMLParagraph -Text "Site database information:" -Level 2 -File $FilePath
+          $DatabaseInfo = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -Query "SELECT name, compatibility_level, collation_name FROM sys.Databases WHERE name='$CMDatabase'"
+          $DatabaseInfo = $DatabaseInfo | Select @{Name='Database Name';Expression={$_.name}},@{Name='Compatibility Level';Expression={$_.compatibility_level}},@{Name='Collation';Expression={$_.collation_name}}
+          Write-HtmlTable -InputObject $DatabaseInfo -Border 1 -Level 3 -File $FilePath
           Write-HTMLParagraph -Text "Below are the database files for the site database ($CMDatabase):" -Level 2 -File $FilePath
           $DatabaseFiles = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -Query "SELECT db.name `'DatabaseName`',type_desc `'FileType`',physical_name `'FilePath`',mf.state_desc `'Status`',size*8/1024 `'FileSizeMB`',max_size `'MaximumSize`',growth `'GrowthRate`',(CASE WHEN is_percent_growth = 1 THEN `'Percent`' ELSE `'MB`' END) `'GrowthUnit`',create_date `'DateCreated`',compatibility_level `'DBLevel`',user_access_desc `'AccessMode`',recovery_model_desc `'RecoveryModel`' FROM sys.master_files mf INNER JOIN sys.databases db ON db.database_id = mf.database_id where db.name = `'$CMDatabase`'"
           $DatabaseFiles = $DatabaseFiles | Select @{Name='File Type';Expression={$_.FileType}},@{Name='File Path';Expression={$_.FilePath}},Status,@{Name='File Size MB';Expression={'{0:N0}' -f $_.FileSizeMB}},@{Name='Maximum Size';Expression={$(IF($_.MaximumSize -eq -1){"Unlimited"}else{'{0:N0}' -f ($_.MaximumSize/128)})}},@{Name='Growth Rate';Expression={"$(IF($_.GrowthUnit -eq "Percent"){"$($_.GrowthRate)%"}Else{"$($_.GrowthRate/128)MB"})"}},@{Name='Recovery Model';Expression={$_.RecoveryModel}}
