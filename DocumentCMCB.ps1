@@ -117,7 +117,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.32
+$DocumenationScriptVersion = 3.33
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -1130,6 +1130,7 @@ foreach ($CMSite in $CMSites)
   #endregion Site Features
 
   #region SiteRoles
+If ($ListAllInformation){
   $SiteRolesTable = @()  
   $SiteRoles = Get-CMSiteRole -SiteCode $CMSite.SiteCode
 
@@ -1690,6 +1691,19 @@ foreach ($CMSite in $CMSites)
     $SiteRolesTable += $SiteRoleobject
   }
   $SiteRolesTable = $SiteRolesTable | Sort-Object -Property 'Server Name', 'Role' | Select 'Server Name', 'Role', 'Properties'
+}else{
+  $SiteRolesTable = @()  
+  $SiteRoles = Get-CMSiteRole -SiteCode $CMSite.SiteCode | Select-Object -Property NALPath, rolename
+
+  Write-HTMLHeading -Text "Site Roles" -Level 2 -File $FilePath
+  Write-HTMLParagraph  -Text "The following Site Roles are installed in this site:" -Level 2 -File $FilePath
+  foreach ($SiteRole in $SiteRoles) {
+    if (-not (($SiteRole.rolename -eq 'SMS Component Server') -or ($SiteRole.rolename -eq 'SMS Site System'))) {
+        $SiteRoleobject = New-Object -TypeName PSObject -Property @{'Server Name' = ($SiteRole.NALPath).ToString().Split('\\')[2]; 'Role' = $SiteRole.RoleName}
+        $SiteRolesTable += $SiteRoleobject
+    }
+  }
+}
   Write-HtmlTable -InputObject $SiteRolesTable -Border 1 -Level 2 -File $FilePath
   Write-HtmliLink -ReturnTOC -File $FilePath
   #endregion SiteRoles
@@ -1698,6 +1712,7 @@ foreach ($CMSite in $CMSites)
   $SiteMaintenanceTaskTable = @()
   # Use WMI instead of cmdlet because WMI is more accurate and easy to use
   #$SiteMaintenanceTasks = Get-CMSiteMaintenanceTask -SiteCode $CMSite.SiteCode
+if ($ListAllInformation){
   $SiteMaintenanceTasks = Get-WmiObject -Namespace "root\sms\site_$SiteCode" -Query "Select * from SMS_SCI_SQLTask" -ComputerName $SMSProvider
   Write-HTMLHeading -Text "Site Maintenance Tasks for Site $($CMSite.SiteCode)" -Level 2 -File $FilePath
   
@@ -1744,6 +1759,17 @@ foreach ($CMSite in $CMSites)
   }
 
   $SiteMaintenanceTaskTable = $SiteMaintenanceTaskTable | Sort-Object -Property 'Task Name' | Select 'Task Name', 'Enabled', 'Delete older than', 'Start after', 'Latest start', 'Schedule', 'Other details'
+}else{
+  $SiteMaintenanceTasks = Get-CMSiteMaintenanceTask -SiteCode $CMSite.SiteCode
+  Write-HTMLHeading -Text "Site Maintenance Tasks for Site $($CMSite.SiteCode)" -Level 2 -File $FilePath
+  
+  foreach ($SiteMaintenanceTask in $SiteMaintenanceTasks) {
+    $SiteMaintenanceTaskRowHash = New-Object -TypeName PSObject -Property @{'Task Name' = $SiteMaintenanceTask.TaskName; Enabled = $SiteMaintenanceTask.Enabled};
+    $SiteMaintenanceTaskTable += $SiteMaintenanceTaskRowHash;
+  }
+
+  $SiteMaintenanceTaskTable = $SiteMaintenanceTaskTable|Select 'Task Name',Enabled
+}
   Write-HtmlTable -InputObject $SiteMaintenanceTaskTable -Border 1 -Level 2 -File $FilePath
   Write-HtmliLink -ReturnTOC -File $FilePath
   #endregion SiteMaintenanceTasks
