@@ -65,7 +65,7 @@
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: August 20, 2018
+	LASTEDIT: November 6, 2018
 #>
 
 #endregion
