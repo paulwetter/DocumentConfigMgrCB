@@ -61,11 +61,11 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.33
+	VERSION: 3.35
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: August 20, 2018
+	LASTEDIT: November 6, 2018
 #>
 
 #endregion
@@ -117,7 +117,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.33
+$DocumenationScriptVersion = 3.35
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -864,6 +864,142 @@ Function Get-SiteCode
   return $SiteCode
 }
 
+#small funtion that will convert utc time to local time, and ignore daylight savings time.
+function Convert-UTCtoLocal{
+    param(
+        [parameter(Mandatory=$true)]
+        [String]$UTCTimeString,
+        [parameter(Mandatory=$false)]
+        [Switch]$RespectDST
+    )
+    $UTCTime = ($UTCTimeString.Split('.'))[0]
+    $dt = ([datetime]::ParseExact($UTCTime,'yyyyMMddhhmmss',$null))
+    if ($RespectDST){
+        $strCurrentTimeZone = (Get-WmiObject win32_timezone).StandardName
+        $TZ = [System.TimeZoneInfo]::FindSystemTimeZoneById($strCurrentTimeZone)
+        [System.TimeZoneInfo]::ConvertTimeFromUtc($dt, $TZ)
+    }else{
+        $dt+([System.TimeZoneInfo]::Local).BaseUtcOffset
+    }
+}
+
+##Recursively processes through all the conditions in a task sequence step.
+function Process-TSConditions{
+    param ($condition,$Level = 0)
+    $prefix = ""
+    for ($x=0; $x -lt $Level; $x++){$prefix="--TAB--" + $prefix}
+    If($condition.osConditionGroup){
+        $OSCondition = $condition.osConditionGroup.osExpressionGroup.name -join ", $($condition.osConditionGroup.type) "
+        "$($prefix)Operating System Equals: $OSCondition"
+    }
+    If($condition.expression){
+        $expressions = $condition.expression
+        foreach ($expression in $expressions){
+            #$expression
+            switch ($expression.type){
+                'SMS_TaskSequence_WMIConditionExpression' {
+                    foreach ($pair in $expression.variable){
+                        if ($pair.name -eq 'Query'){
+                            if ($pair.'#text' -like 'SELECT OsLanguage FROM Win32_OperatingSystem WHERE OsLanguage*'){
+                                $lang=[int](($pair.'#text').Split('='))[1].Trim("`'")
+                                "$($prefix)Operating System Language: $(([System.Globalization.Cultureinfo]::GetCultureInfo($lang)).DisplayName) ($lang)"
+                            }else{
+                                "$($prefix)WMI Query: " + $pair.'#text'
+                            }
+                        }
+                    }
+                }
+                'SMS_TaskSequence_VariableConditionExpression'{
+                    foreach ($pair in $expression.variable){
+                        if ($pair.name -eq 'Operator'){
+                            $ExpOperator = $pair.'#text'
+                        }
+                        if ($pair.name -eq 'Value'){
+                            $ExpValue = $pair.'#text'
+                        }
+                        if ($pair.name -eq 'Variable'){
+                            $ExpVariable = $pair.'#text'
+                        }
+                    }
+                    "$($prefix)Task Sequence Variable: $ExpVariable $ExpOperator $ExpValue"
+                }
+                'SMS_TaskSequence_FileConditionExpression'{
+                    If(('Path' -in ($expression.variable).name) -and ('DateTimeOperator' -notin ($expression.variable).name) -and ('VersionOperator' -notin ($expression.variable).name)){
+                        "$($prefix)File Exists: " + ($expression.variable).'#text'
+                    }else{
+                        foreach ($pair in $expression.variable){
+                            switch ($pair.name){
+                                'DateTime'{$FileDate = Convert-UTCtoLocal($pair.'#text')}
+                                'DateTimeOperator'{$FileDateOperator = $pair.'#text'}
+                                'Path'{$FilePath = $pair.'#text'}
+                                'Version'{$FileVersion = $pair.'#text'}
+                                'VersionOperator'{$FileVersionOperator = $pair.'#text'}
+                            }
+                        }
+                        #'DateTimeOperator' -in ($expression.variable).name
+                        #'VersionOperator' -in ($expression.variable).name
+                        "$($prefix)File: $FilePath     File Version: $FileVersionOperator $FileVersion     File Date: $FileDateOperator $FileDate"
+                    }
+                }
+                'SMS_TaskSequence_FolderConditionExpression'{
+                    If(('Path' -in ($expression.variable).name) -and ('DateTimeOperator' -notin ($expression.variable).name)){
+                        "$($prefix)Folder Exists: " + ($expression.variable).'#text'
+                    }else{
+                        foreach ($pair in $expression.variable){
+                            switch ($pair.name){
+                                'DateTime'{$FolderDate = Convert-UTCtoLocal($pair.'#text')}
+                                'DateTimeOperator'{$FolderDateOperator = $pair.'#text'}
+                                'Path'{$FolderPath = $pair.'#text'}
+                            }
+                        }
+                        #'DateTimeOperator' -in ($expression.variable).name
+                        #'VersionOperator' -in ($expression.variable).name
+                        "$($prefix)Folder: $FolderPath     Folder Date: $FolderDateOperator $FolderDate"
+                    }
+                }
+                'SMS_TaskSequence_RegistryConditionExpression'{
+                    foreach ($pair in $expression.variable){
+                        Switch ($pair.name){
+                            'Operator'{$RegOperator = $pair.'#text'}
+                            'KeyPath'{$RegKeyPath = $pair.'#text'}
+                            'Data'{$RegData = $pair.'#text'}
+                            'Value'{$RegValue = $pair.'#text'}
+                            'Type'{$RegType = $pair.'#text'}
+                        }
+                    }
+                    "$($prefix)Registry Value: $RegKeyPath $RegValue ($RegType) $RegOperator $RegData"
+                }
+                'SMS_TaskSequence_SoftwareConditionExpression'{
+                    foreach ($pair in $expression.variable){
+                        Switch ($pair.name){
+                            'Operator'{$AppOperator = $pair.'#text'}
+                            'ProductCode'{$AppProductCode = $pair.'#text'}
+                            'ProductName'{$AppProductName = $pair.'#text'}
+                            'UpgradeCode'{$AppUpgradeCode = $pair.'#text'}
+                            'Version'{$AppVersion = $pair.'#text'}
+                        }
+                    }
+                    If ($AppOperator -eq 'AnyVersion'){
+                        "$($prefix)Installed Software: Any Version of `"$AppProductName`""
+                    }else{
+                        "$($prefix)Installed Software: Exact Version of `"$AppProductName`", Version: $AppVersion, Product Code: $AppProductCode"
+                    }
+                }
+            }
+        }
+    }
+    If($condition.operator){
+        Switch($condition.operator.type){
+        'or'{"$($prefix)-If any of these conditions are true"}
+        'and'{"$($prefix)-If all of these conditions are true"}
+        'not'{"$($prefix)-If none of these conditions are true"}
+        }
+        $Level = $Level + 1
+        Process-TSConditions -condition $condition.operator -Level $Level
+    }
+}
+
+
 ##Recursively processes through all the steps in a task sequence
 Function Process-TSSteps{
     param ($Sequence,$GroupName)
@@ -873,6 +1009,9 @@ Function Process-TSSteps{
                 if (-not [string]::IsNullOrEmpty($node.Description)){
                     $StepDescription = "$($node.Description)"
                 }
+                if ($node.condition){
+                    $Conditions=(Process-TSConditions -condition $node.condition) -join "--CRLF--"
+                }
                 try {
                         if (-not [string]::IsNullOrEmpty($node.disable)){
                             $StepStatus = 'Disabled'
@@ -883,17 +1022,64 @@ Function Process-TSSteps{
                 catch [System.Management.Automation.PropertyNotFoundException] {
                     $StepStatus = 'Enabled'
                 }
+                If ($node.continueOnError -eq "true"){
+                    $StepContinueError = "Yes"
+                }else{
+                    $StepContinueError = "No"
+                }
                 if($GroupName){
                     #"$($GroupName):  $($node.name) $($node.action)"
-                    $TSStep = New-Object -TypeName psobject -Property @{'Group Name'="$GroupName";'Step Name'="$($node.Name)";'Description'="$StepDescription";'Action'="$($node.Action)";'Status'="$StepStatus"}
+                    $TSStep = New-Object -TypeName psobject -Property @{'Group Name'="$GroupName";'Step Name'="$($node.Name)";'Description'="$StepDescription";'Action'="$($node.Action)";'Continue on Error'="$StepContinueError";'Status'="$StepStatus";'Conditions'="$Conditions"}
                 }else{
-                    $TSStep = New-Object -TypeName psobject -Property @{'Group Name'="N/A";'Step Name'="$($node.Name)";'Description'="$StepDescription";'Action'="$($node.Action)";'Status'="$StepStatus"}
+                    $TSStep = New-Object -TypeName psobject -Property @{'Group Name'="N/A";'Step Name'="$($node.Name)";'Description'="$StepDescription";'Action'="$($node.Action)";'Continue on Error'="$StepContinueError";'Status'="$StepStatus";'Conditions'="$Conditions"}
                     #"$($node.name) $($node.action)"
                 }
+                Remove-Variable Conditions -ErrorAction Ignore
+                $TSStep
+            }
+            'subtasksequence'{
+                foreach ($item in $node.defaultVarList.variable){
+                    Switch ($item.property){
+                        'TsName'{$NestTSName = $item.'#text'}
+                        'TsPackageID'{$NestTSPackage = $item.'#text'}
+                    }
+                }
+                if (-not [string]::IsNullOrEmpty($node.Description)){
+                    $StepDescription = "$($node.Description)"
+                }
+                if ($node.condition){
+                    $Conditions=(Process-TSConditions -condition $node.condition) -join "--CRLF--"
+                }
+                try {
+                        if (-not [string]::IsNullOrEmpty($node.disable)){
+                            $StepStatus = 'Disabled'
+                        }else{
+                            $StepStatus = 'Enabled'
+                        }
+                    }   
+                catch [System.Management.Automation.PropertyNotFoundException] {
+                    $StepStatus = 'Enabled'
+                }
+                If ($node.continueOnError -eq "true"){
+                    $StepContinueError = "Yes"
+                }else{
+                    $StepContinueError = "No"
+                }
+                if($GroupName){
+                    #"$($GroupName):  $($node.name) $($node.action)"
+                    $TSStep = New-Object -TypeName psobject -Property @{'Group Name'="$GroupName";'Step Name'="$($node.Name)";'Description'="$StepDescription";'Action'="Run Task Sequence ($($node.Action)):--CRLF--$NestTSName ($NestTSPackage)";'Continue on Error'="$StepContinueError";'Status'="$StepStatus";'Conditions'="$Conditions"}
+                }else{
+                    $TSStep = New-Object -TypeName psobject -Property @{'Group Name'="N/A";'Step Name'="$($node.Name)";'Description'="$StepDescription";'Action'="Run Task Sequence ($($node.Action)):--CRLF--$NestTSName ($NestTSPackage)";'Continue on Error'="$StepContinueError";'Status'="$StepStatus";'Conditions'="$Conditions"}
+                    #"$($node.name) $($node.action)"
+                }
+                Remove-Variable Conditions -ErrorAction Ignore
                 $TSStep
             }
             'group'{
                 $TSStepNumber++
+                if ($node.condition){
+                    $Conditions=(Process-TSConditions -condition $node.condition) -join "--CRLF--"
+                }
                 if (-not [string]::IsNullOrEmpty($node.Description)){
                     $StepDescription = "$($node.Description)"
                 }
@@ -907,8 +1093,14 @@ Function Process-TSSteps{
                 catch [System.Management.Automation.PropertyNotFoundException] {
                     $StepStatus = 'Enabled'
                 }
+                If ($node.continueOnError -eq "true"){
+                    $StepContinueError = "Yes"
+                }else{
+                    $StepContinueError = "No"
+                }
                 #"Group: $($node.Name)"
-                $TSStep = New-Object -TypeName psobject -Property @{'Group Name'="$($node.Name)";'Step Name'="N/A";'Description'="$StepDescription";'Action'="N/A";'Status'="$StepStatus"}
+                $TSStep = New-Object -TypeName psobject -Property @{'Group Name'="$($node.Name)";'Step Name'="N/A";'Description'="$StepDescription";'Action'="N/A";'Continue on Error'="$StepContinueError";'Status'="$StepStatus";'Conditions'="$Conditions"}
+                Remove-Variable Conditions -ErrorAction Ignore
                 $TSStep
                 Process-TSSteps -Sequence $node -GroupName "$($node.Name)" -TSSteps $TSSteps -StepCounter $TSStepNumber
             }
@@ -5485,7 +5677,7 @@ if ($ListAllInformation){
                 $AllSteps = Process-TSSteps -Sequence $Sequence
                 $c = 0
                 foreach ($Step in $AllSteps){$c++;$Step|Add-Member -MemberType NoteProperty -Name 'Step' -Value $c}
-                $AllSteps = $AllSteps |Select-Object 'Step','Group Name','Step Name','Description','Action','Status'
+                $AllSteps = $AllSteps |Select-Object 'Step','Group Name','Step Name','Description','Action','Status','Continue on Error','Conditions'
                 Write-HtmlTable -InputObject $AllSteps -Border 1 -Level 6 -File $FilePath
                 Remove-Variable TSOSImage -ErrorAction Ignore
                 Remove-Variable BootImage -ErrorAction Ignore
@@ -5762,26 +5954,29 @@ if (-not [string]::IsNullOrEmpty($ScriptFeature)){
                 Write-Verbose "$(Get-Date):   Working on detailed script information"
                 #Detailed Script Information
                 foreach ($Script in $CMScripts){
-                    #Get details of each script here
-                    $ScriptList = @()
-                    $Script.Get()
-                    Switch($script.ApprovalState){
-                        0{$Approval = "Waiting for Approval"}
-                        1{$Approval = "Declined"}
-                        3{$Approval = "Approved"}
-                        default{$Approval = "Unknown"}
+                    #Exclude scripts with feature set to 1. These are system scripts like CMPivot.
+                    if (($Script.Feature -ne 1)){
+                        #Get details of each script here
+                        $ScriptList = @()
+                        $Script.Get()
+                        Switch($script.ApprovalState){
+                            0{$Approval = "Waiting for Approval"}
+                            1{$Approval = "Declined"}
+                            3{$Approval = "Approved"}
+                            default{$Approval = "Unknown"}
+                        }
+                        $UpdateTime = [Management.ManagementDateTimeConverter]::ToDateTime($Script.LastUpdateTime)
+                        Write-HTMLHeading -Level 3 -Text "$($Script.ScriptName)" -File $FilePath
+                        #$ScriptTitle = "$($Script.ScriptName)"
+                        $ScriptList += "Author: $($Script.Author)"
+                        $ScriptList += "Approved By: $($Script.Approver)"
+                        $ScriptList += "Approval State: $Approval"
+                        $ScriptList += "Last Updated: $UpdateTime"
+                        #Write-HtmlList -Title $ScriptTitle -InputObject $ScriptList -Level 3 -File $FilePath
+                        Write-HtmlList -InputObject $ScriptList -Level 3 -File $FilePath
+                        $ScriptText = ([System.Text.Encoding]::unicode.GetString([System.Convert]::FromBase64String($($Script.Script)))).Substring(1)
+                        Write-HTMLParagraph -Text "<B>Script Contents:</B><pre style=`"margin-left:60px; background-color:#eeeeee;`">$ScriptText</pre>" -Level 4 -File $FilePath
                     }
-                    $UpdateTime = [Management.ManagementDateTimeConverter]::ToDateTime($Script.LastUpdateTime)
-                    Write-HTMLHeading -Level 3 -Text "$($Script.ScriptName)" -File $FilePath
-                    #$ScriptTitle = "$($Script.ScriptName)"
-                    $ScriptList += "Author: $($Script.Author)"
-                    $ScriptList += "Approved By: $($Script.Approver)"
-                    $ScriptList += "Approval State: $Approval"
-                    $ScriptList += "Last Updated: $UpdateTime"
-                    #Write-HtmlList -Title $ScriptTitle -InputObject $ScriptList -Level 3 -File $FilePath
-                    Write-HtmlList -InputObject $ScriptList -Level 3 -File $FilePath
-                    $ScriptText = ([System.Text.Encoding]::unicode.GetString([System.Convert]::FromBase64String($($Script.Script)))).Substring(1)
-                    Write-HTMLParagraph -Text "<B>Script Contents:</B><pre style=`"margin-left:60px; background-color:#eeeeee;`">$ScriptText</pre>" -Level 4 -File $FilePath
                 }
             }Else{
                 $Scripts = @()
@@ -5793,7 +5988,9 @@ if (-not [string]::IsNullOrEmpty($ScriptFeature)){
                         default{$Approval = "Unknown"}
                     }
                     $UpdateTime = [Management.ManagementDateTimeConverter]::ToDateTime($Script.LastUpdateTime)
-                    $Scripts += New-Object -TypeName PSObject -Property @{'Script Name'="$($Script.ScriptName)";'Author'="$($Script.Author)";'Approver'=$($Script.Approver);'Approval State'="$Approval";'Last Update Time' = "$UpdateTime"}
+                    if (($Script.Feature -ne 1)){
+                        $Scripts += New-Object -TypeName PSObject -Property @{'Script Name'="$($Script.ScriptName)";'Author'="$($Script.Author)";'Approver'=$($Script.Approver);'Approval State'="$Approval";'Last Update Time' = "$UpdateTime"}
+                    }
                 }
                 $Scripts = $Scripts | Select-Object 'Script Name','Author','Approver','Approval State','Last Update Time'
                 Write-HtmlTable -InputObject $Scripts -Border 1 -Level 3 -File $FilePath
