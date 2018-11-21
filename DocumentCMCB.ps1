@@ -61,11 +61,11 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.35
+	VERSION: 3.36
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: August 20, 2018
+	LASTEDIT: November 20, 2018
 #>
 
 #endregion
@@ -117,7 +117,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.35
+$DocumenationScriptVersion = 3.36
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -891,6 +891,7 @@ function Process-TSConditions{
     If($condition.osConditionGroup){
         $OSCondition = $condition.osConditionGroup.osExpressionGroup.name -join ", $($condition.osConditionGroup.type) "
         "$($prefix)Operating System Equals: $OSCondition"
+        Remove-Variable OSCondition -ErrorAction Ignore
     }
     If($condition.expression){
         $expressions = $condition.expression
@@ -922,6 +923,7 @@ function Process-TSConditions{
                         }
                     }
                     "$($prefix)Task Sequence Variable: $ExpVariable $ExpOperator $ExpValue"
+                    Remove-Variable ExpVariable,ExpOperator,ExpValue -ErrorAction Ignore
                 }
                 'SMS_TaskSequence_FileConditionExpression'{
                     If(('Path' -in ($expression.variable).name) -and ('DateTimeOperator' -notin ($expression.variable).name) -and ('VersionOperator' -notin ($expression.variable).name)){
@@ -939,6 +941,7 @@ function Process-TSConditions{
                         #'DateTimeOperator' -in ($expression.variable).name
                         #'VersionOperator' -in ($expression.variable).name
                         "$($prefix)File: $FilePath     File Version: $FileVersionOperator $FileVersion     File Date: $FileDateOperator $FileDate"
+                        Remove-Variable FileDate,FileDateOperator,FilePath,FileVersion,FileVersionOperator -ErrorAction Ignore
                     }
                 }
                 'SMS_TaskSequence_FolderConditionExpression'{
@@ -955,6 +958,7 @@ function Process-TSConditions{
                         #'DateTimeOperator' -in ($expression.variable).name
                         #'VersionOperator' -in ($expression.variable).name
                         "$($prefix)Folder: $FolderPath     Folder Date: $FolderDateOperator $FolderDate"
+                        Remove-Variable FolderPath,FolderDateOperator,FolderDate -ErrorAction Ignore
                     }
                 }
                 'SMS_TaskSequence_RegistryConditionExpression'{
@@ -968,6 +972,7 @@ function Process-TSConditions{
                         }
                     }
                     "$($prefix)Registry Value: $RegKeyPath $RegValue ($RegType) $RegOperator $RegData"
+                    Remove-Variable RegKeyPath,RegValue,RegType,RegOperator,RegData -ErrorAction Ignore
                 }
                 'SMS_TaskSequence_SoftwareConditionExpression'{
                     foreach ($pair in $expression.variable){
@@ -984,6 +989,7 @@ function Process-TSConditions{
                     }else{
                         "$($prefix)Installed Software: Exact Version of `"$AppProductName`", Version: $AppVersion, Product Code: $AppProductCode"
                     }
+                    Remove-Variable AppOperator,AppProductCode,AppProductName,AppUpgradeCode,AppVersion -ErrorAction Ignore
                 }
             }
         }
@@ -1035,6 +1041,7 @@ Function Process-TSSteps{
                     #"$($node.name) $($node.action)"
                 }
                 Remove-Variable Conditions -ErrorAction Ignore
+                Remove-Variable StepDescription -ErrorAction Ignore
                 $TSStep
             }
             'subtasksequence'{
@@ -1073,6 +1080,7 @@ Function Process-TSSteps{
                     #"$($node.name) $($node.action)"
                 }
                 Remove-Variable Conditions -ErrorAction Ignore
+                Remove-Variable StepDescription -ErrorAction Ignore
                 $TSStep
             }
             'group'{
@@ -1101,6 +1109,7 @@ Function Process-TSSteps{
                 #"Group: $($node.Name)"
                 $TSStep = New-Object -TypeName psobject -Property @{'Group Name'="$($node.Name)";'Step Name'="N/A";'Description'="$StepDescription";'Action'="N/A";'Continue on Error'="$StepContinueError";'Status'="$StepStatus";'Conditions'="$Conditions"}
                 Remove-Variable Conditions -ErrorAction Ignore
+                Remove-Variable StepDescription -ErrorAction Ignore
                 $TSStep
                 Process-TSSteps -Sequence $node -GroupName "$($node.Name)" -TSSteps $TSSteps -StepCounter $TSStepNumber
             }
