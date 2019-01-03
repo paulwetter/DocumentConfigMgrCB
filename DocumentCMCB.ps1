@@ -61,11 +61,11 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.36
+	VERSION: 3.37
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: November 20, 2018
+	LASTEDIT: January 3, 2018
 #>
 
 #endregion
@@ -117,7 +117,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.36
+$DocumenationScriptVersion = 3.37
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -2536,7 +2536,7 @@ $Boundaries = Get-CMBoundary
 
 Write-HTMLHeading -Level 2 -Text "Site Boundary Groups" -PageBreak -File $FilePath
 
-#User Defined Boundary Groups
+#region User Defined Boundary Groups
 Write-Verbose "$(Get-Date):   Enumerating all Boundary Groups and their members"
 
 $BoundaryGroups = Get-CMBoundaryGroup
@@ -2587,9 +2587,9 @@ else
 {
   Write-HTMLParagraph -Level 3 -Text "There are no Boundary Groups configured. It is mandatory to configure a Boundary Group for Configuration Manger to work properly." -File $FilePath
 }
-#End User Defined Boundary Groups
+#endregion User Defined Boundary Groups
 
-#Default Boundary Group
+#region Default Boundary Group
 Write-HTMLHeading -Level 3 -Text "Default Boundary Group" -File $FilePath
 
 $DefaultBG = Get-CMDefaultBoundaryGroup
@@ -2610,18 +2610,18 @@ Else
 $DefaultBGRelationship = Get-WmiObject -Class SMS_BoundaryGroupRelationships -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider | Where {($_.SourceGroupID -eq "$DefaultBGID") -and ($_.DestinationGroupID -eq "$DefaultBGID")}
 $FallbackSUP = $DefaultBGRelationship.FallbackSUP
 $FallbackDP = $DefaultBGRelationship.FallbackDP
-IF ($FallbackSUP -eq -1) {$FallbackSUP = "Never"}else{$FallbackSUP = "$FallbackSUP mins"}
-IF ($FallbackDP -eq -1) {$FallbackDP = "Never"}else{$FallbackDP = "$FallbackDP mins"}
+$FallbackMP = $DefaultBGRelationship.FallbackMP
+IF (($FallbackSUP -eq -1) -or ($FallbackSUP -eq 0)) {$FallbackSUP = "Never"}else{$FallbackSUP = "$FallbackSUP mins"}
+IF (($FallbackDP -eq -1) -or ($FallbackDP -eq 0)) {$FallbackDP = "Never"}else{$FallbackDP = "$FallbackDP mins"}
+IF (($FallbackMP -eq -1) -or ($FallbackMP -eq 0)) {$FallbackMP = "Never"}else{$FallbackMP = "$FallbackMP mins"}
 
-
-$DefaultBoundaryGroupRow = New-Object -TypeName psobject -Property @{Name = $DefaultBG.Name; 'Site Systems' = $BoundaryGroupSiteSystems; 'DP Fallback Time' = $FallbackDP; 'SUP Fallback Time' = $FallbackSUP};
-$DefaultBoundaryGroupRow = $DefaultBoundaryGroupRow|select 'Name','Site Systems','DP Fallback Time','SUP Fallback Time'
+$DefaultBoundaryGroupRow = New-Object -TypeName psobject -Property @{Name = $DefaultBG.Name; 'Site Systems' = $BoundaryGroupSiteSystems; 'DP Fallback Time' = $FallbackDP; 'SUP Fallback Time' = $FallbackSUP; 'MP Fallback Time' = $FallbackMP};
+$DefaultBoundaryGroupRow = $DefaultBoundaryGroupRow|select 'Name','Site Systems','DP Fallback Time','SUP Fallback Time','MP Fallback Time'
 Write-HtmlTable -InputObject $DefaultBoundaryGroupRow -Level 4 -Border 1 -File $FilePath
 
-#End Default Boundary Group
+#endregion Default Boundary Group
 Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion enumerating all Boundary Groups and their members
-
 
 #region enumerating Client Policies
 Write-Verbose "$(Get-Date):   Enumerating all Client/Device Settings"
