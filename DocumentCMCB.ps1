@@ -61,11 +61,11 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.37
+	VERSION: 3.38
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: January 3, 2018
+	LASTEDIT: February 25, 2018
 #>
 
 #endregion
@@ -117,7 +117,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.37
+$DocumenationScriptVersion = 3.38
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -5679,15 +5679,65 @@ if ($ListAllInformation){
                 If([string]::IsNullOrEmpty($TSOSImage)){$TSOSImage="None"}
                 Write-Verbose "$(Get-Date):   Task Sequence Operating System Image: $TSOSImage"
                 $TSDetails += "Task Sequence Operating System Image: $TSOSImage"
-                $TSDetails += "Sequence Steps:"
+                #Task Sequence References
+                $TSReferences = Get-WmiObject -Namespace "Root\SMS\site_$($SiteCode)" -Query "SELECT * FROM SMS_TaskSequencePackageReference_Flat where PackageID = `'$($TaskSequence.PackageID)`'"
+                $TotalSize = 0
+                $TotalTsRefs = 0
+                $TotalTsRefs = $TSReferences.count
+                $TSRefInfo = @()
+                foreach($ref in $TSReferences){
+                    switch ($ref.ObjectType){
+                        0 {
+                            $PackageType = "Package"
+                        }
+                        3 {
+                            $PackageType = "Driver Package"
+                        }
+                        4 {
+                            $PackageType = "Task Sequence"
+                        }
+                        257{
+                            $PackageType = "OS Image"
+                        }
+                        258{
+                            $PackageType = "Boot Image"
+                        }
+                        259{
+                            $PackageType = "OS Upgrade Package"
+                        }
+                        512{
+                            $PackageType = "Application"
+                        }
+                        default{
+                            $PackageType = $ref.ObjectType
+                        }
+                    }
+                    $SizeMB = [math]::Round($ref.SourceSize/1024)
+                    $TotalSize = $TotalSize + $SizeMB
+                    If ($SizeMB -eq 0){
+                        $SizeMB = "<1 MB"
+                    } else {
+                        $SizeMB = "$SizeMB MB"
+                    }
+                    $TSRefInfo += New-Object -TypeName PSObject -Property @{'Name'="$($ref.ObjectName)";'Type'="$PackageType";'Package ID'="$($ref.RefPackageID)";'Size'="$SizeMB"}
+                }
+                $TSRefInfo = $TSRefInfo|Select-Object Type,Name,'Package ID',Size
                 Write-HtmlList -InputObject $TSDetails -Level 4 -File $FilePath
+                Write-HTMLHeading -Level 5 -Text "Task Sequence References" -File $FilePath
+                Write-HtmlList -InputObject @("This task sequence references $TotalTsRefs packages.","The referenced packages total $TotalSize MB.") -Level 4 -File $FilePath
+                If ($TotalTsRefs -ne 0){Write-HtmlTable -InputObject $TSRefInfo -Border 1 -Level 6 -File $FilePath}
+                Write-HTMLHeading -Level 5 -Text "Task Sequence Steps" -File $FilePath
                 $Sequence = $Null
                 $Sequence = ([xml]$TaskSequence.Sequence).sequence
                 $AllSteps = Process-TSSteps -Sequence $Sequence
                 $c = 0
                 foreach ($Step in $AllSteps){$c++;$Step|Add-Member -MemberType NoteProperty -Name 'Step' -Value $c}
                 $AllSteps = $AllSteps |Select-Object 'Step','Group Name','Step Name','Description','Action','Status','Continue on Error','Conditions'
-                Write-HtmlTable -InputObject $AllSteps -Border 1 -Level 6 -File $FilePath
+                If ($AllSteps.count -gt 0){
+                    Write-HtmlTable -InputObject $AllSteps -Border 1 -Level 6 -File $FilePath
+                }else{
+                    Write-HtmlList -InputObject "This task sequence contains no steps" -Level 4 -File $FilePath
+                }
                 Remove-Variable TSOSImage -ErrorAction Ignore
                 Remove-Variable BootImage -ErrorAction Ignore
             }
