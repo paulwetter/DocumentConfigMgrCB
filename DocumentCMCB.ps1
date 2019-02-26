@@ -61,11 +61,11 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.38
+	VERSION: 3.39
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: February 25, 2018
+	LASTEDIT: February 26, 2018
 #>
 
 #endregion
@@ -117,7 +117,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.38
+$DocumenationScriptVersion = 3.39
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -198,6 +198,8 @@ Function Write-HtmlTable{
         $table = $table -replace "--/I--","</I>"
         $table = $table -replace "--U--","<U>"
         $table = $table -replace "--/U--","</U>"
+        $table = $table -replace "--CBOX--","&#9745;"
+        $table = $table -replace "--UNCBOX--","&#9744;"
     }else{
         Write-Verbose 'Input object was empty outputting empty object paragraph text...'
         Write-HTMLParagraph -Text 'There was no data to output from this query.' -Level $Level -File $file
@@ -2576,11 +2578,48 @@ if (-not [string]::IsNullOrEmpty($BoundaryGroups))
       Write-Verbose 'There are no boundaries associated with this Boundary Group.'
     }
     $BoundaryMembers = $MemberNames -join "--CRLF--"
-    $BoundaryGroupRow = New-Object -TypeName psobject -Property @{Name = $BoundaryGroup.Name; Description = $BoundaryGroup.Description; 'Boundary Members' = "$BoundaryMembers"; 'Site Systems' = $BoundaryGroupSiteSystems};
+    $BGRs = @()
+    $BGRs += Get-CMBoundaryGroupRelationship -SourceGroupId $BoundaryGroup.GroupID
+    $FallBackRelationships = ""
+    if ($BGRs.count -gt 0){
+        Foreach ($BGR in $BGRs){
+            $BGName = "$($BGR.DestinationGroupName)"
+            if ($BGR.FallbackDP -eq -1){
+                $FallbackDP = "Never"
+            }else{
+                $FallbackDP = "$($BGR.FallbackDP) minutes"
+            }
+            if ($BGR.FallbackMP -eq -1){
+                $FallbackMP = "Never"
+            }else{
+                $FallbackMP = "$($BGR.FallbackMP) minutes"
+            }
+            if ($BGR.FallbackSUP -eq -1){
+                $FallbackSUP = "Never"
+            }else{
+                $FallbackSUP = "$($BGR.FallbackSUP) minutes"
+            }
+            $FallBackRelationships = "$($FallBackRelationships)--B----U--$BGName--/U----/B-- --CRLF--Fallback DP: $FallbackDP --CRLF--Fallback MP: $FallbackMP --CRLF--Fallback SUP: $FallbackSUP --CRLF--"
+        }
+    }
+    Switch($BoundaryGroup.Flags){
+        0{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----UNCBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----UNCBOX-- Prefer DP over peers within same Subnet.--CRLF----UNCBOX-- Prefer cloud DP over DP."}
+        1{$BGOptions = "--UNCBOX-- Allow peer downloads in this Boundary Group.--CRLF----UNCBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----UNCBOX-- Prefer DP over peers within same Subnet.--CRLF----UNCBOX-- Prefer cloud DP over DP."}
+        2{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----CBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----UNCBOX-- Prefer DP over peers within same Subnet.--CRLF----UNCBOX-- Prefer cloud DP over DP."}
+        4{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----UNCBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----CBOX-- Prefer DP over peers within same Subnet.--CRLF----UNCBOX-- Prefer cloud DP over DP."}
+        6{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----CBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----CBOX-- Prefer DP over peers within same Subnet.--CRLF----UNCBOX-- Prefer cloud DP over DP."}
+        8{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----UNCBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----UNCBOX-- Prefer DP over peers within same Subnet.--CRLF----CBOX-- Prefer cloud DP over DP."}
+        9{$BGOptions = "--UNCBOX-- Allow peer downloads in this Boundary Group.--CRLF----UNCBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----UNCBOX-- Prefer DP over peers within same Subnet.--CRLF----CBOX-- Prefer cloud DP over DP."}
+        10{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----CBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----UNCBOX-- Prefer DP over peers within same Subnet.--CRLF----CBOX-- Prefer cloud DP over DP."}
+        12{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----UNCBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----CBOX-- Prefer DP over peers within same Subnet.--CRLF----CBOX-- Prefer cloud DP over DP."}
+        14{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----CBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----CBOX-- Prefer DP over peers within same Subnet.--CRLF----CBOX-- Prefer cloud DP over DP."}
+        default{$BGOptions = "Unknown Options"}
+    }
+    $BoundaryGroupRow = New-Object -TypeName psobject -Property @{Name = $BoundaryGroup.Name; Description = $BoundaryGroup.Description; 'Assigned Site' = $BoundaryGroup.DefaultSiteCode; 'Boundary Members' = "$BoundaryMembers"; 'Site Systems' = $BoundaryGroupSiteSystems;'Fallback Relationships' = "$FallBackRelationships"; 'Options' = "$BGOptions"};
     $BoundaryGroupTable += $BoundaryGroupRow
   }
   
-  $BoundaryGroupTable = $BoundaryGroupTable|select 'Name','Description','Boundary Members','Site Systems'
+  $BoundaryGroupTable = $BoundaryGroupTable|select 'Name','Description','Assigned Site','Boundary Members','Site Systems','Fallback Relationships','Options'
   Write-HtmlTable -InputObject $BoundaryGroupTable -Level 4 -Border 1 -File $FilePath
 }
 else
