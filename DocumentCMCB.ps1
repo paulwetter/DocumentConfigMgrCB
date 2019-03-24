@@ -48,6 +48,8 @@
     information for these client settings.
 .PARAMETER MaskAccounts
     This will mask about half of the account name in the documentation
+.PARAMETER StyleSheet
+    This is the path to an external CSS file that will allow you to style the report in your own way.  The style sheet will be embedded into the report.
 .EXAMPLE
 	DocumentCMCB.ps1 -ListAllInformation
 .EXAMPLE
@@ -61,7 +63,7 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.39
+	VERSION: 3.40
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
@@ -115,12 +117,12 @@ Param(
     [switch]$MaskAccounts,
     
     [parameter(Mandatory=$False,HelpMessage="CSS file path")]
-    [string] $StyleSheet = ""
+    [string]$StyleSheet = ""
 
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.39
+$DocumenationScriptVersion = 3.40
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -427,6 +429,9 @@ Function Write-HTMLHeader{
         HelpMessage="This is the text that will appear in title tag of the header")]
         [string]$Title,
         [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="Custom Style sheet to apply to the domcumenation")]
+        [string]$CssStyleFile,
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
         HelpMessage="This is the amount of space that the table will indent by")]
         [string]$File
     )
@@ -435,22 +440,35 @@ Function Write-HTMLHeader{
     $Header += "<Head>"
     $Header += "<Title>$Title</Title>"
     # if custom stylesheet parameter is invoked, apply to output, otherwise use hard-coded style
-    if ($StyleSheet -ne "") {
-        $Header += "<link rel=`"stylesheet`" type=`"text/css`" href=`"$StyleSheet`" />"
-    }
-    else {
- 	$Header += "<Style>"
-    	$Header += 'H1  {background-color:royalblue; border-top: 1px solid black;}'
-    	$Header += 'H2	{margin-left:10px;background-color:steelblue; border-top: 1px solid black;}'
-    	$Header += 'H3	{margin-left:20px;background-color:lightblue; border-top: 1px solid black;}'
-    	$Header += 'H4	{margin-left:30px;background-color:lightsteelblue; border-top: 1px solid black;}'
-    	$Header += 'H5	{margin-left:40px;background-color:lightcyan; border-top: 1px solid black;}'
-    	$Header += 'H6	{margin-left:50px;background-color:lavender; border-top: 1px solid black;}'
-    	$Header += ".pagebreak { page-break-before: always; }"
-    	$Header += "TH  {background-color:LightBlue;padding: 3px; border: 2px solid black;}"
-    	$Header += "TD  {padding: 3px; border: 1px solid black;}"
-    	$Header += "TABLE	{border-collapse: collapse;}"
-    	$Header += "</Style>"
+    ##Default Style
+    $DefaultStyle = @()
+    $DefaultStyle += "<Style>"
+    $DefaultStyle += 'H1  {background-color:royalblue; border-top: 1px solid black;}'
+    $DefaultStyle += 'H2	{margin-left:10px;background-color:steelblue; border-top: 1px solid black;}'
+    $DefaultStyle += 'H3	{margin-left:20px;background-color:lightblue; border-top: 1px solid black;}'
+    $DefaultStyle += 'H4	{margin-left:30px;background-color:lightsteelblue; border-top: 1px solid black;}'
+    $DefaultStyle += 'H5	{margin-left:40px;background-color:lightcyan; border-top: 1px solid black;}'
+    $DefaultStyle += 'H6	{margin-left:50px;background-color:lavender; border-top: 1px solid black;}'
+    $DefaultStyle += ".pagebreak { page-break-before: always; }"
+    $DefaultStyle += "TH  {background-color:LightBlue;padding: 3px; border: 2px solid black;}"
+    $DefaultStyle += "TD  {padding: 3px; border: 1px solid black;}"
+    $DefaultStyle += "TABLE	{border-collapse: collapse;}"
+    $DefaultStyle += "</Style>"
+    ##End Default Style
+    If($CssStyleFile){
+        If(Test-Path -Path $CssStyleFile) {
+            $StyleContent = Get-Content "$CssStyleFile"
+            Write-Verbose "Applying custom style sheet to document: $CssStyleFile"
+            $Header += "<Style>"
+            $Header += $StyleContent
+            $Header += "</Style>"
+        }
+        else {
+            Write-Verbose "Custom style sheet not found [$CssStyleFile].  Using default style."
+            $Header += $DefaultStyle
+        }
+    }Else{
+        $Header += $DefaultStyle
     }
     $Header += "</Head>"
     $Header += "<Body>"
@@ -1181,7 +1199,11 @@ Write-Verbose "$(Get-Date): Start writing report data"
 
 $LocationBeforeExecution = Get-Location
 
-Write-HTMLHeader -Title $Title -File $FilePath
+If ($StyleSheet){
+    Write-HTMLHeader -Title $Title -File $FilePath -CssStyleFile $StyleSheet
+}else{
+    Write-HTMLHeader -Title $Title -File $FilePath
+}
 Write-HTMLCoverPage -Title $Title -Author $Author -Vendor $Vendor -Org $CompanyName -ImagePath $CompanyLogo -File $FilePath
 Add-Type -AssemblyName System.Web
 
