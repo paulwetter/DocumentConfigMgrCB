@@ -1124,7 +1124,7 @@ Function Set-AccountMask{
     [CmdletBinding()]
     param (
         [Parameter(Mandatory=$True,ValueFromPipeline=$true,
-        HelpMessage="This is the SQL server for the SCCM Site")]
+        HelpMessage="This is the Account that you want to mask the name with ***.")]
         [string]$Account
     )
     Begin{}
