@@ -1942,6 +1942,89 @@ If ($ListAllInformation){
   Write-HtmliLink -ReturnTOC -File $FilePath
   #endregion SiteRoles
 
+  #region Site Server Details
+  $SiteServers = Get-CMSiteSystemServer|Select-Object @{Name='ServerName';expression={$_.NetworkOSPath.trim('\')}}
+  Write-Verbose "$(Get-Date):   Collecting Site Server Information"
+  Write-HTMLHeading -Text "Site Server Information" -Level 2 -File $FilePath
+  Write-HTMLParagraph -Text "The section contains basic information on each of the site servers in the environment.  The data is collected via remote WMI queries." -Level 2 -File $FilePath
+  foreach ($SiteServer in $SiteServers){
+    $ServerInfo = @()
+    $Server = $SiteServer.ServerName
+    Write-HTMLHeading -Text "$Server" -Level 3 -File $FilePath
+    Write-Verbose "$(Get-Date):   Collecting basic information for server [$Server] via WMI."
+    Try{
+        $InstalledServerFeatures = ''
+        $InstalledFeatures=Get-WmiObject -Query 'SELECT * FROM Win32_OptionalFeature where InstallState = 1' -ComputerName $Server -ErrorAction Stop |Select-Object Caption,Name
+        foreach ($Feature in $InstalledFeatures){
+            $InstalledServerFeatures = "$InstalledServerFeatures;$($Feature.Name)"
+        }
+    }
+    Catch{
+        Write-Verbose "$(Get-Date):   Unable to query WMI for Installed Features on server [$Server]."
+        $InstalledFeatures=@("Feature Query Failed")
+    }
+    $InstalledServerFeatures = $InstalledServerFeatures.Trim(';')
+    Try{
+        $Drives = Get-WmiObject -Query 'SELECT * FROM Win32_LogicalDisk WHERE DriveType = 3' -ComputerName $Server -ErrorAction Stop
+        $DriveList = @()
+        Foreach ($Drive in $Drives){
+            $Letter = $Drive.DeviceID
+            $Size=[math]::Round($($Drive.Size)/1024/1024/1024,1)
+            $Free=[math]::Round($($Drive.FreeSpace)/1024/1024/1024,1)
+            $DriveList += New-Object -TypeName psobject -Property @{'DriveLetter'="$Letter";'Size'="$Size GB";'FreeSpace'="$Free GB"}
+        }
+    }
+    Catch{
+        Write-Verbose "$(Get-Date):   Unable to query WMI for drive info on server [$Server]."
+        $DriveList = New-Object -TypeName psobject -Property @{'DriveLetter'="NA";'Size'="NA";'FreeSpace'="NA"}
+    }
+    try{
+        [int]$Capacity = 0
+        Get-WmiObject -Class win32_physicalmemory -ComputerName $Server -ErrorAction Stop | ForEach-Object {[int64]$Capacity = $Capacity + [int64]$_.Capacity}
+        $TotalMemory = $Capacity / 1024 / 1024 / 1024
+    }
+    catch{
+        Write-Verbose "$(Get-Date):   Failed to collect memory information for server [$Server]."
+        [string]$TotalMemory = "Memory query failed"
+      }
+    Try{
+        $CPUs = Get-WmiObject -Class win32_processor -ComputerName $Server -ErrorAction Stop
+        [int]$Cores=0
+        foreach ($CPU in $CPUs) {
+            $Cores = $Cores + $CPU.NumberOfCores
+            $CPUModel = $CPU.Name
+        }
+    }
+    Catch{
+        Write-Verbose "$(Get-Date):   Failed to collect processor information for server [$Server]."
+        [string]$Cores = "Unknown"
+        $CPUModel = "Model Unknown"
+    }
+    Try{
+        $OSInfo = Get-WmiObject -Class win32_OperatingSystem -Property Caption,BuildNumber -ComputerName $Server -ErrorAction Stop
+        $OSName = $OSInfo.Caption
+        $OSBuild = $Osinfo.BuildNumber
+    }
+    Catch{
+        Write-Verbose "$(Get-Date):   Failed to collect OS information for server [$Server]."
+        $OSName = "Unknown"
+        $OSBuild = "Unknown"
+    }
+    $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Operating System";'Value'="$OSName"}
+    $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Operating System Build";'Value'="$OSBuild"}
+    $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Installed OS Features";'Value'="$InstalledServerFeatures"}
+    $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Total Memory";'Value'="$TotalMemory"}
+    $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="CPU(Cores)";'Value'="$CPUModel ($Cores)"}
+    Foreach($Drive in $DriveList){
+        $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Local Disk ($($Drive.DriveLetter))";'Value'="Capacity: $($Drive.Size)--CRLF--Free Space: $($Drive.FreeSpace)"}
+    }
+    $ServerInfo =  $ServerInfo|Select-Object 'Property','Value'
+    Write-HtmlTable -InputObject $ServerInfo -Border 1 -Level 3 -File $FilePath
+  }
+  Write-Verbose "$(Get-Date):   End Collecting Site Server Information"
+  Write-HtmliLink -ReturnTOC -File $FilePath
+  #endregion Site Server Details
+
   #region SiteMaintenanceTasks
   $SiteMaintenanceTaskTable = @()
   # Use WMI instead of cmdlet because WMI is more accurate and easy to use
