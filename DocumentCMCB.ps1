@@ -63,11 +63,11 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.40
+	VERSION: 3.41
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: February 26, 2018
+	LASTEDIT: March 25, 2019
 #>
 
 #endregion
@@ -122,7 +122,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = 3.40
+$DocumenationScriptVersion = '3.41'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
