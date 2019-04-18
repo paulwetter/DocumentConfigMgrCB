@@ -6205,7 +6205,11 @@ if (-not [string]::IsNullOrEmpty($ScriptFeature)){
                     }
                 }
                 $Scripts = $Scripts | Select-Object 'Script Name','Author','Approver','Approval State','Last Update Time'
-                Write-HtmlTable -InputObject $Scripts -Border 1 -Level 3 -File $FilePath
+                if ($Scripts.Count -gt 0){
+                    Write-HtmlTable -InputObject $Scripts -Border 1 -Level 3 -File $FilePath
+                }else{
+                    Write-HTMLParagraph -Text "No Non-System Scripts are defined in this site." -Level 3 -File $FilePath
+                }
             }
         }
     }else{
