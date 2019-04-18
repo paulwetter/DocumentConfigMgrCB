@@ -63,11 +63,11 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.41
+	VERSION: 3.42
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: March 25, 2019
+	LASTEDIT: April 18, 2019
 #>
 
 #endregion
@@ -122,7 +122,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.41'
+$DocumenationScriptVersion = '3.42'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -3782,7 +3782,12 @@ If ($ListAllInformation){
                   }else{
                       $ConfigList += "Hide installed applications in Software Center: Not Selected"
                   }
-                  $tabvisibility = "Select which tabs should be exposed to the end user in Software Center:<br />"
+                  if ($SCBrand.'application-catalog-link-hidden' -eq 'true'){
+                    $ConfigList += "Hide Application Catalog in Software Center: Selected"
+                }else{
+                    $ConfigList += "Hide Application Catalog in Software Center: Not Selected"
+                }
+                $tabvisibility = "Select which tabs should be exposed to the end user in Software Center:<br />"
                   foreach ($tab in $SCBrand.'tab-visibility'.tab){
                       switch ($tab.name)
                       {
@@ -3794,7 +3799,22 @@ If ($ListAllInformation){
                         'Options' {$tabvisibility = $tabvisibility + " &bull;  Applications: $($tab.visible) <br />"}
                       }
                   }
+                  IF (-not [string]::IsNullOrEmpty($SCBrand.'custom-tab'.'custom-tab-name')){
+                    $tabvisibility = $tabvisibility + " &bull;  $($SCBrand.'custom-tab'.'custom-tab-name'): $($SCBrand.'custom-tab'.'custom-tab-content') <br />"
+                  }else{
+                    $tabvisibility = $tabvisibility + " &bull;  Custom Tab not defined. <br />"
+                  }
                   $ConfigList += $tabvisibility.TrimEnd('<br />')
+                  If (($SCBrand.'defaults-list'.'required-filter-default' -eq 'false') -or ($null -eq $SCBrand.'defaults-list'.'required-filter-default')){
+                    $ConfigList += 'Default application filter: All'
+                  }else{
+                    $ConfigList += 'Default application filter: Required'
+                  }
+                  if (($SCBrand.'defaults-list'.'list-view-default' -eq 'false') -or ($null -eq $SCBrand.'defaults-list'.'list-view-default')){
+                    $ConfigList += 'Default application view: Tile view'
+                  }else{
+                    $ConfigList += 'Default application view: List view'
+                  }
               }Else{
                   $ConfigList += "Select these new settings to specify company information: No"
               }
@@ -4349,6 +4369,7 @@ $WinHelloSettings = @()
 $WiFiProfileSettings = @()
 $VpnSettings = @()
 $CertSettings = @()
+$EdgeBrowser = @()
 
 foreach ($CMPolicy in $CMPolicies){
     Switch ($CMPolicy){
@@ -4381,6 +4402,9 @@ foreach ($CMPolicy in $CMPolicies){
         }
         {'SettingsAndPolicy:SMS_TrustedRootCertificateSettings' -in $_.CategoryInstance_UniqueIDs}{
             $CertSettings += New-Object -TypeName psobject -Property @{Name = "$($CMPolicy.LocalizedDisplayName)";'Modified By' = "$($CMPolicy.LastModifiedBy)";'Modified' = "$($CMPolicy.DateLastModified)"; Deployed = "$($CMPolicy.IsAssigned)"}
+        }
+        {'SettingsAndPolicy:SMS_EdgeBrowserSettings' -in $_.CategoryInstance_UniqueIDs}{
+            $EdgeBrowser += New-Object -TypeName psobject -Property @{Name = "$($CMPolicy.LocalizedDisplayName)";'Modified By' = "$($CMPolicy.LastModifiedBy)";'Modified' = "$($CMPolicy.DateLastModified)"; Deployed = "$($CMPolicy.IsAssigned)"}
         }
     }
 }
@@ -4454,6 +4478,13 @@ Write-HTMLHeading -Level 3 -Text 'Windows 10 Edition Upgrades' -File $FilePath
 if ($EdUpgradeSettings.count -gt 0) {
     $EdUpgradeSettings = $EdUpgradeSettings | Select-Object 'Name','Modified By','Modified','Deployed'
     Write-HtmlTable -InputObject $EdUpgradeSettings -Border 1 -Level 4 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'No Windows 10 Edition Upgrades defined in site.' -Level 4 -File $FilePath
+}
+Write-HTMLHeading -Level 3 -Text 'Microsoft Edge Browser Profiles' -File $FilePath
+if ($EdgeBrowser.count -gt 0) {
+    $EdgeBrowser = $EdgeBrowser | Select-Object 'Name','Modified By','Modified','Deployed'
+    Write-HtmlTable -InputObject $EdgeBrowser -Border 1 -Level 4 -File $FilePath
 }else{
     Write-HTMLParagraph -Text 'No Windows 10 Edition Upgrades defined in site.' -Level 4 -File $FilePath
 }
@@ -4901,7 +4932,7 @@ if (-not ($(Get-CMEndpointProtectionPoint) -eq $Null)){
 }
 #endregion Antimalware
 #region firewall and Device Guard
-$FWPolicies = Get-CMConfigurationPolicy -Fast | where {$_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_FirewallSettings' -or $_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_DeviceGuardSettings'} | select CategoryInstance_UniqueIDs,LocalizedDisplayName,LocalizedCategoryInstanceNames,CI_ID,LastModifiedBy,DateLastModified,IsAssigned
+$FWPolicies = Get-CMConfigurationPolicy -Fast | where {$_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_FirewallSettings'} | select CategoryInstance_UniqueIDs,LocalizedDisplayName,LocalizedCategoryInstanceNames,CI_ID,LastModifiedBy,DateLastModified,IsAssigned
 Write-HTMLHeading -Level 3 -Text 'Windows Defender Firewall Policies' -File $FilePath
 if (-not [string]::IsNullOrEmpty($FWPolicies)) {
     $FWArray = @()
@@ -4913,8 +4944,44 @@ if (-not [string]::IsNullOrEmpty($FWPolicies)) {
 }else{
     Write-HTMLParagraph -Text 'No firewall policies defined in site.' -Level 4 -File $FilePath
 }
+$ATPPolicies = Get-CMConfigurationPolicy -Fast | Where-Object {$_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_AdvancedThreatProtectionSettings'} | Select-Object CategoryInstance_UniqueIDs,LocalizedDisplayName,LocalizedCategoryInstanceNames,CI_ID,LastModifiedBy,DateLastModified,IsAssigned
+Write-HTMLHeading -Level 3 -Text 'Windows Defender ATP Policies' -File $FilePath
+if (-not [string]::IsNullOrEmpty($ATPPolicies)) {
+    $ATPArray = @()
+    foreach ($ATP in $ATPPolicies){
+        $ATPArray += New-Object -TypeName psobject -Property @{'Name'=$ATP.LocalizedDisplayName;'Modified By'=$ATP.LastModifiedBy;'Modified'=$ATP.DateLastModified;'Deployed'=$ATP.IsAssigned}
+    }
+    $ATPArray = $ATPArray | Select-Object 'Name','Modified By','Modified','Deployed'
+    Write-HtmlTable -InputObject $ATPArray -Border 1 -Level 4 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'No ATP Policies defined in site.' -Level 4 -File $FilePath
+}
+$ExploitGuardPolicies = Get-CMConfigurationPolicy -Fast | Where-Object {$_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_ExploitGuardSettings'} | Select-Object CategoryInstance_UniqueIDs,LocalizedDisplayName,LocalizedCategoryInstanceNames,CI_ID,LastModifiedBy,DateLastModified,IsAssigned
+Write-HTMLHeading -Level 3 -Text 'Windows Defender Exploit Guard Policies' -File $FilePath
+if (-not [string]::IsNullOrEmpty($ExploitGuardPolicies)) {
+    $ExploitGuardArray = @()
+    foreach ($EGP in $ExploitGuardPolicies){
+        $ExploitGuardArray += New-Object -TypeName psobject -Property @{'Name'=$EGP.LocalizedDisplayName;'Modified By'=$EGP.LastModifiedBy;'Modified'=$EGP.DateLastModified;'Deployed'=$EGP.IsAssigned}
+    }
+    $ExploitGuardArray = $ExploitGuardArray | Select-Object 'Name','Modified By','Modified','Deployed'
+    Write-HtmlTable -InputObject $ExploitGuardArray -Border 1 -Level 4 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'No Exploit Guard Policies defined in site.' -Level 4 -File $FilePath
+}
+$ApplicationGuardPolicies = Get-CMConfigurationPolicy -Fast | Where-Object {$_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_WindowsDefenderApplicationGuard'} | Select-Object CategoryInstance_UniqueIDs,LocalizedDisplayName,LocalizedCategoryInstanceNames,CI_ID,LastModifiedBy,DateLastModified,IsAssigned
+Write-HTMLHeading -Level 3 -Text 'Windows Defender Application Guard Policies' -File $FilePath
+if (-not [string]::IsNullOrEmpty($ApplicationGuardPolicies)) {
+    $ApplicationGuardArray = @()
+    foreach ($AGP in $ApplicationGuardPolicies){
+        $ApplicationGuardArray += New-Object -TypeName psobject -Property @{'Name'=$AGP.LocalizedDisplayName;'Modified By'=$AGP.LastModifiedBy;'Modified'=$AGP.DateLastModified;'Deployed'=$AGP.IsAssigned}
+    }
+    $ApplicationGuardArray = $ApplicationGuardArray | Select-Object 'Name','Modified By','Modified','Deployed'
+    Write-HtmlTable -InputObject $ApplicationGuardArray -Border 1 -Level 4 -File $FilePath
+}else{
+    Write-HTMLParagraph -Text 'No Application Guard Policies defined in site.' -Level 4 -File $FilePath
+}
 $DeviceGuardPolicies = Get-CMConfigurationPolicy -Fast | where {$_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_DeviceGuardSettings'} | select CategoryInstance_UniqueIDs,LocalizedDisplayName,LocalizedCategoryInstanceNames,CI_ID,LastModifiedBy,DateLastModified,IsAssigned
-Write-HTMLHeading -Level 3 -Text 'Device Guard Policies' -File $FilePath
+Write-HTMLHeading -Level 3 -Text 'Windows Defender Applicatin Control Policies' -File $FilePath
 if (-not [string]::IsNullOrEmpty($DeviceGuardPolicies)) {
     $DeviceGuardArray = @()
     foreach ($DGP in $DeviceGuardPolicies){
@@ -4923,7 +4990,7 @@ if (-not [string]::IsNullOrEmpty($DeviceGuardPolicies)) {
     $DeviceGuardArray = $DeviceGuardArray | Select-Object 'Name','Modified By','Modified','Deployed'
     Write-HtmlTable -InputObject $DeviceGuardArray -Border 1 -Level 4 -File $FilePath
 }else{
-    Write-HTMLParagraph -Text 'No Device Guard policies defined in site.' -Level 4 -File $FilePath
+    Write-HTMLParagraph -Text 'No Applicatin Control Policies defined in site.' -Level 4 -File $FilePath
 }
 #endregion firewall and Device Guard
 #region Windows Defender ATP
@@ -4958,7 +5025,7 @@ Write-HTMLHeading -Level 3 -Text 'Applications' -File $FilePath
 #$Applications = Get-WmiObject -Class sms_applicationlatest -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider
 #Get-CMApplication | select LocalizedDisplayName,LocalizedDescription,Manufacturer,SoftwareVersion,PackageID,ISExpired,ISDeployed,NumberOfDeploymentTypes
 $Applications = Get-CMApplication
-$Applications = $Applications|sort LocalizedDisplayName
+$Applications = $Applications|Sort-Object LocalizedDisplayName
 if ($ListAllInformation -or $ListAppDetails){
     if (-not [string]::IsNullOrEmpty($Applications)) {
         Write-HTMLParagraph -Text "Below are a summary of all $($Applications.Count) application installers defined in this site. These are applications that are installed with the configuration manager application model.  Packages are covered later in the documentation." -Level 3 -File $FilePath
@@ -5311,7 +5378,11 @@ foreach ($ADR in $ADRs){
                     3 {$order = 'third'}
                     4 {$order = 'fourth'}
                 }
-                $ADRListDetails += "Evaluation Schedule: Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+                If ($Schedule.OffsetDay){
+                    $ADRListDetails += "Evaluation Schedule: Occurs $($Schedule.OffsetDay) days after the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+                }else{
+                    $ADRListDetails += "Evaluation Schedule: Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+                }
             }
         }
     }else{
