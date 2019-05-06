@@ -40,20 +40,20 @@ This will document everything with just the summary information of each componen
 ### EXAMPLE 2
 
 This will document everything with detailed information.  Will make a very large file!  
- ```DocumentCMCB.ps1 -ListAllInformation```
+ ```DocumentCMCB.ps1 -ListAllInformation -CompanyName "Acme Inc."```
 
 ### EXAMPLE 3
 
 This will document everything with detailed information. It will also embed a custom logo from the provided URL into the cover page.  
- ```DocumentCMCB.ps1 -CompanyLogo 'http://www.contoso.com/logo.jpg' -ListAllInformation```
+ ```DocumentCMCB.ps1 -CompanyName "Acme Inc." -CompanyLogo 'http://www.contoso.com/logo.jpg' -ListAllInformation```
 
 ### EXAMPLE 4
 
 This will document everything with summary information, a custom logo, and a custom Author and Vendor.  
- ```DocumentCMCB.ps1 -CompanyLogo 'http://www.contoso.com/logo.jpg' -Author "Bugs Bunny" -Vendor "Acme"```
+ ```DocumentCMCB.ps1 -CompanyName "Contoso" -CompanyLogo 'http://www.contoso.com/logo.jpg' -Author "Bugs Bunny" -Vendor "Acme"```
 
 ### EXAMPLE 5
 
 This will document everything with detailed information, a local custom logo, and a custom Author and Vendor.  This will also mask user accounts and add a date/time to the output file name.  This is a good option for automation of this script.
 
- ```DocumentCMCB.ps1 -ListAllInformation -CompanyLogo 'C:\Temp\logo.jpg' -Author "Bugs Bunny" -Vendor "Acme" -AddDateTime -MaskAccounts```
+ ```DocumentCMCB.ps1 -ListAllInformation -CompanyName "Acme Inc." -CompanyLogo 'C:\Temp\logo.jpg' -Author "Bugs Bunny" -Vendor "Acme" -AddDateTime -MaskAccounts```
