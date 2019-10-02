@@ -63,7 +63,7 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.43
+	VERSION: 3.44
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
@@ -122,7 +122,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.43'
+$DocumenationScriptVersion = '3.44'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -6224,7 +6224,11 @@ foreach ($ADR in $ADRs){
     foreach ($locale in ([xml]$adr.ContentTemplate).ContentActionXML.ContentLocales.Locale){
         if ($locale -ne 'Locale:0'){$languages = "$languages, $((Get-CMCategory -Id $locale).LocalizedCategoryInstanceName)"}
     }
-    $ADRListDetails += "Languages: $($languages.Trim(', '))"
+    If ($Null -ne $languages){
+        $ADRListDetails += "Languages: $($languages.Trim(', '))"
+    } else {
+        $ADRListDetails += "Languages: N/A"
+    }
     If (-not [string]::IsNullOrEmpty($ADR.Schedule)){
         $Schedule=Convert-CMSchedule $ADR.Schedule
         if ($Schedule.DaySpan -gt 0){
@@ -6377,13 +6381,20 @@ foreach ($ADR in $ADRs){
         }
     }
     $ADRDeployments = Get-CMSoftwareUpdateAutoDeploymentRuleDeployment -ID $ADR.AutoDeploymentID
-    $DeploymentPackage = Get-CMSoftwareUpdateDeploymentPackage -Id ([xml]$adr.ContentTemplate).ContentActionXML.PackageID
-    $Package = New-Object -TypeName PSObject -Property @{'Package Name'="$($DeploymentPackage.Name)";'Description'="$($DeploymentPackage.Description)";'Package ID'="$($DeploymentPackage.PackageID)";'Source Location'="$($DeploymentPackage.PkgSourcePath)"}
-    $Package = $package | Select-Object 'Package Name','Package ID','Description','Source Location'
+    Remove-Variable Package -ErrorAction Ignore
+    If ($null -ne ([xml]$adr.ContentTemplate).ContentActionXML.PackageID){
+        $DeploymentPackage = Get-CMSoftwareUpdateDeploymentPackage -Id ([xml]$adr.ContentTemplate).ContentActionXML.PackageID
+        $Package = New-Object -TypeName PSObject -Property @{'Package Name'="$($DeploymentPackage.Name)";'Description'="$($DeploymentPackage.Description)";'Package ID'="$($DeploymentPackage.PackageID)";'Source Location'="$($DeploymentPackage.PkgSourcePath)"}
+        $Package = $package | Select-Object 'Package Name','Package ID','Description','Source Location'
+    } else {
+        $UpdateRuleList += 'No software update package defined in this ADR.'
+    }
     Write-HtmlList -InputObject $ADRListDetails -Description $ADRListDescription -Level 3 -File $FilePath
     #$UpdateRuleList
     Write-HtmlList -InputObject $UpdateRuleList -Description 'Software Update Property Filters (Update Rules):' -Level 3 -File $FilePath
-    Write-HtmlTable -InputObject $Package -Level 5 -File $FilePath
+    If ($Package){
+        Write-HtmlTable -InputObject $Package -Level 5 -File $FilePath
+    }
     Write-HTMLHeading -Level 5 -Text "Deployments for ADR: $($ADR.Name)" -File $FilePath
     If ($ListAllInformation){
         Foreach ($Deployment in $ADRDeployments){
