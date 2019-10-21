@@ -63,11 +63,11 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.44
+	VERSION: 3.46
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: September 30, 2019
+	LASTEDIT: October 21, 2019
 #>
 
 #endregion
@@ -122,7 +122,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.44'
+$DocumenationScriptVersion = '3.46'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -205,6 +205,7 @@ Function Write-HtmlTable{
         $table = $table -replace "--/U--","</U>"
         $table = $table -replace "--CBOX--","&#9745;"
         $table = $table -replace "--UNCBOX--","&#9744;"
+        $table = $table -replace "--BULLET--","&bull;"
     }else{
         Write-Verbose 'Input object was empty outputting empty object paragraph text...'
         Write-HTMLParagraph -Text 'There was no data to output from this query.' -Level $Level -File $file
@@ -2660,7 +2661,7 @@ If ($ListAllInformation){
   #endregion SiteRoles
 
   #region Site Server Details
-  $SiteServers = Get-CMSiteSystemServer|Select-Object @{Name='ServerName';expression={$_.NetworkOSPath.trim('\')}}
+  $SiteServers = Get-CMSiteSystemServer | Where-Object {$_.NALType -notlike 'Windows Azure'} | Select-Object @{Name='ServerName';expression={$_.NetworkOSPath.trim('\')}}
   Write-Verbose "$(Get-Date):   Collecting Site Server Information"
   Write-HTMLHeading -Text "Site Server Information" -Level 2 -File $FilePath
   Write-HTMLParagraph -Text "The section contains basic information on each of the site servers in the environment.  The data is collected via remote WMI queries." -Level 2 -File $FilePath
@@ -5900,86 +5901,282 @@ Write-Verbose "$(Get-Date):   Processing CM Appications."
 Write-HTMLHeading -Level 3 -Text 'Applications' -File $FilePath
 #$Applications = Get-WmiObject -Class sms_applicationlatest -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider
 #Get-CMApplication | select LocalizedDisplayName,LocalizedDescription,Manufacturer,SoftwareVersion,PackageID,ISExpired,ISDeployed,NumberOfDeploymentTypes
-$Applications = Get-CMApplication
-$Applications = $Applications|Sort-Object LocalizedDisplayName
+$Applications = Get-CMApplication|Sort-Object LocalizedDisplayName
 if ($ListAllInformation -or $ListAppDetails){
     if (-not [string]::IsNullOrEmpty($Applications)) {
         Write-HTMLParagraph -Text "Below are a summary of all $($Applications.Count) application installers defined in this site. These are applications that are installed with the configuration manager application model.  Packages are covered later in the documentation." -Level 3 -File $FilePath
         foreach ($App in $Applications) {
+            #region Application Details
             Write-Verbose "$(Get-Date):   Found App: $($App.LocalizedDisplayName)"
             Write-HTMLHeading -Level 4 -Text "$($App.LocalizedDisplayName)" -File $FilePath
-            $AppList = @()
             if ($App.LocalizedDescription -ne ""){
-                $ListDescription = "Description: $($App.LocalizedDescription)"
+                Write-HTMLParagraph -Text "Applicaton Description: $($App.LocalizedDescription)" -Level 4 -File $FilePath
             }
+            Write-Verbose "$(Get-Date):   Processing General application Info.."
+            $ListDescription = "General Application Information"
+            $AppList = @()
             $AppList += "Created by: $($App.CreatedBy)"
             $AppList += "Date created: $($App.DateCreated)"
+            $AppList += "Date published: $($app.EffectiveDate)"
+            $AppList += "Modified date: $($app.DateLastModified)"
+            $AppList += "Modified by: $($app.LastModifiedBy)"
+            $AppList += "Revision number: $($app.CIVersion)"
             $AppList += "Publisher: $($App.Manufacturer)"
-            $AppList += "Software Version: $($App.SoftwareVersion)"
+            $AppList += "Software version: $($App.SoftwareVersion)"
             $AppList += "CM Package ID: $($App.PackageID)"
-            $AppList += "Enabled: $($App.ISEnabled)"
+            $AppList += "Retired: $($App.IsExpired)"
             $AppList += "Deployed: $($App.ISDeployed)"
-            If ($ListDescription -ne "") {
-                Write-HtmlList -InputObject $AppList -Description $ListDescription -Level 5 -File $FilePath
-            }Else{
-                Write-HtmlList -InputObject $AppList -Level 5 -File $FilePath
-            }
+            Write-HtmlList -InputObject $AppList -Description $ListDescription -Level 5 -File $FilePath
             $ListDescription = ""
+            Write-Verbose "$(Get-Date):   Completed General application Info.."
+
+            $PackageXML = [xml]$App.SDMPackageXML
+
+            Write-Verbose "$(Get-Date):   Processing application Software Center info.."
+            $ListDescription = "Software Center Details"
+            $AppList = @()
+            $AppList += "Localized App Name:  $($PackageXML.AppMgmtDigest.Application.DisplayInfo.info.Title)"
+            If (!([string]::IsNullOrEmpty($PackageXML.AppMgmtDigest.Application.DisplayInfo.info.UserCategories.Tag))){
+                $AppList += "User categories:   $($($PackageXML.AppMgmtDigest.Application.DisplayInfo.info.UserCategories.Tag) -join '; ')"
+            }
+            $AppList += "User documentation:  $($PackageXML.AppMgmtDigest.Application.DisplayInfo.info.InfoUrl)"
+            $AppList += "Link text:  $($PackageXML.AppMgmtDigest.Application.DisplayInfo.info.InfoUrlText)"
+            $AppList += "Localized description:  $($PackageXML.AppMgmtDigest.Application.DisplayInfo.info.Description)"
+            $AppList += "Keywords:  $($($xml.AppMgmtDigest.Application.DisplayInfo.info.tags.tag) -join ';')"
+            If ([string]::IsNullOrEmpty($PackageXML.AppMgmtDigest.Application.DisplayInfo.info.Icon)){
+                $AppList += "Custom Icon:  None"
+            } else {
+                $AppList += "Custom Icon:  Yes"
+            }
+            $AppList += "Featured App: $($App.Featured)"
+            Write-HtmlList -InputObject $AppList -Description $ListDescription -Level 5 -File $FilePath
+            $ListDescription = ""
+            Write-Verbose "$(Get-Date):   Completed application Software Center info.."
+
+            Write-Verbose "$(Get-Date):   Processing application content locations.."
+            #Content Locations:
+            #SELECT * FROM SMS_DPGroupContentInfo
+            #SELECT * FROM SMS_DPContentInfo
+            Write-Verbose "$(Get-Date):   Completed application content locations.."
+
+            Write-Verbose "$(Get-Date):   Processing application distribution settings.."
+            $ListDescription = "Distribution Details"
+            $AppList = @()
+            switch ($xml.AppMgmtDigest.Application.HighPriority) {
+                1 { $Priority = "High" }
+                2 { $Priority = "Medium" }
+                3 { $Priority = "Low" }
+                Default {$Priority = "Medium"}
+            }
+            $AppList += "Distribution Priority:  $Priority"
+            If ($xml.AppMgmtDigest.Application.SendToProtectedDP -eq 'true'){
+                $AppList += "Enable for On-demand Distribution: True"
+            } else {
+                $AppList += "Enable for On-demand Distribution: False"
+            }
+            If ($xml.AppMgmtDigest.Application.AutoDistribute -eq 'true'){
+                $AppList += "Prestaged Distribution Point settings: Automatically downloadcontent when packages are assigned to distribution points"
+            }
+            elseIf ($xml.AppMgmtDigest.Application.DownloadDelta -eq 'true'){
+                $AppList += "Prestaged Distribution Point settings: Download only content changes to the distribution point"
+            }
+            ELSE{
+                $AppList += "Prestaged Distribution Point settings: Manually copy the content in this package to the distribution point"
+            }
+            Write-HtmlList -InputObject $AppList -Description $ListDescription -Level 5 -File $FilePath
+            $ListDescription = ""
+            Write-Verbose "$(Get-Date):   Completed application distribution settings.."
+
+            Write-Verbose "$(Get-Date):   Processing Supersedence info.."
+            $ListDescription = "Supersedence details"
+            $AppList = @()
+            $AppList += "Supersedes other applications:  $($app.IsSuperseding)"
+            $AppList += "Is superseded by another application:  $($app.IsSuperseded)"
+            if ($xml.AppMgmtDigest.Application.DisplaySupersedes -eq 'true'){
+                $AppList += "Allow user to see this app and all apps that it supercedes in Software Center: Yes"
+            } else {
+                $AppList += "Allow user to see this app and all apps that it supercedes in Software Center: No"
+            }
+            Write-HtmlList -InputObject $AppList -Description $ListDescription -Level 5 -File $FilePath
+            $ListDescription = ""
+            Write-Verbose "$(Get-Date):   Completed application Software Center info.."
+            #endregion Application Details
+            
+            #region deployment types
             Write-Verbose "$(Get-Date):   Processing deployment types for: $($App.LocalizedDisplayName)"
-            $DTs = Get-CMDeploymentType -ApplicationName "$($App.LocalizedDisplayName)"
-            [xml]$PackageXML = $App.SDMPackageXML
+            $DTs = $PackageXML.AppMgmtDigest.DeploymentType
             if (-not [string]::IsNullOrEmpty($DTs)) {
-                $DTsArray = @()
                 foreach ($DT in $DTs) {
-                    #$xmlDT = [xml]$DT.SDMPackageXML
-                    foreach ($xl in $PackageXML.AppMgmtDigest.DeploymentType) {
-                        if ($dt.ContentId -eq $xl.Installer.Contents.Content.ContentId) {
-                            Write-Verbose "$(Get-Date):   Found Deployment Type:  $($xl.Title.'#text')"
-                            $Content = "$($xl.Installer.contents.content.location)"
-                            if (Test-Path "filesystem::$Content" -ErrorAction SilentlyContinue){
-                                $Verified = "Verified"
-                            }else{
-                                $Verified = "Unverified!"
-                            }
-                            $InstallCL = "$($xl.installer.customdata.installcommandline)"
-                            $UninstallCL = "$($xl.installer.customdata.uninstallcommandline)"
-                        }
-                        if ($xl.Technology -eq "Deeplink"){ #this is a windows store app.  There is no onprem content.
-                            $Content = "$($xl.Installer.CustomData.PackageUriNew)"
-                            $Verified = "N/A"
-                            $InstallCL = "N/A"
-                            $UninstallCL = "N/A"
+                    Write-HTMLHeading -Level 5 -Text "Deployment Type: $($DT.title.'#text')" -File $FilePath
+                    $DTListData = @()
+                    $DTSection = "General"
+                    $DTListData += "Technology: $($DT.Technology)"
+                    $DTListData += "Admin Comments: $($DT.Description.'#text')"
+                    $DTListData += "Languages: $($($DT.Languages.lang) -join ',')"
+                    Write-HtmlList -InputObject $DTListData -Description $DTSection -Level 6 -File $FilePath
+
+                    $DTListData = @()
+                    $DTSection = "Content"
+                    $InstallContent = $DT.Installer.Contents.Content | Where-Object {$_.ContentID -eq $DT.Installer.CustomData.InstallContent.ContentId}
+                    $DTListData += "Content Location: $($InstallContent.Location)"
+                    switch ($dt.Installer.CustomData.UninstallSetting) {
+                        'Different' { $UninstallContentSetting = 'Different from install content' }
+                        'SameAsInstall' { $UninstallContentSetting = 'Same as install content'}
+                        'NoneRequired' { $UninstallContentSetting = 'No uninstall content'}
+                        Default { $UninstallContentSetting = 'Same as install content' }
+                    }
+                    $DTListData += "Uninstall content settings: $UninstallContentSetting"
+                    If ($UninstallContentSetting -eq 'Different from install content' ){
+                        $UnInstallContent = $dt.Installer.Contents.Content | Where-Object {$_.ContentID -eq $dt.Installer.CustomData.UninstallContent.ContentId}
+                        $DTListData += "Uninstall content location: $($UnInstallContent.Location)"
+                    } else{
+                        $DTListData += "Uninstall content location: N/A"
+                    }
+                    If ($InstallContent.PinOnClient -eq 'true'){
+                        $DTListData += "Persist in the client cache: True"
+                    } else {
+                        $DTListData += "Persist in the client cache: False"
+                    }
+                    If ($InstallContent.FallbackToUnprotectedDP -eq 'true'){
+                        $DTListData += "Allow clients to use DP from the default site: True"
+                    } else {
+                        $DTListData += "Allow clients to use DP from the default site: False"
+                    }
+                    switch ($InstallContent.OnSlowNetwork) {
+                        'DoNothing' { $DTListData += "Deployment options for neighbor or default boundary group: Do not download content" }
+                        'Download' { $DTListData += "Deployment options for neighbor or default boundary group: Download content from DP and run locally" }
+                        Default { $DTListData += "Deployment options for neighbor or default boundary group: Download content from DP and run locally" }
+                    }
+                    Write-HtmlList -InputObject $DTListData -Description $DTSection -Level 6 -File $FilePath
+
+                    $DTListData = @()
+                    $DTSection = "Programs"
+                    $DTListData += "Install program: $(($DT.Installer.InstallAction.Args.arg | Where-Object {$_.name -eq 'InstallCommandLine'}).'#text')"
+                    #$DTListData += "Content ID: $($DT.Installer.InstallAction.Contents.Content.ContentId)"
+                    $DTListData += "Uninstall program: $(($DT.Installer.UninstallAction.Args.arg | Where-Object {$_.name -eq 'InstallCommandLine'}).'#text')"
+                    #$DTListData += "Content ID: $($DT.Installer.UninstallAction.Contents.Content.ContentId)"
+                    $DTListData += "Repair program: $(($DT.Installer.RepairAction.Args.arg | Where-Object {$_.name -eq 'InstallCommandLine'}).'#text')"
+                    #$DTListData += "Content ID: $($DT.Installer.RepairAction.Contents.Content.ContentId)"
+                    $DTListData += "Run installation and uninstall program as 32-bit process on 64-bit clients:  $(($DT.Installer.InstallAction.Args.arg | where {$_.name -eq 'RunAs32Bit'}).'#text')"
+                    Write-HtmlList -InputObject $DTListData -Description $DTSection -Level 6 -File $FilePath
+                    
+                    $DTListData = @()
+                    $DTSection = "Detection Method"
+                    If ($DT.Installer.DetectAction.Provider -like 'MSI'){
+                        #MSI
+                        $ProductCode = ($DT.Installer.DetectAction.args.arg | Where-Object {$_.Name -eq 'ProductCode'}).'#text'
+                        $DTListData += "MSI detection method."
+                        $DTListData += "MSI Product Code: $ProductCode"
+                    } elseif ($DT.Installer.DetectAction.Provider -like 'Local') {
+                        #Enhanced Detection Method
+                        $DTListData += "Using enhanced detection method."
+                        $EDM = [xml]($DT.Installer.DetectAction.Args.arg | Where-Object {$_.Name -eq 'MethodBody'}).'#text'
+                    } else {
+                        #Unknown
+                        $DTListData += "Other detection method."
+                    }
+                    Write-HtmlList -InputObject $DTListData -Description $DTSection -Level 6 -File $FilePath
+
+                    $DTListData = @()
+                    $DTSection = "User Experience"
+                    switch (($DT.Installer.InstallAction.args.arg | Where-Object {$_.Name -eq 'ExecutionContext'}).'#text') {
+                        'System' { $InstallBehavior = 'Install for system' }
+                        'User' { $InstallBehavior = 'Install for user' }
+                        'Any' { $InstallBehavior = 'Install for system if resource is device; otherwise install for user' }
+                    }
+                    $DTListData += "Installation Behavior: $InstallBehavior"
+                    switch (($DT.Installer.InstallAction.args.arg | Where-Object {$_.Name -eq 'RequiresLogOn'}).'#text') {
+                        'True' { $LogonReq = 'Only when a user is logged on' }
+                        'False' { $LogonReq = 'Only when no user is logged on' }
+                        $null { $LogonReq = 'Whether or not a user is logged on' }
+                        default { $LogonReq = 'Whether or not a user is logged on' }
+                    }
+                    $DTListData += "Logon requirement: $LogonReq"
+                    switch (($DT.Installer.InstallAction.args.arg | Where-Object {$_.Name -eq 'UserInteractionMode'}).'#text') {
+                        'Normal' { $AppVisibility = 'Normal' }
+                        'Maximized' { $AppVisibility = 'Maximized' }
+                        'Minimized' { $AppVisibility = 'Minimized' }
+                        'Hidden' { $AppVisibility = 'Hidden' }
+                        Default { $AppVisibility = 'Normal'}
+                    }
+                    $DTListData += "Installation program visibility: $AppVisibility"
+                    if (($DT.Installer.InstallAction.args.arg | Where-Object {$_.Name -eq 'RequiresUserInteraction'}).'#text' -eq 'true'){
+                        $DTListData += "Allow user to view and interact with the program Installation: true"
+                    } else {
+                        $DTListData += "Allow user to view and interact with the program Installation: false"
+                    }
+                    $MaxRunTime = ($DT.Installer.InstallAction.args.arg | Where-Object {$_.Name -eq 'MaxExecuteTime'}).'#text'
+                    $DTListData += "Maximum allowed run time (minutes): $MaxRunTime"
+                    $EstimatedRunTime = ($DT.Installer.InstallAction.args.arg | Where-Object {$_.Name -eq 'ExecuteTime'}).'#text'
+                    $DTListData += "Estimated installation time (minutes): $EstimatedRunTime"
+                    switch (($DT.Installer.InstallAction.args.arg | Where-Object {$_.Name -eq 'PostInstallBehavior'}).'#text') {
+                        'BasedOnExitCode' { $CompletionBehavior = 'Determine behavior based on return codes' }
+                        'NoAction' { $CompletionBehavior = 'No specific action' }
+                        'ProgramReboot' { $CompletionBehavior = 'The Software install program might force a device restart' }
+                        'ForceReboot' { $CompletionBehavior = 'Configuration Manager client will force a mandatory device restart' }
+                        Default {}
+                    }
+                    $DTListData += "Installation Completion Behaviour: $CompletionBehavior"
+                    Write-HtmlList -InputObject $DTListData -Description $DTSection -Level 6 -File $FilePath
+
+                    $DTListData = @()
+                    $DTSection = "Requirements"
+                    If([string]::IsNullOrEmpty($DT.Requirements)){
+                        $DTListData += "No requirements defined."
+                    } else {
+                        #Any number of requirements
+                        $DTListData += "One or more requirements defined."
+                        If (!([string]::IsNullOrEmpty($DT.Requirements.Rule.OperatingSystemExpression))) {
+                            $Operator = $DT.Requirements.Rule.OperatingSystemExpression.Operator
+                            $OSes = $DT.Requirements.Rule.OperatingSystemExpression.Operands.RuleExpression.RuleId -join '; '
+                            $DTListData += "Operating system: &#60;$Operator&#62; $OSes"
                         }
                     }
-                    $DTListArray =@()
-                    #$DTsArray += New-Object -TypeName psobject -Property @{'Priority'= $DT.PriorityInLatestApp; 'Deployment Type Name' = "$($DT.LocalizedDisplayName)"; 'Technology' = "$($DT.Technology)"; 'Install Command' = "$InstallCL"; 'Uninstall Command' = "$UninstallCL"; 'Content Path' = "$Content"; 'Content Status'="$Verified"}
-                    #$DTsArray = New-Object -TypeName psobject -Property @{'Priority'= $DT.PriorityInLatestApp; 'Deployment Type Name' = $DT.LocalizedDisplayName; 'Technology' = $DT.Technology; 'Commandline' = if (-not ($DT.Technology -like 'AppV*')){ $xmlDT.AppMgmtDigest.DeploymentType.Installer.CustomData.InstallCommandLine } }
-                    $DTListTitle = "Deployment Type Name: $($DT.LocalizedDisplayName)"
-                    $DTListArray += "Deployment Type Priority: $($DT.PriorityInLatestApp)"
-                    $DTListArray += "Technology: $($DT.Technology)"
-                    $DTListArray += "Install Command: $InstallCL"
-                    $DTListArray += "Uninstall Command: $UninstallCL"
-                    $DTListArray += "Content Path: $Content"
-                    $DTListArray += "Content Status: $Verified"
-                    Write-HtmlList -Title $DTListTitle -InputObject $DTListArray -Level 5 -File $FilePath
-                    $InstallCL = ""
-                    $UninstallCL = ""
-                    $Content = ""
-                    $Verified = ""
+                    Write-HtmlList -InputObject $DTListData -Description $DTSection -Level 6 -File $FilePath
+                    
+                    $DTListData = @()
+                    $DTSection = "Return Codes"
+                    foreach ($XC in $DT.Installer.CustomData.ExitCodes.ExitCode) {
+                        $DTListData += "$($XC.Class) ($($XC.Code))"
+                    }
+                    Write-HtmlList -InputObject $DTListData -Description $DTSection -Level 6 -File $FilePath
+
+                    $DTListData = @()
+                    $DTSection = "Dependencies"
+                    If([string]::IsNullOrEmpty($DT.Dependencies)){
+                        $DTListData += "No dependencies defined."
+                    } else {
+                        #Any number of dependencies
+                        $DTListData += "One or more dependencies defined."
+                    }
+                    Write-HtmlList -InputObject $DTListData -Description $DTSection -Level 6 -File $FilePath
+                    
+                    $DTListData = @()
+                    $DTSection = "Install behavior - Executables that must be closed"
+                    If([string]::IsNullOrEmpty($DT.Installer.CustomData.InstallProcessDetection)){
+                        $DTListData += "No executables defined."
+                    } else {
+                        #Any number of dependencies
+                        foreach ($exe in $DT.Installer.CustomData.InstallProcessDetection.ProcessList.ProcessInformation){
+                            $DTListData += "$($exe.DisplayInfo.info.DisplayName) ($($exe.Name))"
+                        }
+                    }
+                    Write-HtmlList -InputObject $DTListData -Description $DTSection -Level 6 -File $FilePath
                 }
-                #$DTsArray = $DTsArray | sort Priority | Select-Object 'Priority','Deployment Type Name','Technology','Install Command','Uninstall Command','Content Path','Content Status'
-                #Write-HtmlTable -InputObject $DTsArray -Border 1 -Level 5 -File $FilePath
-                
             }
             else {
                 Write-HTMLParagraph -Text 'There are no Deployment Types configured for this Application.' -Level 5 -File $FilePath
             }
+            #endregion deployment types
+
+            #region deployments
             Write-Verbose "$(Get-Date):   Processing deployments for: $($App.LocalizedDisplayName)"
             $AppDeployments = Get-CMApplicationDeployment -ApplicationID $($App.CI_ID)
             Write-HTMLHeading -Level 5 -Text "Deployments for $($App.LocalizedDisplayName):" -File $FilePath
             if (-not [string]::IsNullOrEmpty($AppDeployments)) {
                 $DeploymentsArray = @()
                 foreach ($AppDeployment in $AppDeployments){
+                    $AppDeploySettings = @()
                     Switch ($AppDeployment.DesiredConfigType){
                         1{$Action = 'Install'}
                         2{$Action = 'Remove'}
@@ -6001,13 +6198,65 @@ if ($ListAllInformation -or $ListAppDetails){
                         True{$TimeZone = 'GMT'}
                         False{$TimeZone = 'Client Local Time'}
                     }
-                    $DeploymentsArray += New-Object -TypeName psobject -Property @{'Collection'="$($AppDeployment.CollectionName)";'Action'="$Action";'Purpose'="$Purpose";'User Notification'="$UserNotice";'Available Time'="$($AppDeployment.StartTime)";'Deadline'="$($AppDeployment.EnforcementDeadline)";'Time Zone'="$TimeZone"}
+                    $AppDeploySettings += '--B--User Experience--/B--'
+                    $AppDeploySettings += "--BULLET-- User notifications: $UserNotice"
+                    If($AppDeployment.OfferFlags -band 0x00000020){ #Bit 32 = HIGHIMPACTDEPLOYMENT
+                        $AppDeploySettings += '--TAB----CBOX-- When software changes are required, show a dialog window to the user instead of a toast notification'
+                    } else {
+                        $AppDeploySettings += '--TAB----UNCBOX-- When software changes are required, show a dialog window to the user instead of a toast notification'
+                    }
+                    $AppDeploySettings += '--BULLET--Allow the following activies outside of maintinance windows:'
+                    if ($AppDeployment.OverrideServiceWindows -eq 'True'){
+                        $AppDeploySettings += '--TAB----CBOX-- Software Installation'
+                    } else {
+                        $AppDeploySettings += '--TAB----UNCBOX-- Software Installation'
+                    }
+                    if ($AppDeployment.RebootOutsideOfServiceWindows -eq 'True'){
+                        $AppDeploySettings += '--TAB----CBOX-- System Restart'
+                    } else {
+                        $AppDeploySettings += '--TAB----UNCBOX-- System Restart'
+                    }
+                    $AppDeploySettings += '--CRLF----B--Deployment Settings--/B--'
+                    If($AppDeployment.OfferFlags -band 0x00000008){ #Bit 8 = ALLOWUSERSTOREPAIRAPP
+                        $AppDeploySettings += '--CBOX-- Allow end users to attempt to repair this application'
+                    } else {
+                        $AppDeploySettings += '--UNCBOX-- Allow end users to attempt to repair this application'
+                    }
+                    If($AppDeployment.OfferFlags -band 0x00000001){ #Bit 1 = PREDEPLOY
+                        $AppDeploySettings += '--CBOX-- Pre-deploy software to the users primary device'
+                    } else {
+                        $AppDeploySettings += '--UNCBOX-- Pre-deploy software to the users primary device'
+                    }
+                    If($AppDeployment.WoLEnabled -eq 'True'){
+                        $AppDeploySettings += '--CBOX-- Send wake-up packets'
+                    } else {
+                        $AppDeploySettings += '--UNCBOX-- Send wake-up packets'
+                    }
+                    If($AppDeployment.OfferFlags -band 0x00000004){ #Bit 4 = ENABLEPROCESSTERMINATION
+                        $AppDeploySettings += '--CBOX-- Automatically close any running executables you specified in Install Behavior'
+                    } else {
+                        $AppDeploySettings += '--UNCBOX-- Automatically close any running executables you specified in Install Behavior'
+                    }
+                    If($AppDeployment.OfferFlags -band 0x00000002){ #Bit 2 = ONDEMAND
+                        #'Use default distribution point group associated to this collection'
+                    }
+                    If($AppDeployment.OfferFlags -band 0x00000010){ #Bit 16 = RELATIVESCHEDULE
+                        #'RELATIVESCHEDULE?'
+                    }
+                    if ($AppDeployment.SoftDeadlineEnabled -eq 'True'){
+                        $AppDeploySettings += '--CRLF----CBOX-- Delay enforcement of this deployment according to user preferences, up to grace period..'
+                    } else {
+                        $AppDeploySettings += '--CRLF----UNCBOX-- Delay enforcement of this deployment according to user preferences, up to grace period..'
+                    }
+                    $AppDeploySettingsString = $AppDeploySettings -join '--CRLF--'
+                    $DeploymentsArray += New-Object -TypeName psobject -Property @{'Collection'="$($AppDeployment.CollectionName)";'Action'="$Action";'Purpose'="$Purpose";'Deployment Details'="$AppDeploySettingsString";'Available Time'="$($AppDeployment.StartTime)";'Deadline'="$($AppDeployment.EnforcementDeadline)";'Time Zone'="$TimeZone";'Deployment ID'="$($AppDeployment.AssignmentUniqueID)"}
                 }
-                $DeploymentsArray = $DeploymentsArray | Select-Object 'Collection','Action','Purpose','User Notification','Available Time','Deadline','Time Zone'
+                $DeploymentsArray = $DeploymentsArray | Select-Object 'Collection','Action','Purpose','Deployment Details','Available Time','Deadline','Time Zone','Deployment ID'
                 Write-HtmlTable -InputObject $DeploymentsArray -Border 1 -Level 6 -File $FilePath
             }else{
                 Write-HTMLParagraph -Text 'There are no deployments for this application.' -Level 6 -File $FilePath
             }
+            #endregion deployments
         }
     }else{
         Write-HTMLParagraph -Text 'There are no Applications configured in this site.' -Level 4 -File $FilePath
@@ -6017,9 +6266,9 @@ elseif (-not [string]::IsNullOrEmpty($Applications)) {
     Write-HTMLParagraph -Text "There are $($Applications.count) applications configured." -Level 4 -File $FilePath
     $AppBasics = @()
     foreach ($App in $Applications){
-        $AppBasics += New-Object -TypeName PSObject -Property @{'Name'="$($App.LocalizedDisplayName)"; 'Created by' = $($App.CreatedBy); 'Date created'=$($App.DateCreated)}
+        $AppBasics += New-Object -TypeName PSObject -Property @{'Name'="$($App.LocalizedDisplayName)"; 'Deployed' = $($App.IsDeployed); 'Created by' = $($App.CreatedBy); 'Date created'=$($App.DateCreated)}
     }
-    $AppBasics = $AppBasics | Select 'Name','Created by','Date Created'
+    $AppBasics = $AppBasics | Select 'Name','Deployed','Created by','Date Created'
     Write-HtmlTable -InputObject $AppBasics -Border 1 -Level 4 -File $FilePath
 }
 else {
