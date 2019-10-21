@@ -6205,7 +6205,7 @@ if ($ListAllInformation -or $ListAppDetails){
                     } else {
                         $AppDeploySettings += '--TAB----UNCBOX-- When software changes are required, show a dialog window to the user instead of a toast notification'
                     }
-                    $AppDeploySettings += '--BULLET--Allow the following activies outside of maintinance windows:'
+                    $AppDeploySettings += '--BULLET-- Allow the following activies outside of maintinance windows:'
                     if ($AppDeployment.OverrideServiceWindows -eq 'True'){
                         $AppDeploySettings += '--TAB----CBOX-- Software Installation'
                     } else {
