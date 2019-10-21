@@ -6195,7 +6195,7 @@ if ($ListAllInformation -or $ListAppDetails){
                         }
                     }
                     Switch ($AppDeployment.UseGMTTimes){
-                        True{$TimeZone = 'GMT'}
+                        True{$TimeZone = 'UTC'}
                         False{$TimeZone = 'Client Local Time'}
                     }
                     $AppDeploySettings += '--B--User Experience--/B--'
