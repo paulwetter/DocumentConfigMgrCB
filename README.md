@@ -18,13 +18,14 @@ My updated script contains pretty much everything collected from the original.  
 * Collects everything for Software Updates (ADRS, Config, Packages, Groups)!!  
 * Collects important Info for SQL database.  
 * Collects Site features and servicing history.  
+* Collect configuration of all discovery methods.
 * Collect Default Boundary Group settings.  
 * Extended to include configuration of all the new Client Settings.  
 * Collects additional Collection information.  
 * Summarizes Collections with maintenance windows.
 * Summary of all the different Compliance settings (Conditional Access, Company resources, etc).  
 * Updated Endpoint Protection Profile info.  
-* MUCH more detail on Applications.  
+* MUCH more detail on Applications (updated to everything included through 1906 - version 3.46).  
 * Added OSD Related Items (Installers, Images, Upgrade Packages)  
 * Lists Task Sequence steps.  
 * Summary or detailed options.  
