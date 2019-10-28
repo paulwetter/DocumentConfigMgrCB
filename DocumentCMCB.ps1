@@ -46,6 +46,8 @@
 .PARAMETER UnknownClientSettings
     With new releases of CM come new client settings.  If this parameter is added, it will display raw 
     information for these client settings.
+.PARAMETER SQLTimeout
+    The amount of time we should wait for a sql query to time out.  Default is 300 seconds (5 minutes)
 .PARAMETER MaskAccounts
     This will mask about half of the account name in the documentation
 .PARAMETER StyleSheet
@@ -63,11 +65,11 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.46
+	VERSION: 3.47
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: October 21, 2019
+	LASTEDIT: October 28, 2019
 #>
 
 #endregion
@@ -113,6 +115,9 @@ Param(
     [parameter(Mandatory=$False)] 
     [switch]$NoSqlDetail,
 
+    [parameter(Mandatory=$False)]
+    [int]$SQLTimeout = 300,
+
     [parameter(Mandatory=$False)] 
     [switch]$MaskAccounts,
     
@@ -122,7 +127,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.46'
+$DocumenationScriptVersion = '3.47'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -2865,27 +2870,27 @@ if ($ListAllInformation){
                 $SQLConnectString = "$SQLServer"
           }
           Write-HTMLParagraph -Text "SQL instance version information:" -Level 2 -File $FilePath
-          $SQLVersion = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -Query "SELECT SERVERPROPERTY (`'edition`') Edition, SERVERPROPERTY(`'productversion`') Version, SERVERPROPERTY (`'productlevel`') SP, SERVERPROPERTY (`'ProductUpdateLevel`') CU"
+          $SQLVersion = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -QueryTimeout $SQLTimeout -Query "SELECT SERVERPROPERTY (`'edition`') Edition, SERVERPROPERTY(`'productversion`') Version, SERVERPROPERTY (`'productlevel`') SP, SERVERPROPERTY (`'ProductUpdateLevel`') CU"
           $SQLVersion = $SQLVersion | Select Edition,Version,SP,CU
           Write-HtmlTable -InputObject $SQLVersion -Border 1 -Level 3 -File $FilePath
           Write-HTMLParagraph -Text "The following are important global settings on the SQL server.  Typically, this SQL server should be dedicated to Configuration Manager." -Level 2 -File $FilePath
-          $SQLConfig = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -Query "SELECT name ServerSetting,value_in_use Value FROM sys.configurations where configuration_id = 1543 OR configuration_id = 1544 OR configuration_id = 1539"
+          $SQLConfig = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -QueryTimeout $SQLTimeout -Query "SELECT name ServerSetting,value_in_use Value FROM sys.configurations where configuration_id = 1543 OR configuration_id = 1544 OR configuration_id = 1539"
           $SQLConfig = $SQLConfig | Select @{Name='Server Setting';Expression={$_.ServerSetting}},Value
           Write-HtmlTable -InputObject $SQLConfig -Border 1 -Level 3 -File $FilePath
           Write-HTMLParagraph -Text "Site database information:" -Level 2 -File $FilePath
-          $DatabaseInfo = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -Query "SELECT name, compatibility_level, collation_name FROM sys.Databases WHERE name='$CMDatabase'"
+          $DatabaseInfo = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -QueryTimeout $SQLTimeout -Query "SELECT name, compatibility_level, collation_name FROM sys.Databases WHERE name='$CMDatabase'"
           $DatabaseInfo = $DatabaseInfo | Select @{Name='Database Name';Expression={$_.name}},@{Name='Compatibility Level';Expression={$_.compatibility_level}},@{Name='Collation';Expression={$_.collation_name}}
           Write-HtmlTable -InputObject $DatabaseInfo -Border 1 -Level 3 -File $FilePath
           Write-HTMLParagraph -Text "Below are the database files for the site database ($CMDatabase):" -Level 2 -File $FilePath
-          $DatabaseFiles = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -Query "SELECT db.name `'DatabaseName`',type_desc `'FileType`',physical_name `'FilePath`',mf.state_desc `'Status`',size*8/1024 `'FileSizeMB`',max_size `'MaximumSize`',growth `'GrowthRate`',(CASE WHEN is_percent_growth = 1 THEN `'Percent`' ELSE `'MB`' END) `'GrowthUnit`',create_date `'DateCreated`',compatibility_level `'DBLevel`',user_access_desc `'AccessMode`',recovery_model_desc `'RecoveryModel`' FROM sys.master_files mf INNER JOIN sys.databases db ON db.database_id = mf.database_id where db.name = `'$CMDatabase`'"
+          $DatabaseFiles = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -QueryTimeout $SQLTimeout -Query "SELECT db.name `'DatabaseName`',type_desc `'FileType`',physical_name `'FilePath`',mf.state_desc `'Status`',size*8/1024 `'FileSizeMB`',max_size `'MaximumSize`',growth `'GrowthRate`',(CASE WHEN is_percent_growth = 1 THEN `'Percent`' ELSE `'MB`' END) `'GrowthUnit`',create_date `'DateCreated`',compatibility_level `'DBLevel`',user_access_desc `'AccessMode`',recovery_model_desc `'RecoveryModel`' FROM sys.master_files mf INNER JOIN sys.databases db ON db.database_id = mf.database_id where db.name = `'$CMDatabase`'"
           $DatabaseFiles = $DatabaseFiles | Select @{Name='File Type';Expression={$_.FileType}},@{Name='File Path';Expression={$_.FilePath}},Status,@{Name='File Size MB';Expression={'{0:N0}' -f $_.FileSizeMB}},@{Name='Maximum Size';Expression={$(IF($_.MaximumSize -eq -1){"Unlimited"}else{'{0:N0}' -f ($_.MaximumSize/128)})}},@{Name='Growth Rate';Expression={"$(IF($_.GrowthUnit -eq "Percent"){"$($_.GrowthRate)%"}Else{"$($_.GrowthRate/128)MB"})"}},@{Name='Recovery Model';Expression={$_.RecoveryModel}}
           Write-HtmlTable -InputObject $DatabaseFiles -Border 1 -Level 3 -File $FilePath
           Write-HTMLParagraph -Text "Below is a fragmentation summary (%) for indexes on the site database ($CMDatabase):" -Level 2 -File $FilePath
-          $IndexFragmentation = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database $CMDatabase -Query "SELECT SUM(CASE WHEN indexstats.avg_fragmentation_in_percent > 75 THEN  1 ELSE 0 END) [Over 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 50 AND indexstats.avg_fragmentation_in_percent <= 75) THEN  1 ELSE 0 END) [50 to 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 25 AND indexstats.avg_fragmentation_in_percent <= 50) THEN  1 ELSE 0 END) [25 to 50],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 5 AND indexstats.avg_fragmentation_in_percent <= 25) THEN  1 ELSE 0 END) [5 to 25],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 1 AND indexstats.avg_fragmentation_in_percent <= 5) THEN  1 ELSE 0 END) [Under 5],SUM(CASE WHEN indexstats.avg_fragmentation_in_percent < 1 THEN  1 ELSE 0 END) [Not Fragmented] FROM sys.dm_db_index_physical_stats (DB_ID(), NULL, NULL, NULL, NULL) AS indexstats JOIN sys.tables dbtables on dbtables.[object_id] = indexstats.[object_id] WHERE indexstats.database_id = DB_ID()"
+          $IndexFragmentation = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database $CMDatabase -QueryTimeout $SQLTimeout -Query "SELECT SUM(CASE WHEN indexstats.avg_fragmentation_in_percent > 75 THEN  1 ELSE 0 END) [Over 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 50 AND indexstats.avg_fragmentation_in_percent <= 75) THEN  1 ELSE 0 END) [50 to 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 25 AND indexstats.avg_fragmentation_in_percent <= 50) THEN  1 ELSE 0 END) [25 to 50],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 5 AND indexstats.avg_fragmentation_in_percent <= 25) THEN  1 ELSE 0 END) [5 to 25],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 1 AND indexstats.avg_fragmentation_in_percent <= 5) THEN  1 ELSE 0 END) [Under 5],SUM(CASE WHEN indexstats.avg_fragmentation_in_percent < 1 THEN  1 ELSE 0 END) [Not Fragmented] FROM sys.dm_db_index_physical_stats (DB_ID(), NULL, NULL, NULL, NULL) AS indexstats JOIN sys.tables dbtables on dbtables.[object_id] = indexstats.[object_id] WHERE indexstats.database_id = DB_ID()"
           $IndexFragmentation = $IndexFragmentation | Select 'Over 75','50 to 75','25 to 50','5 to 25','Under 5','Not Fragmented'
           Write-HtmlTable -InputObject $IndexFragmentation -Border 1 -Level 3 -File $FilePath
           Write-HTMLParagraph -Text "Below is a fragmentation summary (%) for indexes on the site database ($CMDatabase) for Tables over 10 MB in size:" -Level 2 -File $FilePath
-          $IndexFragmentation10 = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database $CMDatabase -Query "SELECT SUM(CASE WHEN indexstats.avg_fragmentation_in_percent > 75 THEN  1 ELSE 0 END) [Over 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 50 AND indexstats.avg_fragmentation_in_percent <= 75) THEN  1 ELSE 0 END) [50 to 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 25 AND indexstats.avg_fragmentation_in_percent <= 50) THEN  1 ELSE 0 END) [25 to 50],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 5 AND indexstats.avg_fragmentation_in_percent <= 25) THEN  1 ELSE 0 END) [5 to 25],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 1 AND indexstats.avg_fragmentation_in_percent <= 5) THEN  1 ELSE 0 END) [Under 5],SUM(CASE WHEN indexstats.avg_fragmentation_in_percent < 1 THEN  1 ELSE 0 END) [Not Fragmented] FROM sys.dm_db_index_physical_stats (DB_ID(), NULL, NULL, NULL, NULL) AS indexstats JOIN sys.tables dbtables on dbtables.[object_id] = indexstats.[object_id] WHERE indexstats.database_id = DB_ID() AND page_count > 1280" #1280 pages is 10 MB
+          $IndexFragmentation10 = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database $CMDatabase -QueryTimeout $SQLTimeout -Query "SELECT SUM(CASE WHEN indexstats.avg_fragmentation_in_percent > 75 THEN  1 ELSE 0 END) [Over 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 50 AND indexstats.avg_fragmentation_in_percent <= 75) THEN  1 ELSE 0 END) [50 to 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 25 AND indexstats.avg_fragmentation_in_percent <= 50) THEN  1 ELSE 0 END) [25 to 50],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 5 AND indexstats.avg_fragmentation_in_percent <= 25) THEN  1 ELSE 0 END) [5 to 25],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 1 AND indexstats.avg_fragmentation_in_percent <= 5) THEN  1 ELSE 0 END) [Under 5],SUM(CASE WHEN indexstats.avg_fragmentation_in_percent < 1 THEN  1 ELSE 0 END) [Not Fragmented] FROM sys.dm_db_index_physical_stats (DB_ID(), NULL, NULL, NULL, NULL) AS indexstats JOIN sys.tables dbtables on dbtables.[object_id] = indexstats.[object_id] WHERE indexstats.database_id = DB_ID() AND page_count > 1280" #1280 pages is 10 MB
           $IndexFragmentation10 = $IndexFragmentation10 | Select 'Over 75','50 to 75','25 to 50','5 to 25','Under 5','Not Fragmented'
           Write-HtmlTable -InputObject $IndexFragmentation10 -Border 1 -Level 3 -File $FilePath
       }
@@ -3978,6 +3983,20 @@ If ($ListAllInformation){
             5{
             #AgentID 5 is for Network Access Protection (NAP) and is no longer part of the product.
             }
+            6{
+                $KnownProps = @("CacheTombstoneContentMinDuration")
+                #CacheTombstoneContentMinDuration : 93300 Seconds -- Minimum duration before the client can remove cached content (minutes):
+                If ($UnknownClientSettings) {
+                    $UnknownProps = @()
+                    $props = ($AgentConfig| Get-Member -Type Property).Name
+                    Foreach ($prop in $props) {
+                      if ($prop -notin $KnownProps) {$UnknownProps += "Property Name: $Prop -- Assigned Value: $($AgentConfig.$prop)"}
+                    }
+                    If ($UnknownProps -gt 0) {
+                      Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
+                    }
+                }  
+            }
             8{
               $KnownProps = @("AgentID","DataCollectionSchedule","Enabled","LastUpdateTimeOfRules","MaximumUsageInstancesPerReport","MeterRuleIDList","MRUAgeLimitInDays","MRURefreshInMinutes","PSComputerName","PSShowComputerName","ReportTimeout","SmsProviderObjectPath")
               $Config = 'Software Metering'
@@ -4037,7 +4056,7 @@ If ($ListAllInformation){
               }
             }
             9{
-              $KnownProps = @("AgentID","AlternateContentProviders","AssignmentBatchingTimeout","BrandingSubTitle","BrandingTitle","ContentDownloadTimeout","ContentLocationTimeout","DayReminderInterval","Enabled","EnableExpressUpdates","EvaluationSchedule","ExpressUpdatesPort","HourReminderInterval","MaxRandomDelayMinutes","MaxScanRetryCount","O365Management","PerDPInactivityTimeout","PSComputerName","PSShowComputerName","ReminderInterval","ScanRetryDelay","ScanSchedule","SmsProviderObjectPath","TotalInactivityTimeout","UpdateStatusRefreshIntervalDays","UserExperience","UserJobPerDPInactivityTimeout","UserJobTotalInactivityTimeout","WSUSLocationTimeout","WSUSScanRetryCodes","WUAMaxRebootsWhenOnInternet","WUASuccessCodes","WUfBEnabled","EnableThirdPartyUpdates")
+              $KnownProps = @("AgentID","AlternateContentProviders","AssignmentBatchingTimeout","BrandingSubTitle","BrandingTitle","ContentDownloadTimeout","ContentLocationTimeout","DayReminderInterval","Enabled","EnableExpressUpdates","EvaluationSchedule","ExpressUpdatesPort","HourReminderInterval","MaxRandomDelayMinutes","MaxScanRetryCount","O365Management","PerDPInactivityTimeout","PSComputerName","PSShowComputerName","ReminderInterval","ScanRetryDelay","ScanSchedule","SmsProviderObjectPath","TotalInactivityTimeout","UpdateStatusRefreshIntervalDays","UserExperience","UserJobPerDPInactivityTimeout","UserJobTotalInactivityTimeout","WSUSLocationTimeout","WSUSScanRetryCodes","WUAMaxRebootsWhenOnInternet","WUASuccessCodes","WUfBEnabled","EnableThirdPartyUpdates","ServiceWindowManagement","NEOPriorityOption","DynamicUpdateOption")
               $Config = 'Software Updates'
               $ConfigList = @()
               $ConfigList += "Enable software updates on clients: $($AgentConfig.Enabled)"
@@ -4147,11 +4166,11 @@ If ($ListAllInformation){
               }
               if($AgentConfig.EnableExpressUpdates -eq $False)
               {
-                  $ConfigList += "Enable installation of Express installation files on clients: No"
+                  $ConfigList += "Allow clients to download delta content when available (Enable installation of Express installation files on clients - Before 1902): No"
               }
               else
               {
-                  $ConfigList += "Enable installation of Express installation files on clients: Yes"
+                  $ConfigList += "Allow clients to download delta content when available (Enable installation of Express installation files on clients - Before 1902): Yes"
                   $ConfigList += "Port used to download content for Express installation files: $($AgentConfig.ExpressUpdatesPort)"
               }
               If($AgentConfig.O365Management -eq 1)
@@ -4162,6 +4181,7 @@ If ($ListAllInformation){
               {
                   $ConfigList += "Enable management of the Office 365 Client Agent: No"
               }
+              <# No longer appears this is listed in the client settings....
               If($AgentConfig.EnableThirdPartyUpdates -eq "True")
               {
                   $ConfigList += "Enable Third Party Software Updates: Yes"
@@ -4169,7 +4189,24 @@ If ($ListAllInformation){
               else
               {
                   $ConfigList += "Enable Third Party Software Updates: No"
+              }  #>
+              If($AgentConfig.ServiceWindowManagement -eq "True"){
+                  $ConfigList += "Enable installation of software updates in `"All deployments`" maintenance windows when `"Software update`" maintenance window is available: Yes"
+              } else {
+                  $ConfigList += "Enable installation of software updates in `"All deployments`" maintenance windows when `"Software update`" maintenance window is available: No"
               }
+              switch ($AgentConfig.NEOPriorityOption) {
+                  0 { $ThreadPriority = 'Not Configured' }
+                  1 { $ThreadPriority = 'Normal' }
+                  2 { $ThreadPriority = 'Low' }
+              }
+              switch ($AgentConfig.DynamicUpdateOption) {
+                  0 { $DynamicUpdateOption = 'Not Configured' }
+                  1 { $DynamicUpdateOption = 'Yes' }
+                  2 { $DynamicUpdateOption = 'No' }
+              }
+              $ConfigList += "Specify thread priority for feature updates: $ThreadPriority"
+              $ConfigList += "Enable Dynamic Update for feature updates: $DynamicUpdateOption"
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
                   $UnknownProps = @()
@@ -4223,8 +4260,8 @@ If ($ListAllInformation){
               $Config = 'Background Intelligent Transfer'
               $ConfigList = @()
               $ConfigList += "Limit the maximum network bandwidth for BITS background transfers: $($AgentConfig.EnableBitsMaxBandwidth)"
-              $ConfigList += "Throttling window start time: $($AgentConfig.MaxBandwidthValidFrom)"
-              $ConfigList += "Throttling window end time: $($AgentConfig.MaxBandwidthValidTo)"
+              $ConfigList += "Throttling window start time (24hr): $($AgentConfig.MaxBandwidthValidFrom):00"
+              $ConfigList += "Throttling window end time (24hr): $($AgentConfig.MaxBandwidthValidTo):00"
               $ConfigList += "Maximum transfer rate during throttling window (kbps): $($AgentConfig.MaxTransferRateOnSchedule)"
               $ConfigList += "Allow BITS downloads outside the throttling window: $($AgentConfig.EnableDownloadOffSchedule)"
               $ConfigList += "Maximum transfer rate outside the throttling window (Kbps): $($AgentConfig.MaxTransferRateOffSchedule)"
@@ -4426,12 +4463,20 @@ If ($ListAllInformation){
               }
             }
             18{
-              $KnownProps = @("AgentID","AllowUserToOptOutFromPowerPlan","Enabled","EnableP2PWakeupSolution","EnableUserIdleMonitoring","EnableWakeupProxy","MaxCPU","MaxMachinesPerManager","MinimumServersNeeded","NumOfDaysToKeep","NumOfMonthsToKeep","Port","PSComputerName","PSShowComputerName","SmsProviderObjectPath","WakeupProxyDirectAccessPrefixList","WakeupProxyFirewallFlags","WolPort")
+              $KnownProps = @("AgentID","AllowUserToOptOutFromPowerPlan","Enabled","EnableP2PWakeupSolution","EnableUserIdleMonitoring","EnableWakeupProxy","MaxCPU","MaxMachinesPerManager","MinimumServersNeeded","NumOfDaysToKeep","NumOfMonthsToKeep","Port","PSComputerName","PSShowComputerName","SmsProviderObjectPath","WakeupProxyDirectAccessPrefixList","WakeupProxyFirewallFlags","WolPort","AllowWakeup")
               $Config = 'Power Management'
               $ConfigList = @()
               $ConfigList += "Allow power management of clients: $($AgentConfig.Enabled)"
               $ConfigList += "Allow users to exclude their device from power management: $($AgentConfig.AllowUserToOptOutFromPowerPlan)"
+              #AllowWakeup: 0 = Not Configured; 1 = Enabled; 2 = Disabled
+              switch ($AgentConfig.AllowWakeup) {
+                0 { $Wakeup = 'Not Configured' }
+                1 { $Wakeup = 'Enabled' }
+                2 { $Wakeup = 'Disabled' }
+              }
+              $ConfigList += "Allow network wake-up: $Wakeup"
               $ConfigList += "Enable wake-up proxy: $($AgentConfig.EnableWakeupProxy)"
+              $ConfigList += "Wake On LAN port number (UDP): $($AgentConfig.WolPort)"
               if ($AgentConfig.EnableWakeupProxy -eq 'True')
               {
                 $ConfigList += "Wake-up proxy port number (UDP): $($AgentConfig.Port)"
@@ -4473,7 +4518,7 @@ If ($ListAllInformation){
               $ConfigList = @()
               $ConfigList += "Manage Endpoint Protection client on client computers: $($AgentConfig.EnableEP)"
               $ConfigList += "Install Endpoint Protection client on client computers: $($AgentConfig.InstallSCEPClient)"
-              $ConfigList += "Automatically remove previously installed antimalware software before Endpoint Protection is installed: $($AgentConfig.Remove3rdParty)"
+              #$ConfigList += "Automatically remove previously installed antimalware software before Endpoint Protection is installed: $($AgentConfig.Remove3rdParty)"
               $ConfigList += "Allow Endpoint Protection client installation and restarts outside maintenance windows. Maintenance windows must be at least 30 minutes long for client installation: $($AgentConfig.OverrideMaintenanceWindow)"
               $ConfigList += "For Windows Embedded devices with write filters, commit Endpoint Protection client installation (requires restart): $($AgentConfig.PersistInstallation)"
               $ConfigList += "Suppress any required computer restarts after the Endpoint Protection client is installed: $($AgentConfig.SuppressReboot)"
@@ -4496,11 +4541,13 @@ If ($ListAllInformation){
               }
             }
             21{
-              $KnownProps = @("AgentID","PSComputerName","PSShowComputerName","RebootLogoffNotificationCountdownDuration","RebootLogoffNotificationFinalWindow","SmsProviderObjectPath")
+              $KnownProps = @("AgentID","PSComputerName","PSShowComputerName","RebootLogoffNotificationCountdownDuration","RebootLogoffNotificationFinalWindow","SmsProviderObjectPath","CountdownSnoozeInterval","RebootNotificationsDialog")
               $Config = 'Computer Restart'
               $ConfigList = @()
               $ConfigList += "Display a temporary notification to the user that indicates the interval before the user is logged of or the computer restarts (minutes): $($AgentConfig.RebootLogoffNotificationCountdownDuration)"
               $ConfigList += "Display a dialog box that the user cannot close, which displays the countdown interval before the user is logged of or the computer restarts (minutes): $([string]$AgentConfig.RebootLogoffNotificationFinalWindow / 60)"
+              $ConfigList += "Specify the snooze suration for computer restart countdown notifications (minutes): $($AgentConfig.CountdownSnoozeInterval)"
+              $ConfigList += "When a deployment requires a restart, show a dialog windows to the user instead of a toast notification: $($AgentConfig.RebootNotificationsDialog)"
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
                   $UnknownProps = @()
@@ -4568,10 +4615,15 @@ If ($ListAllInformation){
               $ConfigList += "Configure client cache size: $($AgentConfig.ConfigureCacheSize)"
               $ConfigList += "Maximum cache size (MB): $($AgentConfig.MaxCacheSizeMB)"
               $ConfigList += "Maximum cache size (percentage of disk): $($AgentConfig.MaxCacheSizePercent)"
-              $ConfigList += "Enable Configuration Manager client in full OS to share content: $($AgentConfig.CanBeSuperPeer)"
+              #Client Cache duration appears in AgentID 6.  But since in GUI under 'Client cache settings', we will loop the config to find agent 6 and get the setting here.
+              foreach ($AC in $ClientSetting.AgentConfigurations){
+                If ($AC.AgentID -eq 6) {
+                    $ConfigList += "Minimum duration before the client can remove cached content (minutes): $($AC.CacheTombstoneContentMinDuration/60)"
+                }
+              }
+              $ConfigList += "Enable as peer cache source (Enable Configuration Manager client in full OS to share content - 1902 and earlier): $($AgentConfig.CanBeSuperPeer)"
               $ConfigList += "Port for initial network broadcast: $($AgentConfig.BroadcastPort)"
-              $ConfigList += "Enable HTTPS for client peer communication: $($AgentConfig.HttpsEnabled)"
-              $ConfigList += "Port for content download from peer (HTTP/HTTPS): $($AgentConfig.HttpPort)"
+              $ConfigList += "Port for content download from peer: $($AgentConfig.HttpPort)"
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
                   $UnknownProps = @()
@@ -4673,7 +4725,7 @@ If ($ListAllInformation){
                         'OSD' {$tabvisibility = $tabvisibility + " &bull;  Operating Systems: $($tab.visible) <br />"}
                         'InstallationStatus' {$tabvisibility = $tabvisibility + " &bull;  Installation Status: $($tab.visible) <br />"}
                         'Compliance' {$tabvisibility = $tabvisibility + " &bull;  Device Compliance: $($tab.visible) <br />"}
-                        'Options' {$tabvisibility = $tabvisibility + " &bull;  Applications: $($tab.visible) <br />"}
+                        'Options' {$tabvisibility = $tabvisibility + " &bull;  Options: $($tab.visible) <br />"}
                       }
                   }
                   IF (-not [string]::IsNullOrEmpty($SCBrand.'custom-tab'.'custom-tab-name')){
@@ -4708,7 +4760,7 @@ If ($ListAllInformation){
               }
             }
             32{
-              $KnownProps = @("AgentID","PSComputerName","PSShowComputerName","SmsProviderObjectPath","EnableWindowsDO")
+              $KnownProps = @("AgentID","PSComputerName","PSShowComputerName","SmsProviderObjectPath","EnableWindowsDO","StampDOINC")
               $Config = 'Delivery Optimization'
               $ConfigList = @()
               If ($AgentConfig.EnableWindowsDO -eq 'True'){
@@ -4717,6 +4769,7 @@ If ($ListAllInformation){
                 $WindowsDO = 'No'
               }
               $ConfigList += "Use Configuration Manager Boundary Groups for Delivery Optimization Group ID: $WindowsDO"
+              $ConfigList += "Enable devices managed by Configuration Manager to use Delivery Optimization In-Network Cacheeserver (Beta) for content download: $($AgentConfig.StampDOINC)"
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
                   $UnknownProps = @()
