@@ -6887,7 +6887,7 @@ if (-not [string]::IsNullOrEmpty($OSUgPacks)){
                     {
                         $UgPackDescription = "Description/Comment: $($OSUpgradePack.Description)"
                     }
-            $UgPackList += "Version: $($OSUpgradePack.PackageID)"
+            $UgPackList += "Version: $($OSUpgradePack.Version)"
             $UgPackList += "Language: $($OSUpgradePack.Language)"
             $UgPackList += "Image OS Version: $($OSUpgradePack.ImageOSVersion)"
             $UgPackList += "Package ID: $($OSUpgradePack.PackageID)"
