@@ -1908,7 +1908,7 @@ Function Write-ProgressEx {
 ####################################################################################################################################################################
 ####################################################################################################################################################################
 $Progress = @{'Activity'="$Title"; 'Status'='Initializing'}
-Write-ProgressEx
+#Write-ProgressEx
 
 $StartingPath = (get-location).Path
 if ($FilePath -notlike "$PSScriptRoot\CMDocumentation.html"){
@@ -1918,7 +1918,8 @@ if ($FilePath -notlike "$PSScriptRoot\CMDocumentation.html"){
         $FilePath = "$($StartingPath)\$($FilePath.TrimStart('.\'))"
         #Write-Verbose "$(Get-Date):   File path is $FilePath"
     }
-    Write-ProgressEx -CurrentOperation "File path is $FilePath"
+    #Write-ProgressEx -CurrentOperation "File path is $FilePath"
+    Write-Verbose "$(Get-Date):   File path is $FilePath"
 }
 if ($AddDateTime){
     $dirName = [io.path]::GetDirectoryName($FilePath)
@@ -1930,7 +1931,7 @@ write-host "Outputting documentation to: $FilePath"
 
 $SiteCode = Get-SiteCode
 
-Write-ProgressEx -CurrentOperation 'Start writing report data' #Write-Verbose "$(Get-Date): Start writing report data"
+Write-Verbose "$(Get-Date): Start writing report data" #Write-ProgressEx -CurrentOperation 'Start writing report data'
 
 $LocationBeforeExecution = Get-Location
 
@@ -1946,8 +1947,8 @@ Add-Type -AssemblyName System.Web
 #Import the CM Powershell cmdlets
 if (-not (Test-Path -Path $SiteCode))
 {
-  Write-ProgressEx -CurrentOperation 'CM PowerShell module has not been imported yet, will import it now.' #Write-Verbose "$(Get-Date):   CM PowerShell module has not been imported yet, will import it now."
-  Import-Module ($env:SMS_ADMIN_UI_PATH.Substring(0,$env:SMS_ADMIN_UI_PATH.Length - 5) + '\ConfigurationManager.psd1') | Out-Null
+    Write-Verbose "$(Get-Date):   CM PowerShell module has not been imported yet, will import it now." #Write-ProgressEx -CurrentOperation 'CM PowerShell module has not been imported yet, will import it now.'
+    Import-Module ($env:SMS_ADMIN_UI_PATH.Substring(0,$env:SMS_ADMIN_UI_PATH.Length - 5) + '\ConfigurationManager.psd1') | Out-Null
 }
 #CM12 cmdlets need to be run from the CM12 drive
 Set-Location "$($SiteCode):" | Out-Null
@@ -1963,7 +1964,7 @@ if (-not (Get-PSDrive -Name $SiteCode))
 Write-HTMLHeading -Text 'Table of Contents' -Level 1 -PageBreak -ExcludeTOC -File $FilePath
 Write-HtmlComment -Text "TOC_Insert_Point" -File $FilePath
 Write-HTMLHeading -Text 'Summary of all Sites in this Hierarchy' -Level 1 -PageBreak -File $FilePath
-Write-ProgressEx -Status 'Getting Site Information' #Write-Verbose "$(Get-Date):   Getting Site Information"
+Write-Verbose "$(Get-Date):   Getting Site Information" #Write-ProgressEx -Status 'Getting Site Information'
 $CMSites = Get-CMSite
 
 $CAS                    = $CMSites | Where-Object {$_.Type -eq 4}
@@ -1972,7 +1973,7 @@ $StandAlonePrimarySite  = $CMSites | Where-Object {$_.Type -eq 2}
 $SecondarySites         = $CMSites | Where-Object {$_.Type -eq 1}
 
 #region CAS
-Write-ProgressEx -CurrentOperation 'Checking CAS'
+#Write-ProgressEx -CurrentOperation 'Checking CAS'
 if (-not [string]::IsNullOrEmpty($CAS))
 {
   Write-HTMLParagraph -Text 'The following Central Administration Site is installed:' -level 1 -File $FilePath
