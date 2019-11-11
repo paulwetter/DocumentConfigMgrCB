@@ -29,8 +29,6 @@
     This is the report author.  Their name appears in the lower right corner of the title page.
 .PARAMETER Vendor
     This displays a company name in the lower right corner of the title page.
-.PARAMETER Software
-    Specifies whether the script should run an inventory of Applications, Packages and OSD related objects.
 .PARAMETER ListAllInformation
     Specifies whether the script should only output an overview of what is configured (like count of collections) or 
     a full output with verbose information. This includes: User & Device collections, Application, Packages, ADR Deployments, 
@@ -1892,6 +1890,16 @@ Function Get-PWCMDiscoveryMethod {
     #endregion User Discovery
 }
 
+Function Write-ProgressEx {
+    param([string]$Activity = $Progress.Activity, [string]$Status = $Progress.Status, [string]$CurrentOperation = '...', [switch]$NoDisplay, [switch]$NoLog)
+    $Progress.Activity = $Activity
+    $Progress.Status = $Status
+    $RunTimeFormatted = "[$(Get-Date -Format 'yyyy/MM/dd HH:mm:ss') running for $("{0:HH:mm:ss}" -f ([datetime]$($(get-date) - $ScriptStartTime).Ticks))]"
+    Write-Verbose -Message "$RunTimeFormatted $($Progress.Status) :: $CurrentOperation"
+    If ($NoDisplay -eq $false) { Write-Progress @Progress -CurrentOperation "$RunTimeFormatted $CurrentOperation" }
+    #TODO: If ($NoDisplay -eq $false) { Write-CMTraceLog -Message "$($Progress.Status) :: $CurrentOperation"
+}
+
 #endregion Additional Functions
 
 ####################################################################################################################################################################
@@ -1899,14 +1907,18 @@ Function Get-PWCMDiscoveryMethod {
 #####################################################################Starting#######################################################################################
 ####################################################################################################################################################################
 ####################################################################################################################################################################
+$Progress = @{'Activity'="$Title"; 'Status'='Initializing'}
+Write-ProgressEx
+
 $StartingPath = (get-location).Path
 if ($FilePath -notlike "$PSScriptRoot\CMDocumentation.html"){
     if ([System.IO.Path]::IsPathRooted("$FilePath")){
-        Write-Verbose "$(Get-Date):   File path is $FilePath"
+        #Write-Verbose "$(Get-Date):   File path is $FilePath"
     }else{
         $FilePath = "$($StartingPath)\$($FilePath.TrimStart('.\'))"
-        Write-Verbose "$(Get-Date):   File path is $FilePath"
+        #Write-Verbose "$(Get-Date):   File path is $FilePath"
     }
+    Write-ProgressEx -CurrentOperation "File path is $FilePath"
 }
 if ($AddDateTime){
     $dirName = [io.path]::GetDirectoryName($FilePath)
@@ -1918,7 +1930,7 @@ write-host "Outputting documentation to: $FilePath"
 
 $SiteCode = Get-SiteCode
 
-Write-Verbose "$(Get-Date): Start writing report data"
+Write-ProgressEx -CurrentOperation 'Start writing report data' #Write-Verbose "$(Get-Date): Start writing report data"
 
 $LocationBeforeExecution = Get-Location
 
@@ -1934,7 +1946,7 @@ Add-Type -AssemblyName System.Web
 #Import the CM Powershell cmdlets
 if (-not (Test-Path -Path $SiteCode))
 {
-  Write-Verbose "$(Get-Date):   CM PowerShell module has not been imported yet, will import it now."
+  Write-ProgressEx -CurrentOperation 'CM PowerShell module has not been imported yet, will import it now.' #Write-Verbose "$(Get-Date):   CM PowerShell module has not been imported yet, will import it now."
   Import-Module ($env:SMS_ADMIN_UI_PATH.Substring(0,$env:SMS_ADMIN_UI_PATH.Length - 5) + '\ConfigurationManager.psd1') | Out-Null
 }
 #CM12 cmdlets need to be run from the CM12 drive
@@ -1951,7 +1963,7 @@ if (-not (Get-PSDrive -Name $SiteCode))
 Write-HTMLHeading -Text 'Table of Contents' -Level 1 -PageBreak -ExcludeTOC -File $FilePath
 Write-HtmlComment -Text "TOC_Insert_Point" -File $FilePath
 Write-HTMLHeading -Text 'Summary of all Sites in this Hierarchy' -Level 1 -PageBreak -File $FilePath
-Write-Verbose "$(Get-Date):   Getting Site Information"
+Write-ProgressEx -Status 'Getting Site Information' #Write-Verbose "$(Get-Date):   Getting Site Information"
 $CMSites = Get-CMSite
 
 $CAS                    = $CMSites | Where-Object {$_.Type -eq 4}
@@ -1960,6 +1972,7 @@ $StandAlonePrimarySite  = $CMSites | Where-Object {$_.Type -eq 2}
 $SecondarySites         = $CMSites | Where-Object {$_.Type -eq 1}
 
 #region CAS
+Write-ProgressEx -CurrentOperation 'Checking CAS'
 if (-not [string]::IsNullOrEmpty($CAS))
 {
   Write-HTMLParagraph -Text 'The following Central Administration Site is installed:' -level 1 -File $FilePath
