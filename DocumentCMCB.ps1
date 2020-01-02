@@ -1080,7 +1080,7 @@ function Process-TSConditions{
                             'Operator'{$AppOperator = $pair.'#text'}
                             'ProductCode'{$AppProductCode = $pair.'#text'}
                             'ProductName'{$AppProductName = $pair.'#text'}
-                            'UpgradeCode'{$AppUpgradeCode = $pair.'#text'}
+                            #'UpgradeCode'{$AppUpgradeCode = $pair.'#text'}
                             'Version'{$AppVersion = $pair.'#text'}
                         }
                     }
@@ -2008,7 +2008,7 @@ if (-not [string]::IsNullOrEmpty($StandAlonePrimarySite)) {
     $CMSiteID = Get-WmiObject -Class SMS_Identification -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider| where-object {$_.ThisSiteCode -eq "$SiteCode"}
     $ReleaseVersion = $CMSiteID.MonthlyReleaseVersion
     $StandAlonePrimarySite = New-Object -TypeName psobject -Property @{'Site Name' = $StandAlonePrimarySite.SiteName; 'Site Code' = $StandAlonePrimarySite.SiteCode; Version = $StandAlonePrimarySite.Version; 'Build' = $StandAlonePrimarySite.BuildNumber; 'Release Version' = $ReleaseVersion};
-    $StandAlonePrimarySite = $StandAlonePrimarySite |select 'Site Name','Site Code','Release Version',Version,Build
+    $StandAlonePrimarySite = $StandAlonePrimarySite |Select-Object 'Site Name','Site Code','Release Version',Version,Build
     Write-HtmlTable -InputObject $StandAlonePrimarySite -Border 1 -Level 1 -File $FilePath
 }
 #endregion Standalone Primary
@@ -2037,7 +2037,7 @@ foreach ($CMSite in $CMSites)
   Write-ProgressEx -CurrentOperation "Enumerating Configuration Manager Update Status and History"
   Write-HTMLHeading -Text "Update Status and History" -Level 3 -File $FilePath
   Write-HTMLParagraph -Text "Below is a history of updates that have been made available to this Site.  It includes information for if, or when, they were installed.  Some older updates may be listed as ready to install, however, they were never installed nor will they be avialable to install as they are superseded by the newer updates." -Level 3 -File $FilePath
-  $SiteUpdateHistory = Get-CMSiteUpdateHistory| Select-Object Name,FullVersion,Impact,State,UpdateType,LastUpdateTime|sort LastUpdateTime
+  $SiteUpdateHistory = Get-CMSiteUpdateHistory| Select-Object Name,FullVersion,Impact,State,UpdateType,LastUpdateTime|Sort-Object LastUpdateTime
   if(-not [string]::IsNullOrEmpty($SiteUpdateHistory)){
     $SiteUpdates = @()
     foreach ($SiteUpdate in $SiteUpdateHistory){
@@ -2129,34 +2129,34 @@ If ($ListAllInformation){
         'SMS Site System' {
             $RoleName = "Site system"
             $RoleSettings += @("--B--General--/B--")
-            If (($SiteRole.Props | ? { $_.PropertyName -eq "Server Remote Public Name" }).Value1 -ne "") {
+            If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "Server Remote Public Name" }).Value1 -ne "") {
                 $RoleSettings += @("- Specify FQDN for use on the Internet - CHECKED")
-                $RoleSettings += @("--TAB--Internet FQDN: $(($SiteRole.Props | ? { $_.PropertyName -eq "Server Remote Public Name" }).Value1)")
+                $RoleSettings += @("--TAB--Internet FQDN: $(($SiteRole.Props | Where-Object { $_.PropertyName -eq "Server Remote Public Name" }).Value1)")
             }
             Else {
                 $RoleSettings += @("- Specify FQDN for use on the Internet - UNCHECKED")
             }
-            If (($SiteRole.Props | ? { $_.PropertyName -eq "FDMOperation" }).Value -eq 1) {
+            If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "FDMOperation" }).Value -eq 1) {
                 $RoleSettings += @("- Require the site server to initiate connections - CHECKED")
             }
             Else {
                 $RoleSettings += @("- Require the site server to initiate connections - UNCHECKED")
             }
-            If (($SiteRole.Props | ? { $_.PropertyName -eq "UseMachineAccount" }).Value -eq 1) {
+            If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "UseMachineAccount" }).Value -eq 1) {
                 $RoleSettings += @("- Installation account: Site server's computer")
             }
             Else {
-                $RoleSettings += @("- Installation account: $(($SiteRole.Props | ? { $_.PropertyName -eq "UserName" }).Value2)")
+                $RoleSettings += @("- Installation account: $(($SiteRole.Props | Where-Object { $_.PropertyName -eq "UserName" }).Value2)")
             }
-            $RoleSettings += @("- Active Directory forest: $(($SiteRole.Props | ? { $_.PropertyName -eq "ForestFQDN" }).Value1)")
-            $RoleSettings += @("- Active Directory domain: $(($SiteRole.Props | ? { $_.PropertyName -eq "DomainFQDN" }).Value1)")
+            $RoleSettings += @("- Active Directory forest: $(($SiteRole.Props | Where-Object { $_.PropertyName -eq "ForestFQDN" }).Value1)")
+            $RoleSettings += @("- Active Directory domain: $(($SiteRole.Props | Where-Object { $_.PropertyName -eq "DomainFQDN" }).Value1)")
             $RoleSettings += @("--B--Proxy--/B--")
-            If (($SiteRole.Props | ? { $_.PropertyName -eq "UseProxy" }).Value -eq 1) {
+            If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "UseProxy" }).Value -eq 1) {
                 $RoleSettings += @("- Proxy: Configured")
-                $RoleSettings += @("--TAB--Proxy server name: $(($SiteRole.Props | ? { $_.PropertyName -eq "ProxyName" }).Value2)")
-                $RoleSettings += @("--TAB--Port: $(($SiteRole.Props | ? { $_.PropertyName -eq "ProxyServerPort" }).Value)")
-                If (($SiteRole.Props | ? { $_.PropertyName -eq "ProxyUserName" }).Value2 -ne "") {
-                    $RoleSettings += @("--TAB--Proxy account: $(($SiteRole.Props | ? { $_.PropertyName -eq "ProxyUserName" }).Value2)")
+                $RoleSettings += @("--TAB--Proxy server name: $(($SiteRole.Props | Where-Object { $_.PropertyName -eq "ProxyName" }).Value2)")
+                $RoleSettings += @("--TAB--Port: $(($SiteRole.Props | Where-Object { $_.PropertyName -eq "ProxyServerPort" }).Value)")
+                If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "ProxyUserName" }).Value2 -ne "") {
+                    $RoleSettings += @("--TAB--Proxy account: $(($SiteRole.Props | Where-Object { $_.PropertyName -eq "ProxyUserName" }).Value2)")
                 }
                 Else {
                     $RoleSettings += @("--TAB--Proxy account: No account configured")
@@ -2171,16 +2171,16 @@ If ($ListAllInformation){
         'SMS Distribution Point' {
             $RoleName = "Distribution point"
             $RoleSettings += @("--B--General--/B--")
-            If (($SiteRole.Props | ? { $_.PropertyName -eq "UpdateBranchCacheKey" }).Value -eq 1) {
+            If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "UpdateBranchCacheKey" }).Value -eq 1) {
                 $RoleSettings += @("- BranchCache: Enabled")
             }
             Else {
                 $RoleSettings += @("- BranchCache: Disabled")
             }
-            $RoleSettings += @("- Description: $(($SiteRole.Props | ? { $_.PropertyName -eq "Description" }).Value1)")
-            If (($SiteRole.Props | ? { $_.PropertyName -eq "SslState" }).Value -eq 63) {
+            $RoleSettings += @("- Description: $(($SiteRole.Props | Where-Object { $_.PropertyName -eq "Description" }).Value1)")
+            If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "SslState" }).Value -eq 63) {
                 $RoleSettings += @("- Communication: HTTPS")
-                If (($SiteRole.Props | ? { $_.PropertyName -eq "TokenAuthEnabled" }).Value -eq 1) {
+                If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "TokenAuthEnabled" }).Value -eq 1) {
                     $RoleSettings += @("--TAB--Allow mobile devices to connect - CHECKED")
                 }
                 Else {
@@ -2189,58 +2189,58 @@ If ($ListAllInformation){
             }
             Else {
                 $RoleSettings += @("- Communication: HTTP")
-                If (($SiteRole.Props | ? { $_.PropertyName -eq "IsAnonymousEnabled" }).Value -eq 1) {
+                If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "IsAnonymousEnabled" }).Value -eq 1) {
                     $RoleSettings += @("--TAB--Allow clients to connect anonymously - CHECKED")
                 }
                 Else {
                     $RoleSettings += @("--TAB--Allow clients to connect anonymously - UNCHECKED")
                 }
             }
-            If (($SiteRole.Props | ? { $_.PropertyName -eq "CertificateFile" }).Value1 -eq "") {
+            If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "CertificateFile" }).Value1 -eq "") {
                 $RoleSettings += @("- Certificate: Self-signed")
             }
             Else {
                 $RoleSettings += @("- Certificate: Imported")
             }
-            If (($SiteRole.Props | ? { $_.PropertyName -eq "PreStagingAllowed" }).Value -eq 1) {
+            If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "PreStagingAllowed" }).Value -eq 1) {
                 $RoleSettings += @("- Enable for prestaged content - CHECKED")
             }
             Else {
                 $RoleSettings += @("- Enable for prestaged content - UNCHECKED")
             }
             $RoleSettings += @("--B--PXE--/B--")
-            If (($SiteRole.Props | ? { $_.PropertyName -eq "IsPXE" }).Value -eq 1) {
+            If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "IsPXE" }).Value -eq 1) {
                 $RoleSettings += @("- PXE support: Enabled")
-                If (($SiteRole.Props | ? { $_.PropertyName -eq "IsActive" }).Value -eq 1) {
+                If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "IsActive" }).Value -eq 1) {
                     $RoleSettings += @("--TAB--Allow to respond to incoming PXE requests - CHECKED")
                 }
                 Else {
                     $RoleSettings += @("--TAB--Allow to respond to incoming PXE requests - UNCHECKED")
                 }
-                If (($SiteRole.Props | ? { $_.PropertyName -eq "SupportUnknownMachines" }).Value -eq 1) {
+                If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "SupportUnknownMachines" }).Value -eq 1) {
                     $RoleSettings += @("--TAB--Enable unknow computer support - CHECKED")
                 }
                 Else {
                     $RoleSettings += @("--TAB--Enable unknow computer support - UNCHECKED")
                 }
-                If (($SiteRole.Props | ? { $_.PropertyName -eq "PXEPassword" }).Value1 -ne "") {
+                If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "PXEPassword" }).Value1 -ne "") {
                     $RoleSettings += @("--TAB--Require a password when computers use PXE - CHECKED")
                 }
                 Else {
                     $RoleSettings += @("--TAB--Require a password when computers use PXE - UNCHECKED")
                 }
-                Switch (($SiteRole.Props | ? { $_.PropertyName -eq "UdaSetting" }).Value) {
+                Switch (($SiteRole.Props | Where-Object { $_.PropertyName -eq "UdaSetting" }).Value) {
                     0 {$RoleSettings += @("- User device affinity: Do not use user device affinity")}
                     1 {$RoleSettings += @("- User device affinity: Allow user device affinity with manual approval")}
                     2 {$RoleSettings += @("- User device affinity: Allow user device affinity woth automatic approval")}
                 }
-                If (($SiteRole.Props | ? { $_.PropertyName -eq "BindPolicy" }).Value -eq 0) {
+                If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "BindPolicy" }).Value -eq 0) {
                     $RoleSettings += @("- Respond to PXE requests on all network interfaces - CHECKED")
                 }
                 Else {
                     $RoleSettings += @("- Respond to PXE requests on specific network interfaces - CHECKED")
                 }
-                $RoleSettings += @("- PXE response delay (seconds): $(($SiteRole.Props | ? { $_.PropertyName -eq "ResponseDelay" }).Value)")
+                $RoleSettings += @("- PXE response delay (seconds): $(($SiteRole.Props | Where-Object { $_.PropertyName -eq "ResponseDelay" }).Value)")
             }
             Else {
                 $RoleSettings += @("- PXE support: Disabled")
@@ -2254,7 +2254,7 @@ If ($ListAllInformation){
                 }
                 Else {
                     If (($MCSettings | Where-Object { $_.PropertyName -eq "AuthType" }).Value -eq 1) {
-                        $RoleSettings += @("- Multicast connection account: $(($MCSettings | ? { $_.PropertyName -eq "UserName" }).Value1)")
+                        $RoleSettings += @("- Multicast connection account: $(($MCSettings | Where-Object { $_.PropertyName -eq "UserName" }).Value1)")
                     }
                     Else {
                         $RoleSettings += @("- Multicast connection account: DP's computer account")
@@ -2264,17 +2264,17 @@ If ($ListAllInformation){
                     }
                     Else {
                         $RoleSettings += @("- Multicast address settings: Use IPv4 addresses from the following range - CHECKED")
-                        $RoleSettings += @("--TAB--Address start range: $(($MCSettings | ? { $_.PropertyName -eq "StartIpAddress" }).Value1)")
-                        $RoleSettings += @("--TAB--Address end range: $(($MCSettings | ? { $_.PropertyName -eq "EndIpAddress" }).Value1)")
+                        $RoleSettings += @("--TAB--Address start range: $(($MCSettings | Where-Object { $_.PropertyName -eq "StartIpAddress" }).Value1)")
+                        $RoleSettings += @("--TAB--Address end range: $(($MCSettings | Where-Object { $_.PropertyName -eq "EndIpAddress" }).Value1)")
                     }
                     $RoleSettings += @("- UDP settings:")
-                    $RoleSettings += @("--TAB--Port range start: $(($MCSettings | ? { $_.PropertyName -eq "StartPort" }).Value)")
-                    $RoleSettings += @("--TAB--Port range end: $(($MCSettings | ? { $_.PropertyName -eq "EndPort" }).Value)")
-                    $RoleSettings += @("- Maximum clients: $(($MCSettings | ? { $_.PropertyName -eq "Multicast Max Clients" }).Value)")
+                    $RoleSettings += @("--TAB--Port range start: $(($MCSettings | Where-Object { $_.PropertyName -eq "StartPort" }).Value)")
+                    $RoleSettings += @("--TAB--Port range end: $(($MCSettings | Where-Object { $_.PropertyName -eq "EndPort" }).Value)")
+                    $RoleSettings += @("- Maximum clients: $(($MCSettings | Where-Object { $_.PropertyName -eq "Multicast Max Clients" }).Value)")
                     If (($MCSettings | Where-Object { $_.PropertyName -eq "Multicast Session Schedule Cast" }).Value -eq 1) {
                         $RoleSettings += @("- Scheduled multicast - CHECKED")
-                        $RoleSettings += @("--TAB--Session start delay (minutes): $(($MCSettings | ? { $_.PropertyName -eq "Multicast Session Start Delay" }).Value)")
-                        $RoleSettings += @("--TAB--Minimum session size (clients): $(($MCSettings | ? { $_.PropertyName -eq "Multicast Session Minimum Size" }).Value)")
+                        $RoleSettings += @("--TAB--Session start delay (minutes): $(($MCSettings | Where-Object { $_.PropertyName -eq "Multicast Session Start Delay" }).Value)")
+                        $RoleSettings += @("--TAB--Minimum session size (clients): $(($MCSettings | Where-Object { $_.PropertyName -eq "Multicast Session Minimum Size" }).Value)")
                     }
                     Else {
                         $RoleSettings += @("- Scheduled multicast - UNCHECKED")
@@ -2287,7 +2287,7 @@ If ($ListAllInformation){
             $RoleSettings += @("--B--Content Validation--/B--")
             If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "DPMonEnabled" }).Value -eq 1) {
                 $RoleSettings += @("- Content validation schedule: Enabled")
-                $Schedule = Convert-CMSchedule -ScheduleString ($SiteRole.Props | ? { $_.PropertyName -eq "DPMonSchedule" }).Value1
+                $Schedule = Convert-CMSchedule -ScheduleString ($SiteRole.Props | Where-Object { $_.PropertyName -eq "DPMonSchedule" }).Value1
                 if ($Schedule.DaySpan -gt 0) {
                     $RoleSettings += @("--TAB--Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)")
                 }
@@ -2603,11 +2603,11 @@ If ($ListAllInformation){
         'SMS Enrollment Server' {
             $RoleName = "Enrollment point"
             $RoleSettings += @("--B--General--/B--")
-            $RoleSettings += @("- Website name: $(($SiteRole.Props | ? { $_.PropertyName -eq "ServiceIISWebSite" }).Value1)")
-            $RoleSettings += @("- Port: $(($SiteRole.Props | ? { $_.PropertyName -eq "ServicePort" }).Value)")
-            $RoleSettings += @("- Virtual application name: $(($SiteRole.Props | ? { $_.PropertyName -eq "ServiceName" }).Value1)")
-            If (-not [String]::IsNullOrEmpty(($SiteRole.Props | ? { $_.PropertyName -eq "UserName" }).Value1)) {
-                $RoleSettings += @("- Connection account: $(($SiteRole.Props | ? { $_.PropertyName -eq "UserName" }).Value1)")
+            $RoleSettings += @("- Website name: $(($SiteRole.Props | Where-Object { $_.PropertyName -eq "ServiceIISWebSite" }).Value1)")
+            $RoleSettings += @("- Port: $(($SiteRole.Props | Where-Object { $_.PropertyName -eq "ServicePort" }).Value)")
+            $RoleSettings += @("- Virtual application name: $(($SiteRole.Props | Where-Object { $_.PropertyName -eq "ServiceName" }).Value1)")
+            If (-not [String]::IsNullOrEmpty(($SiteRole.Props | Where-Object { $_.PropertyName -eq "UserName" }).Value1)) {
+                $RoleSettings += @("- Connection account: $(($SiteRole.Props | Where-Object { $_.PropertyName -eq "UserName" }).Value1)")
             }
             Else {
                 $RoleSettings += @("- Connection account: Enrollment point's computer account")
@@ -2817,7 +2817,7 @@ if ($ListAllInformation){
     $SiteMaintenanceTaskTable += $SiteMaintenanceTaskRowHash;
   }
 
-  $SiteMaintenanceTaskTable = $SiteMaintenanceTaskTable | Sort-Object -Property 'Task Name' | Select 'Task Name', 'Enabled', 'Delete older than', 'Start after', 'Latest start', 'Schedule', 'Other details'
+  $SiteMaintenanceTaskTable = $SiteMaintenanceTaskTable | Sort-Object -Property 'Task Name' | Select-Object 'Task Name', 'Enabled', 'Delete older than', 'Start after', 'Latest start', 'Schedule', 'Other details'
 }else{
   $SiteMaintenanceTasks = Get-CMSiteMaintenanceTask -SiteCode $CMSite.SiteCode
   Write-HTMLHeading -Text "Site Maintenance Tasks for Site $($CMSite.SiteCode)" -Level 2 -File $FilePath
@@ -2869,7 +2869,7 @@ if ($ListAllInformation){
     $SQLHWInfo += "$CPUModel"
     $SQLHWInfo += "$Cores Cores ($Threads logical)"
     $SQLHWInfo += "$($TotalMemory) GB RAM"
-    $Drives=Get-WmiObject -Class win32_LogicalDisk -ComputerName $SQLServer | Where {$_.DriveType -eq 3}
+    $Drives=Get-WmiObject -Class win32_LogicalDisk -ComputerName $SQLServer | Where-Object {$_.DriveType -eq 3}
     Foreach($Drive in $Drives){
         $SQLHWInfo += "Drive $($Drive.DeviceID) size: $([math]::Round($Drive.size/1024/1024/1024,1)) GB ($([math]::Round($Drive.FreeSpace/1024/1024/1024,1)) GB Free)"
     }
@@ -3037,7 +3037,7 @@ if ($ListAllInformation){
     Write-HTMLParagraph -Text $DPText -Level 4 -File $FilePath
     $DPGroupMembers = $Null
     $DPGroupIDs = $Null
-    $DPGroupMembers = (Get-WmiObject -class SMS_DPGroupMembers -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider) | Where {$_.DPNALPath -ilike "*$($CMDPServerName)*"}
+    $DPGroupMembers = (Get-WmiObject -class SMS_DPGroupMembers -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider) | Where-Object {$_.DPNALPath -ilike "*$($CMDPServerName)*"}
     if (-not [string]::IsNullOrEmpty($DPGroupMembers))
     {
       $DPGroupIDs = $DPGroupMembers.GroupID
@@ -3132,21 +3132,21 @@ if ($ListAllInformation){
       $CMSUPServerName = $CMSUP.NetworkOSPath.split('\\')[2]
       Write-Debug "$(Get-Date):   Found SUP: $($CMSUPServerName)"
       Write-HTMLHeading -Text "$($CMSUPServerName)" -Level 4 -File $FilePath
-      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'WSUS IIS Port'; Value = (($CMSUP.props|select Propertyname,Value,Value1,Value2| where {$_.PropertyName -like 'WSUSIISPORT'}).value)}
+      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'WSUS IIS Port'; Value = (($CMSUP.props|Select-Object Propertyname,Value,Value1,Value2| Where-Object {$_.PropertyName -like 'WSUSIISPORT'}).value)}
       #8530
-      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'Database'; Value = (($CMSUP.props|select Propertyname,Value,Value1,Value2| where {$_.PropertyName -like 'DBServerName'}).value2)}
+      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'Database'; Value = (($CMSUP.props|Select-Object Propertyname,Value,Value1,Value2| Where-Object {$_.PropertyName -like 'DBServerName'}).value2)}
       #soup-cm1.soup.steamedsoup.com\MICROSOFT##WID
-      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'Access Account'; Value = (($CMSUP.props|select Propertyname,Value,Value1,Value2| where {$_.PropertyName -like 'WSUSAccessAccount'}).value2)}
+      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'Access Account'; Value = (($CMSUP.props|Select-Object Propertyname,Value,Value1,Value2| Where-Object {$_.PropertyName -like 'WSUSAccessAccount'}).value2)}
       #soup.steamedsoup.com\SVC-SCCM-RAA
-      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'SSL Enabled'; Value = (($CMSUP.props|select Propertyname,Value,Value1,Value2| where {$_.PropertyName -like 'SSLWSUS'}).value)}
+      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'SSL Enabled'; Value = (($CMSUP.props|Select-Object Propertyname,Value,Value1,Value2| Where-Object {$_.PropertyName -like 'SSLWSUS'}).value)}
       #0
-      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'SSL Port'; Value = (($CMSUP.props|select Propertyname,Value,Value1,Value2| where {$_.PropertyName -like 'WSUSIISSSLPORT'}).value)}
+      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'SSL Port'; Value = (($CMSUP.props|Select-Object Propertyname,Value,Value1,Value2| Where-Object {$_.PropertyName -like 'WSUSIISSSLPORT'}).value)}
       #8531
-      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'SUP Enabled'; Value = (($CMSUP.props|select Propertyname,Value,Value1,Value2| where {$_.PropertyName -like 'Enabled'}).value)}
+      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'SUP Enabled'; Value = (($CMSUP.props|Select-Object Propertyname,Value,Value1,Value2| Where-Object {$_.PropertyName -like 'Enabled'}).value)}
       #1
-      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'Proxy Enabled'; Value = (($CMSUP.props|select Propertyname,Value,Value1,Value2| where {$_.PropertyName -like 'UseProxy'}).value)}
+      $SUPPropertyTable += New-Object -TypeName psobject -Property @{Name = 'Proxy Enabled'; Value = (($CMSUP.props|Select-Object Propertyname,Value,Value1,Value2| Where-Object {$_.PropertyName -like 'UseProxy'}).value)}
       #0
-      $SUPPropertyTable = $SUPPropertyTable|Select Name,Value
+      $SUPPropertyTable = $SUPPropertyTable|Select-Object Name,Value
       Write-HtmlTable -InputObject $SUPPropertyTable -Border 1 -Level 4 -File $FilePath
       }
   }
@@ -3162,8 +3162,8 @@ if ($ListAllInformation){
     Write-HTMLHeading -Text "Client Push Settings for Site $($CMSite.SiteCode)" -Level 2 -PageBreak -File $FilePath
     Write-HTMLParagraph -Text "Client push allows SCCM to install the client to computers in the domain directly from SCCM using admin credentials on the remote computer.  This is <a href=`"https://docs.microsoft.com/en-us/sccm/core/clients/deploy/plan/client-installation-methods`" target=`"_blank`">one of several</a> ways to install the SCCM client on computers." -Level 3 -File $FilePath
     #Client push settings are found in WMI.  They are all in the list of global properties: SMS_DISCOVERY_DATA_MANAGER
-    $CPProps = (Get-WmiObject -Namespace ROOT\SMS\site_$($CMSite.SiteCode) -ComputerName $SMSProvider -Query "SELECT * FROM SMS_SCI_SCProperty where ItemType='SMS_DISCOVERY_DATA_MANAGER'")|select PropertyName,Value,Value1,Value2
-    If(($CPProps|Where{$_.PropertyName -eq 'SETTINGS'}).Value1 -eq 'Active'){
+    $CPProps = (Get-WmiObject -Namespace ROOT\SMS\site_$($CMSite.SiteCode) -ComputerName $SMSProvider -Query "SELECT * FROM SMS_SCI_SCProperty where ItemType='SMS_DISCOVERY_DATA_MANAGER'")|Select-Object PropertyName,Value,Value1,Value2
+    If(($CPProps | Where-Object {$_.PropertyName -eq 'SETTINGS'}).Value1 -eq 'Active'){
         Write-HTMLParagraph -Level 3 -Text "Automatic site-wide client push is enabled with the below settings." -File $FilePath
     }else{
         Write-HTMLParagraph -Level 3 -Text "Automatic site-wide client push is NOT enabled." -File $FilePath
@@ -3175,7 +3175,7 @@ if ($ListAllInformation){
     $InstallClientsDisabled = @()
 
     #FILTERS Property has the following known values.  Evaluating in a Switch: 0=install on all systems; 1=Do not Install Workstations; 2=Do not install on DCs; 4=Do not install servers; 5=Do not install on servers and workstations 7=Do not install servers, workstations or DCs
-    Switch(($CPProps|Where{$_.PropertyName -eq 'FILTERS'}).Value){
+    Switch(($CPProps | Where-Object {$_.PropertyName -eq 'FILTERS'}).Value){
         0{
             $InstallClientsEnabled += "Servers"
             $InstallClientsEnabled += "Workstations"
@@ -3522,7 +3522,7 @@ Write-ProgressEx -CurrentOperation "Boundaries Collected and sorted. Writing to 
       Write-ProgressEx -CurrentOperation "Writing [$($IPv6BoundaryTable.count)] IPv6 boundaries"
       Write-HTMLHeading -Level 3 -Text "IPv6 Boundaries" -File $FilePath
       If ($IPv6BoundaryTable){
-          $IPv6BoundaryTable = $IPv6BoundaryTable|select @{Name='Name';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
+          $IPv6BoundaryTable = $IPv6BoundaryTable|Select-Object @{Name='Name';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
           Write-HtmlTable -InputObject $IPv6BoundaryTable -Level 3 -Border 1 -File $FilePath
       } Else {
           Write-HTMLParagraph -Text "No IPv6 boundaries defined." -Level 3 -File $FilePath
@@ -3534,7 +3534,7 @@ Write-ProgressEx -CurrentOperation "Boundaries Collected and sorted. Writing to 
       Write-ProgressEx -CurrentOperation "Writing [$($SubnetBoundaryTable.count)] subnet boundaries"
       Write-HTMLHeading -Level 3 -Text "IP Subnet Boundaries" -File $FilePath
       If ($SubnetBoundaryTable){
-          $SubnetBoundaryTable = $SubnetBoundaryTable|select @{Name='Name';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
+          $SubnetBoundaryTable = $SubnetBoundaryTable|Select-Object @{Name='Name';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
           Write-HtmlTable -InputObject $SubnetBoundaryTable -Level 3 -Border 1 -File $FilePath
       } Else {
           Write-HTMLParagraph -Text "No IP subnet boundaries defined." -Level 3 -File $FilePath
@@ -3546,7 +3546,7 @@ Write-ProgressEx -CurrentOperation "Boundaries Collected and sorted. Writing to 
       Write-ProgressEx -CurrentOperation "Writing [$($IPRangeTable.count)] IP range boundaries"
       Write-HTMLHeading -Level 3 -Text "IP Range Boundaries" -File $FilePath
       If ($IPRangeTable){
-          $IPRangeTable = $IPRangeTable|select @{Name='Name';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
+          $IPRangeTable = $IPRangeTable|Select-Object @{Name='Name';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
           Write-HtmlTable -InputObject $IPRangeTable -Level 3 -Border 1 -File $FilePath
       } Else {
           Write-HTMLParagraph -Text "No IP Range boundaries defined." -Level 3 -File $FilePath
@@ -3557,7 +3557,7 @@ Write-ProgressEx -CurrentOperation "Boundaries Collected and sorted. Writing to 
       Write-ProgressEx -CurrentOperation "Writing [$($ADBoundaryTable.count)] AD Site boundaries"
       Write-HTMLHeading -Level 3 -Text "AD Site Boundaries" -File $FilePath
       If ($ADBoundaryTable){
-          $ADBoundaryTable = $ADBoundaryTable|select @{Name='Name';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
+          $ADBoundaryTable = $ADBoundaryTable|Select-Object @{Name='Name';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
           Write-HtmlTable -InputObject $ADBoundaryTable -Level 3 -Border 1 -File $FilePath
       } Else {
           Write-HTMLParagraph -Text "No AD Site boundaries defined." -Level 3 -File $FilePath
@@ -3584,7 +3584,7 @@ if (-not [string]::IsNullOrEmpty($BoundaryGroups))
     $MemberNames = @();
     if ($BoundaryGroup.SiteSystemCount -gt 0)
     {
-        $CMSiteSystems = Get-WmiObject -Class SMS_BoundaryGroupSiteSystems -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider | Where {$_.GroupID -eq "$($BoundaryGroup.GroupID)"}
+        $CMSiteSystems = Get-WmiObject -Class SMS_BoundaryGroupSiteSystems -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider | Where-Object {$_.GroupID -eq "$($BoundaryGroup.GroupID)"}
         foreach($SS in $CMSiteSystems){
             $BGSystems +=[regex]::Match($SS.ServerNALPath,'\[\"Display=\\\\(.*)\\\"\]MSWNET').Groups[1].value
         }
@@ -3651,7 +3651,7 @@ if (-not [string]::IsNullOrEmpty($BoundaryGroups))
     $BoundaryGroupTable += $BoundaryGroupRow
   }
   
-  $BoundaryGroupTable = $BoundaryGroupTable|select 'Name','Description','Assigned Site','Boundary Members','Site Systems','Fallback Relationships','Options'
+  $BoundaryGroupTable = $BoundaryGroupTable|Select-Object 'Name','Description','Assigned Site','Boundary Members','Site Systems','Fallback Relationships','Options'
   Write-HtmlTable -InputObject $BoundaryGroupTable -Level 4 -Border 1 -File $FilePath
 }
 else
@@ -3670,7 +3670,7 @@ $DefaultBGID = $DefaultBG.GroupID
 $BGSystems = @()
 if ($DefaultBG.SiteSystemCount -gt 0)
 {
-    $CMSiteSystems = Get-WmiObject -Class SMS_BoundaryGroupSiteSystems -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider | Where {$_.GroupID -eq "$DefaultBGID"}
+    $CMSiteSystems = Get-WmiObject -Class SMS_BoundaryGroupSiteSystems -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider | Where-Object {$_.GroupID -eq "$DefaultBGID"}
     foreach($SS in $CMSiteSystems){
         $BGSystems +=[regex]::Match($SS.ServerNALPath,'\[\"Display=\\\\(.*)\\\"\]MSWNET').Groups[1].value
     }
@@ -3680,7 +3680,7 @@ Else
 {
     $BoundaryGroupSiteSystems = "None"
 }
-$DefaultBGRelationship = Get-WmiObject -Class SMS_BoundaryGroupRelationships -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider | Where {($_.SourceGroupID -eq "$DefaultBGID") -and ($_.DestinationGroupID -eq "$DefaultBGID")}
+$DefaultBGRelationship = Get-WmiObject -Class SMS_BoundaryGroupRelationships -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider | Where-Object {($_.SourceGroupID -eq "$DefaultBGID") -and ($_.DestinationGroupID -eq "$DefaultBGID")}
 $FallbackSUP = $DefaultBGRelationship.FallbackSUP
 $FallbackDP = $DefaultBGRelationship.FallbackDP
 $FallbackMP = $DefaultBGRelationship.FallbackMP
@@ -5344,7 +5344,7 @@ if(-not [string]::IsNullOrEmpty($CIs)){
 Write-ProgressEx -CurrentOperation 'Completed Configuration Items'
 Write-ProgressEx -CurrentOperation 'Configuration Baselines'
 Write-HTMLHeading -Level 3 -Text 'Configuration Baselines' -File $FilePath
-$CBs = Get-CMBaseline | Where {$_.IsUserDefined -eq "true"}
+$CBs = Get-CMBaseline | Where-Object {$_.IsUserDefined -eq "true"}
 if ($CBs){
     $CBsArray = @()
     foreach ($CB in $CBs){
@@ -5943,7 +5943,7 @@ Write-ProgressEx -CurrentOperation 'Completed Antimalware Policies'
 #endregion Antimalware
 #region firewall and Device Guard
 Write-ProgressEx -CurrentOperation 'Firewall and Device Guard'
-$FWPolicies = Get-CMConfigurationPolicy -Fast | where {$_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_FirewallSettings'} | select CategoryInstance_UniqueIDs,LocalizedDisplayName,LocalizedCategoryInstanceNames,CI_ID,LastModifiedBy,DateLastModified,IsAssigned
+$FWPolicies = Get-CMConfigurationPolicy -Fast | Where-Object {$_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_FirewallSettings'} | Select-Object CategoryInstance_UniqueIDs,LocalizedDisplayName,LocalizedCategoryInstanceNames,CI_ID,LastModifiedBy,DateLastModified,IsAssigned
 Write-HTMLHeading -Level 3 -Text 'Windows Defender Firewall Policies' -File $FilePath
 if (-not [string]::IsNullOrEmpty($FWPolicies)) {
     $FWArray = @()
@@ -5991,7 +5991,7 @@ if (-not [string]::IsNullOrEmpty($ApplicationGuardPolicies)) {
 }else{
     Write-HTMLParagraph -Text 'No Application Guard Policies defined in site.' -Level 4 -File $FilePath
 }
-$DeviceGuardPolicies = Get-CMConfigurationPolicy -Fast | Where-Object {$_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_DeviceGuardSettings'} | select CategoryInstance_UniqueIDs,LocalizedDisplayName,LocalizedCategoryInstanceNames,CI_ID,LastModifiedBy,DateLastModified,IsAssigned
+$DeviceGuardPolicies = Get-CMConfigurationPolicy -Fast | Where-Object {$_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_DeviceGuardSettings'} | Select-Object CategoryInstance_UniqueIDs,LocalizedDisplayName,LocalizedCategoryInstanceNames,CI_ID,LastModifiedBy,DateLastModified,IsAssigned
 Write-HTMLHeading -Level 3 -Text 'Windows Defender Applicatin Control Policies' -File $FilePath
 if (-not [string]::IsNullOrEmpty($DeviceGuardPolicies)) {
     $DeviceGuardArray = @()
@@ -6197,7 +6197,7 @@ if ($ListAllInformation -or $ListAppDetails){
                     #$DTListData += "Content ID: $($DT.Installer.UninstallAction.Contents.Content.ContentId)"
                     $DTListData += "Repair program: $(($DT.Installer.RepairAction.Args.arg | Where-Object {$_.name -eq 'InstallCommandLine'}).'#text')"
                     #$DTListData += "Content ID: $($DT.Installer.RepairAction.Contents.Content.ContentId)"
-                    $DTListData += "Run installation and uninstall program as 32-bit process on 64-bit clients:  $(($DT.Installer.InstallAction.Args.arg | where {$_.name -eq 'RunAs32Bit'}).'#text')"
+                    $DTListData += "Run installation and uninstall program as 32-bit process on 64-bit clients:  $(($DT.Installer.InstallAction.Args.arg | Where-Object {$_.name -eq 'RunAs32Bit'}).'#text')"
                     Write-HtmlList -InputObject $DTListData -Description $DTSection -Level 6 -File $FilePath
                     
                     $DTListData = @()
@@ -6210,7 +6210,7 @@ if ($ListAllInformation -or $ListAppDetails){
                     } elseif ($DT.Installer.DetectAction.Provider -like 'Local') {
                         #Enhanced Detection Method
                         $DTListData += "Using enhanced detection method."
-                        $EDM = [xml]($DT.Installer.DetectAction.Args.arg | Where-Object {$_.Name -eq 'MethodBody'}).'#text'
+                        #$EDM = [xml]($DT.Installer.DetectAction.Args.arg | Where-Object {$_.Name -eq 'MethodBody'}).'#text'
                     } else {
                         #Unknown
                         $DTListData += "Other detection method."
@@ -6550,7 +6550,7 @@ elseif (-not [string]::IsNullOrEmpty($Packages)){
     foreach ($Package in $Packages){
         $PackageBasics += New-Object -TypeName PSObject -Property @{'Name'="$($Package.Name)"; 'Programs' = $($Package.NumOfPrograms); 'Content Date'=$($Package.SourceDate)}
     }
-    $PackageBasics = $PackageBasics | Select 'Name','Programs','Content Date'
+    $PackageBasics = $PackageBasics | Select-Object 'Name','Programs','Content Date'
     Write-HtmlTable -InputObject $PackageBasics -Border 1 -Level 4 -File $FilePath
 }else{
     Write-HTMLParagraph -Text 'There are no packages configured in this site.' -Level 5 -File $FilePath
@@ -6604,7 +6604,7 @@ If(-not [string]::IsNullOrEmpty($UpdatePackages)){
         }
         $SUPackages += New-Object -TypeName PSObject -Property @{'Name'="$Name";'Package ID'="$PackageID";'BDR'="$BDR";'Source Path'="$SourcePath";'Source Status'="$SourceStatus"}
     }
-    $SUPackages= $SUPackages|Sort Name|Select-Object 'Name','Package ID','BDR','Source Path','Source Status'
+    $SUPackages= $SUPackages|Sort-Object Name|Select-Object 'Name','Package ID','BDR','Source Path','Source Status'
     Write-HtmlTable -InputObject $SUPackages -Border 1 -Level 3 -File $FilePath
     Write-HTMLParagraph -Text '(BDR = Binary Differential Replication)' -Level 4 -File $FilePath
 }else{
@@ -6623,7 +6623,7 @@ $ADRs=Get-CMSoftwareUpdateAutoDeploymentRule
 foreach ($ADR in $ADRs){
     Write-ProgressEx -CurrentOperation "Processing ADR $($ADR.Name)" -Activity 'Automatic Deployment Rules' -Status 'Collecting details' -Id 11
     $ADRListDetails = @()
-    $ADRListTitle = "Name: $($ADR.Name)"
+    #$ADRListTitle = "Name: $($ADR.Name)"
     Write-HTMLHeading -Level 4 -Text "$($ADR.Name)" -File $FilePath
     $ADRListDescription = $ADR.Description
     Remove-Variable languages -ErrorAction SilentlyContinue
@@ -6776,7 +6776,7 @@ foreach ($ADR in $ADRs){
                 $UpdateRuleList += [System.Web.HttpUtility]::HtmlEncode("$UTitle")
             }
             '_Company'{
-                $Vendors = @()
+                #$Vendors = @()
                 foreach ($Vendor in $UpdateRule.MatchRules.string.Trim("'")){
                     $Vend = Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -Query "SELECT LocalizedCategoryInstanceName FROM SMS_CIAllCategories WHERE CategoryTypeName=`'Company`' and CategoryInstance_UniqueID=`'$Vendor`'" -ComputerName $SMSProvider
                     $UpdateVendor += $Vend[0].LocalizedCategoryInstanceName
@@ -6875,7 +6875,7 @@ foreach ($ADR in $ADRs){
             #$DTxml
         }
     }Else{
-        Write-HtmlTable -InputObject ($ADRDeployments|select @{Name='Collection';expression={$_.CollectionName}},Enabled) -Level 5 -File $FilePath
+        Write-HtmlTable -InputObject ($ADRDeployments|Select-Object @{Name='Collection';expression={$_.CollectionName}},Enabled) -Level 5 -File $FilePath
     }
 }
 Write-HtmliLink -ReturnTOC -File $FilePath
@@ -7342,7 +7342,7 @@ if(-not [string]::IsNullOrEmpty($ServicingPlans)){
 	        0{$DeployBranch="Semi-Annual Channel (Targeted)"}
 	        1{$DeployBranch="Semi-Annual Channel"}
         }
-        $WaitDays = (((([xml]($ServicingPlan).UpdateRuleXML).UpdateXML.UpdateXMLDescriptionItems.UpdateXMLDescriptionItem| where {$_.PropertyName -eq 'AfterDays'}).Matchrules.string).Split(':'))[2]
+        $WaitDays = (((([xml]($ServicingPlan).UpdateRuleXML).UpdateXML.UpdateXMLDescriptionItems.UpdateXMLDescriptionItem| Where-Object {$_.PropertyName -eq 'AfterDays'}).Matchrules.string).Split(':'))[2]
         $SPListDetails += "Specify the Windows readiness state to which this Servicing Plan should apply: $DeployBranch"
         $SPListDetails += "How many days after Microsoft has published a new upgrade would you like to wait before deploying in your environment: $WaitDays"
         Write-HtmlList -Description 'Deployment Ring' -InputObject $SPListDetails -Level 4 -File $FilePath
@@ -7523,7 +7523,7 @@ Write-ProgressEx -CurrentOperation 'Completed Windows 10 Servicing'
 #region Scripts
 Write-ProgressEx -CurrentOperation 'Collecting Configuration Manager Scripts'
 Write-HTMLHeading -Level 2 -PageBreak -Text 'Configuration Manager Scripts' -File $FilePath
-$ScriptFeature = Get-CMSiteFeature|where{$_.FeatureGuid -like '566F8720-F415-4E10-9A51-CDE682BA2B2E'}
+$ScriptFeature = Get-CMSiteFeature| Where-Object {$_.FeatureGuid -like '566F8720-F415-4E10-9A51-CDE682BA2B2E'}
 if (-not [string]::IsNullOrEmpty($ScriptFeature)){
     If ($ScriptFeature.Status -eq 1){
         $CMScripts = Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider -Class SMS_Scripts
