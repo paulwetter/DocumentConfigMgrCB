@@ -63,11 +63,12 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.50
+	VERSION: 3.50z
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: November 12, 2019
+        CONTRIBUTOR: Kent Komeri
+	LASTEDIT: February 20, 2020
 #>
 
 #endregion
@@ -125,7 +126,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.50'
+$DocumenationScriptVersion = '3.50z'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -6065,9 +6066,27 @@ if ($ListAllInformation -or $ListAppDetails){
             $AppList += "CM Package ID: $($App.PackageID)"
             $AppList += "Retired: $($App.IsExpired)"
             $AppList += "Deployed: $($App.ISDeployed)"
+
             Write-HtmlList -InputObject $AppList -Description $ListDescription -Level 5 -File $FilePath
             $ListDescription = ""
             Write-Debug "$(Get-Date):   Completed General application Info.."
+
+            Write-Debug "$(Get-Date):   Processing Application Usage Detail.."
+            #Added Application usage details
+            $ListDescription = "Application Usage"
+            $AppList = @()
+            $AppList += "Devices with application: $($App.NumberOfDevicesWithApp)"
+            $AppList += "Devices failed this app : $($App.NumberOfDevicesWithFailure)"
+            $AppList += "Users with application  : $($App.NumberOfUsersWithApp)"
+            $AppList += "Users failed this app   : $($App.NumberOfUsersWithFailure)"
+            $AppList += "Pending user requests   : $($App.NumberOfUsersWithRequest)"
+            if (($App.NumberOfDevicesWithApp -eq 0) -and ($App.NumberOfUsersWithApp -eq 0)) {
+                $AppList += "INFO: POTENTIALLY UNUSED APPLICATION"
+            }
+
+            Write-HtmlList -InputObject $AppList -Description $ListDescription -Level 5 -File $FilePath
+            $ListDescription = ""
+            Write-Debug "$(Get-Date):   Completed Application Usage Detail.."
 
             $PackageXML = [xml]$App.SDMPackageXML
 
@@ -6209,11 +6228,232 @@ if ($ListAllInformation -or $ListAppDetails){
                         $DTListData += "MSI Product Code: $ProductCode"
                     } elseif ($DT.Installer.DetectAction.Provider -like 'Local') {
                         #Enhanced Detection Method
-                        $DTListData += "Using enhanced detection method."
-                        #$EDM = [xml]($DT.Installer.DetectAction.Args.arg | Where-Object {$_.Name -eq 'MethodBody'}).'#text'
+                        $EDMFound = $False
+                        #$DTListData += "Using enhanced detection method."
+                        $EDM = [xml]($DT.Installer.DetectAction.Args.arg | Where-Object {$_.Name -eq 'MethodBody'}).'#text'
+                        #$EDM.EnhancedDetectionMethod.Settings can contain the following properties:
+                        # .MSI for MSI detection
+                        # .File for File type detection
+                        # .Folder for Folder type detection
+                        # .SimpleSetting Possibly for Registry type detection
+                        # .RegistryKey for Registry type detection
+                        if ($EDM.EnhancedDetectionMethod.Settings.MSI -ne $null) {
+                            # Data for MSI
+                            #         ProductCode = $EDM.EnhancedDetectionMethod.Settings.MSI.ProductCode
+                            $ProductCode = ($EDM.EnhancedDetectionMethod.Settings.MSI.ProductCode)
+                            $DTListData += "Using enhanced MSI detection method."
+                            $DTListData += "MSI Product Code: $ProductCode"
+                            # Rule based addition to the MSI detetion
+                            if ($EDM.EnhancedDetectionMethod.Rule -ne $null) {
+                                #$DTListData += "Rules apply."
+                                #TODO: Create function for this->
+                                if (!(($EDM.EnhancedDetectionMethod.Rule.Expression.Operator -eq 'NotEquals') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType -eq 'Int64') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value -eq '0'))) {
+                                    $EDMProperty = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType.ToString())
+                                    $EDMOperator = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operator.ToString())
+                                    $EDMValue = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value.ToString())
+                                    $DTListData += "$EDMProperty $EDMOperator $EDMValue"
+                                }
+                                # If File/Folder/MSI
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operator == 'NotEquals'
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType == 'Int64'
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value == '0'
+                                # { Exists rule / NO Rule }
+                                # ElseIf Reg
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operator == 'Equals'
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType == 'Boolean'
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value == 'true'
+                                # { Exists rule / NO Rule }
+                                # Else
+                                # $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType is What Property is to be compared
+                                # $EDM.EnhancedDetectionMethod.Rule.Expression.Operator is how to compare DataType
+                                # $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value is what to compare against.
+                            }
+                            $EDMFound = $True
+                        } 
+                        if ($EDM.EnhancedDetectionMethod.Settings.File -ne $null) {
+                            # Data for File
+                            #         Path = $EDM.EnhancedDetectionMethod.Settings.File.Path
+                            #         Name = $EDM.EnhancedDetectionMethod.Settings.File.Filter
+                            #         Is64Bit = false means it's a 32bit file
+                            $EDMPath = ($EDM.EnhancedDetectionMethod.Settings.File.Path)
+                            $EDMName = ($EDM.EnhancedDetectionMethod.Settings.File.Filter)
+                            $DTListData += "Using File detection method."
+                            $DTListData += "FILE Path: $EDMPath"
+                            $DTListData += "FILE Name: $EDMName"
+                            # rule based enhanced file detection method
+                            if ($EDM.EnhancedDetectionMethod.Rule -ne $null) {
+                                #$DTListData += "Rules apply."
+                                #TODO: Create function for this->
+                                if (!(($EDM.EnhancedDetectionMethod.Rule.Expression.Operator -eq 'NotEquals') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType -eq 'Int64') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value -eq '0'))) {
+                                    $EDMProperty = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType.ToString())
+                                    $EDMOperator = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operator.ToString())
+                                    $EDMValue = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value.ToString())
+                                    $DTListData += "$EDMProperty $EDMOperator $EDMValue"
+                                }
+                                # If File/Folder/MSI
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operator == 'NotEquals'
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType == 'Int64'
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value == '0'
+                                # { Exists rule / NO Rule }
+                                # ElseIf Reg
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operator == 'Equals'
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType == 'Boolean'
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value == 'true'
+                                # { Exists rule / NO Rule }
+                                # Else
+                                # $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType is What Property is to be compared
+                                # $EDM.EnhancedDetectionMethod.Rule.Expression.Operator is how to compare DataType
+                                # $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value is what to compare against.
+                            }
+                            if ($EDM.EnhancedDetectionMethod.Settings.File.Is64Bit -eq $False) {
+                                $DTListData += "32-bit"
+                            }
+                            $EDMFound = $True
+                        }
+                        if ($EDM.EnhancedDetectionMethod.Settings.Folder -ne $null) {
+                            # Data for Folder
+                            #         Path = $EDM.EnhancedDetectionMethod.Settings.Folder.Path
+                            #         Name = $EDM.EnhancedDetectionMethod.Settings.Folder.Filter
+                            #         Is64Bit = false means it's a 32bit folder
+                            $EDMPath = ($EDM.EnhancedDetectionMethod.Settings.Folder.Path)
+                            $EDMName = ($EDM.EnhancedDetectionMethod.Settings.Folder.Filter)
+                            $DTListData += "Using Folder detection method."
+                            $DTListData += "FOLDER Path: $EDMPath"
+                            $DTListData += "FOLDER Name: $EDMName"
+                            # rule based enhanced folder detection method
+                            if ($EDM.EnhancedDetectionMethod.Rule -ne $null) {
+                                #$DTListData += "Rules apply."
+                                #TODO: Create function for this->
+                                if (!(($EDM.EnhancedDetectionMethod.Rule.Expression.Operator -eq 'NotEquals') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType -eq 'Int64') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value -eq '0'))) {
+                                    $EDMProperty = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType.ToString())
+                                    $EDMOperator = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operator.ToString())
+                                    $EDMValue = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value.ToString())
+                                    $DTListData += "$EDMProperty $EDMOperator $EDMValue"
+                                }
+                                # If File/Folder/MSI
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operator == 'NotEquals'
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType == 'Int64'
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value == '0'
+                                # { Exists rule / NO Rule }
+                                # ElseIf Reg
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operator == 'Equals'
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType == 'Boolean'
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value == 'true'
+                                # { Exists rule / NO Rule }
+                                # Else
+                                # $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType is What Property is to be compared
+                                # $EDM.EnhancedDetectionMethod.Rule.Expression.Operator is how to compare DataType
+                                # $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value is what to compare against.
+                            }
+                            if ($EDM.EnhancedDetectionMethod.Settings.Folder.Is64Bit -eq $False) {
+                                $DTListData += "32-bit"
+                            }
+                            $EDMFound = $True
+                        } 
+                        if ($EDM.EnhancedDetectionMethod.Settings.SimpleSetting -ne $null) {
+                            # Possibly Data for Registry
+                            #         Hive
+                            #         Key
+                            if ($EDM.EnhancedDetectionMethod.Settings.SimpleSetting.RegistryDiscoverySource -ne $null) {
+                                $EDMHive = ($EDM.EnhancedDetectionMethod.Settings.SimpleSetting.RegistryDiscoverySource.Hive.ToString())
+                                $EDMKey =  ($EDM.EnhancedDetectionMethod.Settings.SimpleSetting.RegistryDiscoverySource.Key.ToString())
+                                $DTListData += "Using Simple Registry detection method."
+                                $DTListData += "Simple Hive: $EDMHive"
+                                $DTListData += "Simple Key : $EDMKey"
+                                if ($EDM.EnhancedDetectionMethod.Settings.SimpleSetting.RegistryDiscoverySource.ValueName -ne $null) {
+                                    $EDMProperty = ($EDM.EnhancedDetectionMethod.Settings.SimpleSetting.RegistryDiscoverySource.ValueName.ToString())
+                                    $DTListData += "Property   : $EDMProperty"
+                                }
+                                # rule based Simple Registry detection method
+                                if ($EDM.EnhancedDetectionMethod.Rule -ne $null) {
+                                    #$DTListData += "Rules apply."
+                                    #TODO: Create function for this->
+                                    if (!(($EDM.EnhancedDetectionMethod.Rule.Expression.Operator -eq 'Equals') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType -eq 'Boolean') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value -eq 'true'))) {
+                                        $EDMProperty = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType.ToString())
+                                        $EDMOperator = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operator.ToString())
+                                        $EDMValue = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value.ToString())
+                                        $DTListData += "$EDMProperty $EDMOperator $EDMValue"
+                                    }
+                                    # If File/Folder/MSI
+                                    # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operator == 'NotEquals'
+                                    # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType == 'Int64'
+                                    # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value == '0'
+                                    # { Exists rule / NO Rule }
+                                    # ElseIf Reg
+                                    # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operator == 'Equals'
+                                    # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType == 'Boolean'
+                                    # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value == 'true'
+                                    # { Exists rule / NO Rule }
+                                    # Else
+                                    # $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType is What Property is to be compared
+                                    # $EDM.EnhancedDetectionMethod.Rule.Expression.Operator is how to compare DataType
+                                    # $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value is what to compare against.
+                                }
+                                $EDMFound = $True
+                            } else {
+                                $DTListData += "Unknown Enhanced SimpleSetting"
+                            }
+                        } 
+                        if ($EDM.EnhancedDetectionMethod.Settings.RegistryKey -ne $null) {
+                            # Data for Registry
+                            #         Hive
+                            #         Key
+                            $EDMHive = ($EDM.EnhancedDetectionMethod.Settings.RegistryKey.Hive.ToString())
+                            $EDMKey =  ($EDM.EnhancedDetectionMethod.Settings.RegistryKey.Key.ToString())
+                            $DTListData += "Using Registry detection method."
+                            $DTListData += "Registry Hive: $EDMHive"
+                            $DTListData += "Registry Key : $EDMKey"
+                            # Property based Registry detection method
+                            if ($EDM.EnhancedDetectionMethod.Settings.RegistryKey.ValueName -ne $null) {
+                                $EDMProperty = ($EDM.EnhancedDetectionMethod.Settings.RegistryKey.ValueName.ToString())
+                                $DTListData += "Property   : $EDMProperty"
+                            }
+                            # rule based Registry detection method
+                            if ($EDM.EnhancedDetectionMethod.Rule -ne $null) {
+                                #$DTListData += "Rules apply."
+                                #TODO: Create function for this->
+                                if (!(($EDM.EnhancedDetectionMethod.Rule.Expression.Operator -eq 'Equals') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType -eq 'Boolean') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value -eq 'true'))) {
+                                    $EDMProperty = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType.ToString())
+                                    $EDMOperator = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operator.ToString())
+                                    $EDMValue = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value.ToString())
+                                    $DTListData += "$EDMProperty $EDMOperator $EDMValue"
+                                }
+                                # If File/Folder/MSI
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operator == 'NotEquals'
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType == 'Int64'
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value == '0'
+                                # { Exists rule / NO Rule }
+                                # ElseIf Reg
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operator == 'Equals'
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType == 'Boolean'
+                                # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value == 'true'
+                                # { Exists rule / NO Rule }
+                                # Else
+                                # $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType is What Property is to be compared
+                                # $EDM.EnhancedDetectionMethod.Rule.Expression.Operator is how to compare DataType
+                                # $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value is what to compare against.
+                            }
+                            $EDMFound = $True
+                        }
+                        if ($EDMFound -eq $False) {
+                            #Unknown Enhanced
+                            $DTListData += "Using unknown enhanced detection method."
+                            if ($EDM.EnhancedDetectionMethod.Rule -ne $null) {
+                                $DTListData += "Rules defined for this detection."
+                            }
+                        }
+                    } elseif ($DT.Installer.DetectAction.Provider -like 'Windows8App') {
+                        # Build-in detection method
+                        $DTListData += "Using Windows Build-In detection method."
+                        if ($EDM.EnhancedDetectionMethod.Rule -ne $null) {
+                            $DTListData += "Rules defined for this detection."
+                        }
                     } else {
-                        #Unknown
-                        $DTListData += "Other detection method."
+                        #Unknown/other
+                        $DTListData += "Unkown detection method."
+                        if ($EDM.EnhancedDetectionMethod.Rule -ne $null) {
+                            $DTListData += "Rules defined for this detection."
+                        }
                     }
                     Write-HtmlList -InputObject $DTListData -Description $DTSection -Level 6 -File $FilePath
 
