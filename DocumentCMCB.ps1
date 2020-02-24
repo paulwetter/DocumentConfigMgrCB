@@ -6240,18 +6240,28 @@ if ($ListAllInformation -or $ListAppDetails){
                         if ($EDM.EnhancedDetectionMethod.Settings.MSI -ne $null) {
                             # Data for MSI
                             #         ProductCode = $EDM.EnhancedDetectionMethod.Settings.MSI.ProductCode
-                            $ProductCode = ($EDM.EnhancedDetectionMethod.Settings.MSI.ProductCode)
+                            # What if there are multiple MSI codes ?
+                            $EDMMSIs = $EDM.EnhancedDetectionMethod.Settings.MSI
                             $DTListData += "Using enhanced MSI detection method."
-                            $DTListData += "MSI Product Code: $ProductCode"
+                            foreach ($EDMMSI in $EDMMSIs) {
+                                $ProductCode = ($EDMMSI.ProductCode)
+                                $DTListData += "MSI Product Code: $ProductCode"
+                            }
+                            #$ProductCode = ($EDM.EnhancedDetectionMethod.Settings.MSI.ProductCode)
+                            #$DTListData += "Using enhanced MSI detection method."
+                            #$DTListData += "MSI Product Code: $ProductCode"
                             # Rule based addition to the MSI detetion
                             if ($EDM.EnhancedDetectionMethod.Rule -ne $null) {
                                 #$DTListData += "Rules apply."
                                 #TODO: Create function for this->
-                                if (!(($EDM.EnhancedDetectionMethod.Rule.Expression.Operator -eq 'NotEquals') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType -eq 'Int64') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value -eq '0'))) {
-                                    $EDMProperty = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType.ToString())
-                                    $EDMOperator = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operator.ToString())
-                                    $EDMValue = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value.ToString())
-                                    $DTListData += "$EDMProperty $EDMOperator $EDMValue"
+                                $EDMRules = $EDM.EnhancedDetectionMethod.Rule
+                                foreach ($EDMRule in $EDMRules) {
+                                    if (!(($EDMRule.Expression.Operator -eq 'NotEquals') -and ($EDMRule.Expression.Operands.ConstantValue.DataType -eq 'Int64') -and ($EDMRule.Expression.Operands.ConstantValue.Value -eq '0'))) {
+                                        $EDMProperty = ($EDMRule.Expression.Operands.ConstantValue.DataType.ToString())
+                                        $EDMOperator = ($EDMRule.Expression.Operator.ToString())
+                                        $EDMValue = ($EDMRule.Expression.Operands.ConstantValue.Value.ToString())
+                                        $DTListData += "$EDMProperty $EDMOperator $EDMValue"
+                                    }
                                 }
                                 # If File/Folder/MSI
                                 # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operator == 'NotEquals'
@@ -6275,20 +6285,34 @@ if ($ListAllInformation -or $ListAppDetails){
                             #         Path = $EDM.EnhancedDetectionMethod.Settings.File.Path
                             #         Name = $EDM.EnhancedDetectionMethod.Settings.File.Filter
                             #         Is64Bit = false means it's a 32bit file
-                            $EDMPath = ($EDM.EnhancedDetectionMethod.Settings.File.Path)
-                            $EDMName = ($EDM.EnhancedDetectionMethod.Settings.File.Filter)
+                            $EDMFiles = $EDM.EnhancedDetectionMethod.Settings.File
                             $DTListData += "Using File detection method."
-                            $DTListData += "FILE Path: $EDMPath"
-                            $DTListData += "FILE Name: $EDMName"
+                            foreach ($EDMFile in $EDMFiles) {
+                                $EDMPath = ($EDMFile.Path)
+                                $EDMName = ($EDMFile.Filter)
+                                $DTListData += "FILE Path: $EDMPath"
+                                $DTListData += "FILE Name: $EDMName"
+                                if ($EDMFile.Is64Bit -eq $False) {
+                                    $DTListData += "32-bit"
+                                }
+                            }
+                            #$EDMPath = ($EDM.EnhancedDetectionMethod.Settings.File.Path)
+                            #$EDMName = ($EDM.EnhancedDetectionMethod.Settings.File.Filter)
+                            #$DTListData += "Using File detection method."
+                            #$DTListData += "FILE Path: $EDMPath"
+                            #$DTListData += "FILE Name: $EDMName"
                             # rule based enhanced file detection method
                             if ($EDM.EnhancedDetectionMethod.Rule -ne $null) {
                                 #$DTListData += "Rules apply."
                                 #TODO: Create function for this->
-                                if (!(($EDM.EnhancedDetectionMethod.Rule.Expression.Operator -eq 'NotEquals') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType -eq 'Int64') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value -eq '0'))) {
-                                    $EDMProperty = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType.ToString())
-                                    $EDMOperator = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operator.ToString())
-                                    $EDMValue = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value.ToString())
-                                    $DTListData += "$EDMProperty $EDMOperator $EDMValue"
+                                $EDMRules = $EDM.EnhancedDetectionMethod.Rule
+                                foreach ($EDMRule in $EDMRules) {
+                                    if (!(($EDMRule.Expression.Operator -eq 'NotEquals') -and ($EDMRule.Expression.Operands.ConstantValue.DataType -eq 'Int64') -and ($EDMRule.Expression.Operands.ConstantValue.Value -eq '0'))) {
+                                        $EDMProperty = ($EDMRule.Expression.Operands.ConstantValue.DataType.ToString())
+                                        $EDMOperator = ($EDMRule.Expression.Operator.ToString())
+                                        $EDMValue = ($EDMRule.Expression.Operands.ConstantValue.Value.ToString())
+                                        $DTListData += "$EDMProperty $EDMOperator $EDMValue"
+                                    }
                                 }
                                 # If File/Folder/MSI
                                 # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operator == 'NotEquals'
@@ -6304,9 +6328,6 @@ if ($ListAllInformation -or $ListAppDetails){
                                 # $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType is What Property is to be compared
                                 # $EDM.EnhancedDetectionMethod.Rule.Expression.Operator is how to compare DataType
                                 # $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value is what to compare against.
-                            }
-                            if ($EDM.EnhancedDetectionMethod.Settings.File.Is64Bit -eq $False) {
-                                $DTListData += "32-bit"
                             }
                             $EDMFound = $True
                         }
@@ -6315,20 +6336,29 @@ if ($ListAllInformation -or $ListAppDetails){
                             #         Path = $EDM.EnhancedDetectionMethod.Settings.Folder.Path
                             #         Name = $EDM.EnhancedDetectionMethod.Settings.Folder.Filter
                             #         Is64Bit = false means it's a 32bit folder
-                            $EDMPath = ($EDM.EnhancedDetectionMethod.Settings.Folder.Path)
-                            $EDMName = ($EDM.EnhancedDetectionMethod.Settings.Folder.Filter)
+                            $EDMFolders = $EDM.EnhancedDetectionMethod.Settings.Folder
                             $DTListData += "Using Folder detection method."
-                            $DTListData += "FOLDER Path: $EDMPath"
-                            $DTListData += "FOLDER Name: $EDMName"
+                            foreach ($EDMFolder in $EDMFolders) {
+                                $EDMPath = ($EDMFolder.Path)
+                                $EDMName = ($EDMFolder.Filter)
+                                $DTListData += "FOLDER Path: $EDMPath"
+                                $DTListData += "FOLDER Name: $EDMName"
+                                if ($EDMFolder.Is64Bit -eq $False) {
+                                    $DTListData += "32-bit"
+                                }
+                            }
                             # rule based enhanced folder detection method
                             if ($EDM.EnhancedDetectionMethod.Rule -ne $null) {
                                 #$DTListData += "Rules apply."
                                 #TODO: Create function for this->
-                                if (!(($EDM.EnhancedDetectionMethod.Rule.Expression.Operator -eq 'NotEquals') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType -eq 'Int64') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value -eq '0'))) {
-                                    $EDMProperty = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType.ToString())
-                                    $EDMOperator = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operator.ToString())
-                                    $EDMValue = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value.ToString())
-                                    $DTListData += "$EDMProperty $EDMOperator $EDMValue"
+                                $EDMRules = $EDM.EnhancedDetectionMethod.Rule
+                                foreach ($EDMRule in $EDMRules) {
+                                    if (!(($EDMRule.Expression.Operator -eq 'NotEquals') -and ($EDMRule.Expression.Operands.ConstantValue.DataType -eq 'Int64') -and ($EDMRule.Expression.Operands.ConstantValue.Value -eq '0'))) {
+                                        $EDMProperty = ($EDMRule.Expression.Operands.ConstantValue.DataType.ToString())
+                                        $EDMOperator = ($EDMRule.Expression.Operator.ToString())
+                                        $EDMValue = ($EDMRule.Expression.Operands.ConstantValue.Value.ToString())
+                                        $DTListData += "$EDMProperty $EDMOperator $EDMValue"
+                                    }
                                 }
                                 # If File/Folder/MSI
                                 # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operator == 'NotEquals'
@@ -6345,9 +6375,6 @@ if ($ListAllInformation -or $ListAppDetails){
                                 # $EDM.EnhancedDetectionMethod.Rule.Expression.Operator is how to compare DataType
                                 # $EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value is what to compare against.
                             }
-                            if ($EDM.EnhancedDetectionMethod.Settings.Folder.Is64Bit -eq $False) {
-                                $DTListData += "32-bit"
-                            }
                             $EDMFound = $True
                         } 
                         if ($EDM.EnhancedDetectionMethod.Settings.SimpleSetting -ne $null) {
@@ -6355,24 +6382,30 @@ if ($ListAllInformation -or $ListAppDetails){
                             #         Hive
                             #         Key
                             if ($EDM.EnhancedDetectionMethod.Settings.SimpleSetting.RegistryDiscoverySource -ne $null) {
-                                $EDMHive = ($EDM.EnhancedDetectionMethod.Settings.SimpleSetting.RegistryDiscoverySource.Hive.ToString())
-                                $EDMKey =  ($EDM.EnhancedDetectionMethod.Settings.SimpleSetting.RegistryDiscoverySource.Key.ToString())
+                                $EDMRegs = $EDM.EnhancedDetectionMethod.Settings.SimpleSetting.RegistryDiscoverySource
                                 $DTListData += "Using Simple Registry detection method."
-                                $DTListData += "Simple Hive: $EDMHive"
-                                $DTListData += "Simple Key : $EDMKey"
-                                if ($EDM.EnhancedDetectionMethod.Settings.SimpleSetting.RegistryDiscoverySource.ValueName -ne $null) {
-                                    $EDMProperty = ($EDM.EnhancedDetectionMethod.Settings.SimpleSetting.RegistryDiscoverySource.ValueName.ToString())
-                                    $DTListData += "Property   : $EDMProperty"
+                                foreach ($EDMReg in $EDMRegs) {
+                                    $EDMHive = ($EDMReg.Hive.ToString())
+                                    $EDMKey =  ($EDMReg.Key.ToString())
+                                    $DTListData += "Simple Hive: $EDMHive"
+                                    $DTListData += "Simple Key : $EDMKey"
+                                    if ($EDMReg.ValueName -ne $null) {
+                                        $EDMProperty = ($EDMReg.ValueName.ToString())
+                                        $DTListData += "Property   : $EDMProperty"
+                                    }
                                 }
                                 # rule based Simple Registry detection method
                                 if ($EDM.EnhancedDetectionMethod.Rule -ne $null) {
                                     #$DTListData += "Rules apply."
                                     #TODO: Create function for this->
-                                    if (!(($EDM.EnhancedDetectionMethod.Rule.Expression.Operator -eq 'Equals') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType -eq 'Boolean') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value -eq 'true'))) {
-                                        $EDMProperty = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType.ToString())
-                                        $EDMOperator = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operator.ToString())
-                                        $EDMValue = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value.ToString())
-                                        $DTListData += "$EDMProperty $EDMOperator $EDMValue"
+                                    $EDMRules = $EDM.EnhancedDetectionMethod.Rule
+                                    foreach ($EDMRule in $EDMRules) {
+                                        if (!(($EDMRule.Expression.Operator -eq 'Equals') -and ($EDMRule.Expression.Operands.ConstantValue.DataType -eq 'Boolean') -and ($EDMRule.Expression.Operands.ConstantValue.Value -eq 'true'))) {
+                                            $EDMProperty = ($EDMRule.Expression.Operands.ConstantValue.DataType.ToString())
+                                            $EDMOperator = ($EDMRule.Expression.Operator.ToString())
+                                            $EDMValue = ($EDMRule.Expression.Operands.ConstantValue.Value.ToString())
+                                            $DTListData += "$EDMProperty $EDMOperator $EDMValue"
+                                        }
                                     }
                                     # If File/Folder/MSI
                                     # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operator == 'NotEquals'
@@ -6398,25 +6431,31 @@ if ($ListAllInformation -or $ListAppDetails){
                             # Data for Registry
                             #         Hive
                             #         Key
-                            $EDMHive = ($EDM.EnhancedDetectionMethod.Settings.RegistryKey.Hive.ToString())
-                            $EDMKey =  ($EDM.EnhancedDetectionMethod.Settings.RegistryKey.Key.ToString())
+                            $EDMRegs = $EDM.EnhancedDetectionMethod.Settings.RegistryKey
                             $DTListData += "Using Registry detection method."
-                            $DTListData += "Registry Hive: $EDMHive"
-                            $DTListData += "Registry Key : $EDMKey"
-                            # Property based Registry detection method
-                            if ($EDM.EnhancedDetectionMethod.Settings.RegistryKey.ValueName -ne $null) {
-                                $EDMProperty = ($EDM.EnhancedDetectionMethod.Settings.RegistryKey.ValueName.ToString())
-                                $DTListData += "Property   : $EDMProperty"
+                            foreach ($EDMReg in $EDMRegs) {
+                                $EDMHive = ($EDMReg.Hive.ToString())
+                                $EDMKey =  ($EDMReg.Key.ToString())
+                                $DTListData += "Registry Hive: $EDMHive"
+                                $DTListData += "Registry Key : $EDMKey"
+                                # Property based Registry detection method
+                                if ($EDMReg.ValueName -ne $null) {
+                                    $EDMProperty = ($EDMReg.ValueName.ToString())
+                                    $DTListData += "Property   : $EDMProperty"
+                                }
                             }
                             # rule based Registry detection method
                             if ($EDM.EnhancedDetectionMethod.Rule -ne $null) {
                                 #$DTListData += "Rules apply."
                                 #TODO: Create function for this->
-                                if (!(($EDM.EnhancedDetectionMethod.Rule.Expression.Operator -eq 'Equals') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType -eq 'Boolean') -and ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value -eq 'true'))) {
-                                    $EDMProperty = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType.ToString())
-                                    $EDMOperator = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operator.ToString())
-                                    $EDMValue = ($EDM.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value.ToString())
-                                    $DTListData += "$EDMProperty $EDMOperator $EDMValue"
+                                $EDMRules = $EDM.EnhancedDetectionMethod.Rule
+                                foreach ($EDMRule in $EDMRules) {
+                                    if (!(($EDMRule.Expression.Operator -eq 'Equals') -and ($EDMRule.Expression.Operands.ConstantValue.DataType -eq 'Boolean') -and ($EDMRule.Expression.Operands.ConstantValue.Value -eq 'true'))) {
+                                        $EDMProperty = ($EDMRule.Expression.Operands.ConstantValue.DataType.ToString())
+                                        $EDMOperator = ($EDMRule.Expression.Operator.ToString())
+                                        $EDMValue = ($EDMRule.Expression.Operands.ConstantValue.Value.ToString())
+                                        $DTListData += "$EDMProperty $EDMOperator $EDMValue"
+                                    }
                                 }
                                 # If File/Folder/MSI
                                 # & $EDM.EnhancedDetectionMethod.Rule.Expression.Operator == 'NotEquals'
