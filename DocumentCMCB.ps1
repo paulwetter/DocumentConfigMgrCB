@@ -457,6 +457,8 @@ Function Write-HTMLHeader{
     $DefaultStyle += "TH  {background-color:LightBlue;padding: 3px; border: 2px solid black;}"
     $DefaultStyle += "TD  {padding: 3px; border: 1px solid black;}"
     $DefaultStyle += "TABLE	{border-collapse: collapse;}"
+    $DefaultStyle += "TABLE.Cover TR {background-color:white}"
+    $DefaultStyle += ".CoverImage {width:auto; max-width:auto}"
     $DefaultStyle += "</Style>"
     ##End Default Style
     If($CssStyleFile){
@@ -559,14 +561,14 @@ Function Write-HTMLCoverPage{
         [string]$File
     )
     $Cover = @()
-    $Cover += "<Table border=0 cellspacing=0 cellpadding=0 style=`"width:100%;border: 0px`">"
+    $Cover += "<Table class=`"Cover`" border=0 cellspacing=0 cellpadding=0 style=`"width:100%;border: 0px`">"
     $Cover += "<TR><TD Height=50 VAlign=`"top`" align=`"left`" style=`"border: 0px;font-size:48pt`">$Title</TD></TR>"
     $Cover += "<TR><TD Height=20 VAlign=`"top`" align=`"left`" style=`"border: 0px;font-size:24pt;padding-left:10px`">Report Prepared for: $Org</TD></TR>"
     If ($ImagePath){
         $ImageData=Convert-Image2Base64 -Path $ImagePath
     }
     If ($ImageData){
-        $Cover += "<TR><TD Height=700 VAlign=`"bottom`" align=`"right`" style=`"border: 0px`"><img src=`"$ImageData`"></TD></TR>"
+        $Cover += "<TR><TD Height=700 VAlign=`"bottom`" align=`"right`" style=`"border: 0px`"><img class=`"CoverImage`" src=`"$ImageData`"></TD></TR>"
     }Else{
         $Cover += "<TR><TD Height=700 VAlign=`"top`" style=`"border: 0px`">&nbsp;</TD></TR>"
     }
@@ -6036,7 +6038,7 @@ Write-HTMLHeading -Level 1 -PageBreak -Text 'Software Library' -File $FilePath
 Write-HTMLHeading -Level 2 -PageBreak -Text 'Application Management' -File $FilePath
 
 #region Applications
-Write-ProgressEx -CurrentOperation 'Processing Appications'
+Write-ProgressEx -CurrentOperation 'Processing Applications'
 Write-HTMLHeading -Level 3 -Text 'Applications' -File $FilePath
 #$Applications = Get-WmiObject -Class sms_applicationlatest -Namespace root\sms\site_$SiteCode -ComputerName $SMSProvider
 #Get-CMApplication | select LocalizedDisplayName,LocalizedDescription,Manufacturer,SoftwareVersion,PackageID,ISExpired,ISDeployed,NumberOfDeploymentTypes
