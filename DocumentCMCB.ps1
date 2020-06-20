@@ -48,6 +48,8 @@
     The amount of time we should wait for a sql query to time out.  Default is 300 seconds (5 minutes)
 .PARAMETER MaskAccounts
     This will mask about half of the account name in the documentation
+.PARAMETER SQLCredential
+    If The SQL server is on a remote system, you can pass SQL credentials here.
 .PARAMETER StyleSheet
     This is the path to an external CSS file that will allow you to style the report in your own way.  The style sheet will be embedded into the report.
 .EXAMPLE
@@ -63,11 +65,11 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.50
+	VERSION: 3.52
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: November 12, 2019
+	LASTEDIT: June 19, 2020
 #>
 
 #endregion
@@ -119,13 +121,16 @@ Param(
     [parameter(Mandatory=$False)] 
     [switch]$MaskAccounts,
     
+    #[parameter(Mandatory=$False)] 
+    #[System.Management.Automation.PSCredential]$SQLCredential = [System.Management.Automation.PSCredential]::Empty,
+
     [parameter(Mandatory=$False,HelpMessage="CSS file path")]
     [string]$StyleSheet = ""
 
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.50'
+$DocumenationScriptVersion = '3.52'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -888,32 +893,32 @@ Function Get-SiteCode
   return $SiteCode
 }
 
-#small funtion that will convert utc time to local time, and ignore daylight savings time.
+#small funtion that will convert utc time to local time, option to ignore daylight savings time.
 function Convert-UTCtoLocal{
     param(
         [parameter(Mandatory=$true)]
         [String]$UTCTimeString,
         [parameter(Mandatory=$false)]
-        [Switch]$RespectDST
+        [Switch]$IgnoreDST
     )
     $UTCTime = ($UTCTimeString.Split('.'))[0]
     $dt = ([datetime]::ParseExact($UTCTime,'yyyyMMddhhmmss',$null))
-    if ($RespectDST){
+    if ($IgnoreDST){
+        $dt+([System.TimeZoneInfo]::Local).BaseUtcOffset
+    }else{
         $strCurrentTimeZone = (Get-WmiObject win32_timezone).StandardName
         $TZ = [System.TimeZoneInfo]::FindSystemTimeZoneById($strCurrentTimeZone)
         [System.TimeZoneInfo]::ConvertTimeFromUtc($dt, $TZ)
-    }else{
-        $dt+([System.TimeZoneInfo]::Local).BaseUtcOffset
     }
 }
 
 Function Get-HumanReadableSchedule {
     <#
     .SYNOPSIS
-    This reads the data from an SCCM schedule object and then converts the schedule into a readable text similar to what appears in the console dialogs
+    This reads the data from an CM schedule object and then converts the schedule into a readable text similar to what appears in the console dialogs
     
     .PARAMETER Schedule
-    this is a schedule object from within SCCM.  Schedules are converted from a 16 digit hex string with Convert-CMSchedule
+    this is a schedule object from within CM.  Schedules are converted from a 16 digit hex string with Convert-CMSchedule
     
     .EXAMPLE
     Get-HumanReadableSchedule -Schedule (Convert-CMSchedule -ScheduleString 0001170000100038)
@@ -1269,7 +1274,7 @@ Function Get-PWCMDiscoveryMethod {
     #region AD Group Discovery
     If ($dmx -eq 2 -or $DMX -eq 7) {
         $ADGDHash = @{ }
-        $ADGroupDiscovery = Get-WmiObject -Query "SELECT * FROM SMS_SCI_Component WHERE FileType=2 AND ItemName='SMS_AD_SECURITY_GROUP_DISCOVERY_AGENT|SMS Site Server' AND ItemType='Component'" -Namespace "ROOT\SMS\site_$SiteName"
+        $ADGroupDiscovery = Get-WmiObject -Query "SELECT * FROM SMS_SCI_Component WHERE FileType=2 AND ItemName='SMS_AD_SECURITY_GROUP_DISCOVERY_AGENT|SMS Site Server' AND ItemType='Component'" -Namespace "ROOT\SMS\site_$SiteName" -ComputerName $SiteServer
         $ADGDHash.Add('DiscoveryMethod', 'Active Directory Group Discovery')
         foreach ($Prop in $ADGroupDiscovery.Props) {
             #schedule and suches
@@ -1401,7 +1406,7 @@ Function Get-PWCMDiscoveryMethod {
     If ($dmx -eq 1 -or $DMX -eq 7) {
         $ADFDHash = @{ }
         $ADFDHash.Add('DiscoveryMethod', 'Active Directory Forest Discovery')
-        $ADForestDiscovery = Get-WmiObject -Query "SELECT * FROM SMS_SCI_Component WHERE FileType=2 AND ItemName='SMS_AD_FOREST_DISCOVERY_MANAGER|SMS Site Server' AND ItemType='Component'" -Namespace "ROOT\SMS\site_$SiteName"
+        $ADForestDiscovery = Get-WmiObject -Query "SELECT * FROM SMS_SCI_Component WHERE FileType=2 AND ItemName='SMS_AD_FOREST_DISCOVERY_MANAGER|SMS Site Server' AND ItemType='Component'" -Namespace "ROOT\SMS\site_$SiteName" -ComputerName $SiteServer
         foreach ($Prop in $ADForestDiscovery.Props) {
             switch ($Prop.PropertyName) {
                 'Startup Schedule' {
@@ -1442,7 +1447,7 @@ Function Get-PWCMDiscoveryMethod {
     If ($dmx -eq 6 -or $DMX -eq 7) { 
         $HBDHash = @{ }
         $HBDHash.Add('DiscoveryMethod', 'Heartbeat Discovery')
-        $HeartbeatDiscovery = Get-WmiObject -Query "SELECT * FROM SMS_SCI_ClientConfig WHERE FileType=2 AND ItemName='Client Properties' AND ItemType='Client Configuration'" -Namespace "ROOT\SMS\site_$SiteName"
+        $HeartbeatDiscovery = Get-WmiObject -Query "SELECT * FROM SMS_SCI_ClientConfig WHERE FileType=2 AND ItemName='Client Properties' AND ItemType='Client Configuration'" -Namespace "ROOT\SMS\site_$SiteName" -ComputerName $SiteServer
         Foreach ($prop in $HeartbeatDiscovery.Props) {
             switch ($prop.PropertyName) {
                 'DDR Refresh Interval' {
@@ -1477,7 +1482,7 @@ Function Get-PWCMDiscoveryMethod {
     If ($dmx -eq 5 -or $DMX -eq 7) {
         $NDHash = @{ }
         $NDHash.Add('DiscoveryMethod', 'Network Discovery')
-        $NetworkDiscovery = Get-WmiObject -Query "SELECT * FROM SMS_SCI_Component WHERE FileType=2 AND ItemName='SMS_NETWORK_DISCOVERY|SMS Site Server' AND ItemType='Component'" -Namespace "ROOT\SMS\site_$SiteName"
+        $NetworkDiscovery = Get-WmiObject -Query "SELECT * FROM SMS_SCI_Component WHERE FileType=2 AND ItemName='SMS_NETWORK_DISCOVERY|SMS Site Server' AND ItemType='Component'" -Namespace "ROOT\SMS\site_$SiteName" -ComputerName $SiteServer
         Foreach ($prop in $NetworkDiscovery.Props) {
             switch ($prop.PropertyName) {
                 'Discovery Enabled' {
@@ -1634,7 +1639,7 @@ Function Get-PWCMDiscoveryMethod {
     If ($dmx -eq 3 -or $DMX -eq 7) {
         $ADSDHash = @{ }
         $ADSDHash.Add('DiscoveryMethod', 'Active Directory System Discovery')
-        $ADSystemDiscovery = Get-WmiObject -Query "SELECT * FROM SMS_SCI_Component WHERE FileType=2 AND ItemName='SMS_AD_SYSTEM_DISCOVERY_AGENT|SMS Site Server' AND ItemType='Component'" -Namespace "ROOT\SMS\site_$SiteName"
+        $ADSystemDiscovery = Get-WmiObject -Query "SELECT * FROM SMS_SCI_Component WHERE FileType=2 AND ItemName='SMS_AD_SYSTEM_DISCOVERY_AGENT|SMS Site Server' AND ItemType='Component'" -Namespace "ROOT\SMS\site_$SiteName" -ComputerName $SiteServer
         foreach ($Prop in $ADSystemDiscovery.Props) {
             #schedule and suches
             switch ($Prop.PropertyName) {
@@ -1770,7 +1775,7 @@ Function Get-PWCMDiscoveryMethod {
     If ($dmx -eq 4 -or $DMX -eq 7) {
         $ADUDHash = @{ }
         $ADUDHash.Add('DiscoveryMethod', 'Active Directory User Discovery')
-        $ADUserDiscovery = Get-WmiObject -Query "SELECT * FROM SMS_SCI_Component WHERE FileType=2 AND ItemName='SMS_AD_USER_DISCOVERY_AGENT|SMS Site Server' AND ItemType='Component'" -Namespace "ROOT\SMS\site_$SiteName"
+        $ADUserDiscovery = Get-WmiObject -Query "SELECT * FROM SMS_SCI_Component WHERE FileType=2 AND ItemName='SMS_AD_USER_DISCOVERY_AGENT|SMS Site Server' AND ItemType='Component'" -Namespace "ROOT\SMS\site_$SiteName" -ComputerName $SiteServer
         foreach ($Prop in $ADUserDiscovery.Props) {
             #schedule and suches
             switch ($Prop.PropertyName) {
@@ -1881,6 +1886,275 @@ Function Get-PWCMDiscoveryMethod {
     #endregion User Discovery
 }
 
+Function Get-PWCMPhasedDeployment {
+    <#
+    .SYNOPSIS
+    Gets the Details of a phased deployment.
+    
+    .DESCRIPTION
+    Gets the Details of a phased deployment in CM.  If no deployment specified, all are found and returned.
+    
+    .PARAMETER Name
+    Finds the phased deployment by its Name.
+    
+    .PARAMETER PhasedDeploymentID
+    Finds the phased deployment by its deployment ID, GUID.
+    
+    .PARAMETER DeploymentObjectID
+    Finds the phased deployment by the object that this deployment is targeting (Application, Task Sequence, or Update Group).
+    
+    .PARAMETER SiteServer
+    The primary site server (Where the WMI queries will be directed).
+    
+    .PARAMETER SiteName
+    Your SCCM Site code (MMS).
+    
+    .EXAMPLE
+    Get-PWCMPhasedDeployment -Name '7-Zip structured Deployment'
+
+    .EXAMPLE
+    Get-PWCMPhasedDeployment -PhasedDeploymentID 'FD114F32-752F-4DA9-AB2A-1B388B0E5807'
+    
+    .EXAMPLE
+    Get-PWCMPhasedDeployment -DeploymentObjectID MMS0000213
+
+    .NOTES
+    General notes
+    #>
+    
+    [CmdletBinding(DefaultParameterSetName = 'ByName')]
+    param(
+        [Parameter(Mandatory = $false, ParameterSetName='ByName')]
+        [ValidateNotNullOrEmpty()]
+        [string]$Name,
+        [Parameter(Mandatory = $false, ParameterSetName='ByDeploymentID')]
+        [ValidateNotNullOrEmpty()]
+        [string]$PhasedDeploymentID,
+        [Parameter(Mandatory = $false, ParameterSetName='ByObjectId')]
+        [ValidateNotNullOrEmpty()]
+        [string]$DeploymentObjectID,
+        [Parameter(Mandatory = $false)]
+        [ValidateNotNullOrEmpty()]
+        [string]$SiteServer = $env:COMPUTERNAME,
+        [Parameter(Mandatory = $false)]
+        [ValidateNotNullOrEmpty()]
+        [string]$SiteName = (Get-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\CCM\CcmEval -Name LastSiteCode -ErrorAction SilentlyContinue).LastSiteCode
+    )
+    If ($Name){
+        $PDs = Get-WmiObject -Query "SELECT * FROM SMS_PhasedDeployment where Name Like '$Name'" -Namespace "ROOT\SMS\site_$SiteName" -ComputerName $SiteServer
+    }
+    elseIf ($PhasedDeploymentID){
+        $PDs = Get-WmiObject -Query "SELECT * FROM SMS_PhasedDeployment where PhasedDeploymentID Like '$PhasedDeploymentID'" -Namespace "ROOT\SMS\site_$SiteName" -ComputerName $SiteServer
+    }
+    elseIf ($DeploymentObjectID){
+        $PDs = Get-WmiObject -Query "SELECT * FROM SMS_PhasedDeployment where DeploymentObjectID Like '$DeploymentObjectID'" -Namespace "ROOT\SMS\site_$SiteName" -ComputerName $SiteServer
+    } else {
+        $PDs = Get-WmiObject -Query "SELECT * FROM SMS_PhasedDeployment" -Namespace "ROOT\SMS\site_$SiteName" -ComputerName $SiteServer
+    }
+    foreach ($PD in $PDs){
+        $PD.Get()
+        switch ($PD.DeploymentObjectType) {
+            0 {
+                $Type = 'Task Sequence'
+                $DeploymentObjectName = (Get-WmiObject -Query "SELECT * FROM SMS_TaskSequencePackage WHERE PackageID='$($PD.DeploymentObjectID)'" -Namespace "ROOT\SMS\site_$SiteName").Name
+            }
+            1 {
+                $Type = 'Software Update'
+                $DeploymentObjectName = (Get-WmiObject -Query "SELECT * FROM SMS_AuthorizationList WHERE CI_ID=$($PD.DeploymentObjectID)" -Namespace "ROOT\SMS\site_$SiteName").LocalizedDisplayName
+            }
+            2 {
+                $Type = 'Application'
+                $DeploymentObjectName = (Get-WmiObject -Query "SELECT * FROM SMS_ApplicationLatest WHERE CI_ID=$($PD.DeploymentObjectID)" -Namespace "ROOT\SMS\site_$SiteName").LocalizedDisplayName
+            }
+            Default { $Type = 'Unknown' }
+        }
+        $PD | Select-Object @{Name = "SmsProviderObjectPath"; Expression = {$_.__RELPATH}},Action,DeploymentObjectID,@{Name = "DeploymentObjectName"; Expression = {$DeploymentObjectName}},@{Name = "DeploymentObjectTypeName"; Expression = {$Type}},DeploymentObjectType,Description,EvaluatePhasedDeployment,@{Name = "LastEvaluateTime"; Expression = {$(Convert-UTCtoLocal($_.LastEvaluateTime))}},@{Name = "LastModifiedTime"; Expression = {$(Convert-UTCtoLocal($_.LastModifiedTime))}},Name,PhasedDeploymentDigest,PhasedDeploymentID,Version
+    }
+}
+
+Function Get-PWCMPDPhases {
+    <#
+    .SYNOPSIS
+    Gets the details on all the defined phases of a phased deployment.
+    
+    .DESCRIPTION
+    Gets the details on all the defined phases of a phased deployment.  Depending on the type, there are different details available.
+    
+    .PARAMETER Name
+    Finds the phased deployment by its Name.
+    
+    .PARAMETER PhasedDeploymentID
+    Finds the phased deployment by its deployment ID, GUID.
+    
+    .PARAMETER DeploymentObjectID
+    Finds the phased deployment by the object that this deployment is targeting (Application, Task Sequence, or Update Group).
+    
+    .PARAMETER SiteServer
+    The primary site server (Where the WMI queries will be directed).
+    
+    .PARAMETER SiteName
+    Your SCCM Site code (MMS).
+    
+    .EXAMPLE
+    Get-PWCMPDPhases -Name '7-Zip structured Deployment'
+
+    .EXAMPLE
+    Get-PWCMPDPhases -PhasedDeploymentID 'FD114F32-752F-4DA9-AB2A-1B388B0E5807'
+    
+    .EXAMPLE
+    Get-PWCMPDPhases -DeploymentObjectID MMS0000213
+
+    #>
+    
+    [CmdletBinding(DefaultParameterSetName = 'ByName')]
+    param(
+        [Parameter(Mandatory = $true, ParameterSetName='ByName')]
+        [ValidateNotNullOrEmpty()]
+        [string]$Name,
+        [Parameter(Mandatory = $true, ParameterSetName='ByDeploymentID')]
+        [ValidateNotNullOrEmpty()]
+        [string]$PhasedDeploymentID,
+        [Parameter(Mandatory = $true, ParameterSetName='ByObjectId')]
+        [ValidateNotNullOrEmpty()]
+        [string]$DeploymentObjectID,
+        [Parameter(Mandatory = $false)]
+        [ValidateNotNullOrEmpty()]
+        [string]$SiteServer = $env:COMPUTERNAME,
+        [Parameter(Mandatory = $false)]
+        [ValidateNotNullOrEmpty()]
+        [string]$SiteName = (Get-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\CCM\CcmEval -Name LastSiteCode -ErrorAction SilentlyContinue).LastSiteCode
+    )
+    If ($Name) {
+        Try{
+            $PhasedDeployment = Get-PWCMPhasedDeployment -Name $Name -SiteServer $SiteServer -SiteName $SiteName
+            $phases = [XML]$PhasedDeployment.PhasedDeploymentDigest
+            $DeploymentType = $PhasedDeployment.DeploymentObjectTypeName
+        }
+        Catch{
+            Throw "Error : Could not find phased deployment by name: $Name"
+        }
+        if ([string]::IsNullOrEmpty($DeploymentType)) {
+            Throw "Could not find phased deployment by name: $Name"
+        }
+    }
+    If ($PhasedDeploymentID) {
+        Try{
+            $PhasedDeployment = Get-PWCMPhasedDeployment -PhasedDeploymentID $PhasedDeploymentID -SiteServer $SiteServer -SiteName $SiteName
+            $phases = [XML]$PhasedDeployment.PhasedDeploymentDigest
+            $DeploymentType = $PhasedDeployment.DeploymentObjectTypeName
+        }
+        Catch{
+            Throw "Error : Could not find phased deployment by PhasedDeploymentID: $PhasedDeploymentID"
+        }
+        if ([string]::IsNullOrEmpty($DeploymentType)) {
+            Throw "Could not find phased deployment by PhasedDeploymentID: $PhasedDeploymentID"
+        }
+    }
+    If ($DeploymentObjectID) {
+        try{
+            $PhasedDeployment = Get-PWCMPhasedDeployment -DeploymentObjectID $DeploymentObjectID -SiteServer $SiteServer -SiteName $SiteName
+            $phases = [XML]$PhasedDeployment.PhasedDeploymentDigest
+            $DeploymentType = $PhasedDeployment.DeploymentObjectTypeName    
+        }
+        catch{
+            Throw "Error : Could not find phased deployment by DeploymentObjectID: $DeploymentObjectID"
+        }
+        if ([string]::IsNullOrEmpty($DeploymentType)) {
+            Throw "Could not find phased deployment by DeploymentObjectID: $DeploymentObjectID"
+        }
+    }
+    Foreach ($Phase in $phases.PhasedDeployment.Phases.phase){
+        IF ($Phase.SuccessCriterias.Criteria){
+            $ht += @{'SuccessCriteria' = [pscustomobject](@{"$($Phase.SuccessCriterias.Criteria.CriteriaType)" = "$($Phase.SuccessCriterias.Criteria.CriteriaValue)"})}
+        }
+        If ($Phase.Targets.CollectionID){
+            $ht += @{'Target' = "$($Phase.Targets.CollectionID)"}
+        }
+        IF ($Phase.PhaseId){
+            $ht += @{'Name' = "$($Phase.PhaseId)"}
+        }
+        IF ($Phase.Order){
+            $ht += @{'Order' = "$($Phase.Order)"}
+        }
+        If ($Phase.Condition.DaysAfterPrevPhaseSuccess){
+            If ($Phase.Condition.DaysAfterPrevPhaseSuccess -ne -1){
+                $ht += @{'DaysAfterPrevPhaseSuccess' = "$($Phase.Condition.DaysAfterPrevPhaseSuccess)"}
+                $ht += @{'ManuallyStartPhase' = $false}
+            } else {
+                $ht += @{'DaysAfterPrevPhaseSuccess' = ''}
+                $ht += @{'ManuallyStartPhase' = $true}
+            }
+        }
+        If ($Phase.ThrottlingDays){
+            $ht += @{'GraduallyAvailable' = "$($Phase.ThrottlingDays)"}
+        }
+        If ($Phase.Deployment){
+            switch ($DeploymentType) {
+                'Task Sequence' {
+                    #Task sequence phased deployments do not have easy to use XML. So, let's pipe the configurable settings into a custom object.
+                    $DeploymentXML = ([xml]$($Phase.Deployment.OuterXML)).Deployment
+                    $Deploy += @{'DeadlineDelta' = "$($DeploymentXML.DeadlineDelta)"}
+                    $Deploy += @{'DeadlineUnit' = "$($DeploymentXML.DeadlineUnit)"}
+                    If ($DeploymentXML.OfferFlags -band 0x100000){
+                        $Deploy += @{'MaintenanceWindowInstallOverride' = $true}
+                    } else {
+                        $Deploy += @{'MaintenanceWindowInstallOverride' = $false}
+                    }
+                    If ($DeploymentXML.OfferFlags -band 0x200000){
+                        $Deploy += @{'MaintenanceWindowRestartOverride' = $true}
+                    } else {
+                        $Deploy += @{'MaintenanceWindowRestartOverride' = $false}
+                    }
+                    If ($DeploymentXML.OfferFlags -band 0x1000){
+                        $Deploy += @{'PreDownloadContent' = $true}
+                    } else {
+                        $Deploy += @{'PreDownloadContent' = $false}
+                    }
+                    If ($DeploymentXML.OfferFlags -band 0x800000){
+                        $Deploy += @{'UserExperience' = 'ShowAll'}
+                    } else {
+                        $Deploy += @{'UserExperience' = 'HideAll'}
+                    }
+                    If ($DeploymentXML.OfferFlags -band 0x20000){
+                        $Deploy += @{'UseSiteDefaultDP' = $true}
+                    } else {
+                        $Deploy += @{'UseSiteDefaultDP' = $false}
+                    }
+                    If ($DeploymentXML.RemoteClientFlags -band 0x0100){
+                        $Deploy += @{'UseNeighborDP' = $false}
+                    } else {
+                        $Deploy += @{'UseNeighborDP' = $true}
+                    }
+                    If ($DeploymentXML.RemoteClientFlags -band 0x0020){
+                        $Deploy += @{'RemoteDeployOpt' = 'DownloadWhenNeeded'}
+                    } else {
+                        $Deploy += @{'RemoteDeployOpt' = 'DownloadBefore'}
+                    }
+                    If ($DeploymentXML.RemoteClientFlags -band 0x8000){
+                        $Deploy += @{'WECommitAtDeadline' = $true}
+                    } else {
+                        $Deploy += @{'WECommitAtDeadline' = $false}
+                    }
+                    $ObjPD = [pscustomobject]$Deploy
+                    $ht += @{'DeploymentXML' = $DeploymentXML}
+                    $ht += @{'Deployment' = $ObjPD}
+                    Remove-Variable Deploy
+                    Remove-Variable ObjPD        
+                }
+                'Software Update' {
+                    #Software updates phased deployments already have the data with them in XML.  So, just pass the xml.
+                    $DeploymentXML = ([xml]$($Phase.Deployment.OuterXML)).Deployment
+                    $ht += @{'DeploymentXML' = $DeploymentXML}
+                    $ht += @{'Deployment' =  $DeploymentXML}
+                }
+                Default {}
+            }
+        }
+        [pscustomobject]$ht
+        Remove-Variable ht
+    }
+}
+
 Function Write-ProgressEx {
     [CmdletBinding()]
     param(
@@ -1912,7 +2186,7 @@ Function Write-ProgressEx {
 #####################################################################Starting#######################################################################################
 ####################################################################################################################################################################
 ####################################################################################################################################################################
-$Progress = @{'Activity'="$Title"; 'Status'='Initializing'}
+$Progress = @{'Activity'="$Title started $($ScriptStartTime.ToShortTimeString())"; 'Status'='Initializing'}
 Write-ProgressEx
 
 $StartingPath = (get-location).Path
@@ -1961,7 +2235,7 @@ if (-not (Get-PSDrive -Name $SiteCode))
 
 #### Administration
 #### Site Configuration
-$Progress = @{'Activity'="$Title"; 'Status'='Configuration Summary'}
+$Progress = @{'Activity'="$Title started $($ScriptStartTime.ToShortTimeString())"; 'Status'='Configuration Summary'}
 
 Write-HTMLHeading -Text 'Table of Contents' -Level 1 -PageBreak -ExcludeTOC -File $FilePath
 Write-HtmlComment -Text "TOC_Insert_Point" -File $FilePath
@@ -2890,27 +3164,27 @@ if ($ListAllInformation){
                 $SQLConnectString = "$SQLServer"
           }
           Write-HTMLParagraph -Text "SQL instance version information:" -Level 2 -File $FilePath
-          $SQLVersion = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -QueryTimeout $SQLTimeout -Query "SELECT SERVERPROPERTY (`'edition`') Edition, SERVERPROPERTY(`'productversion`') Version, SERVERPROPERTY (`'productlevel`') SP, SERVERPROPERTY (`'ProductUpdateLevel`') CU"
+          $SQLVersion = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -QueryTimeout $SQLTimeout -Query "SELECT SERVERPROPERTY (`'edition`') Edition, SERVERPROPERTY(`'productversion`') Version, SERVERPROPERTY (`'productlevel`') SP, SERVERPROPERTY (`'ProductUpdateLevel`') CU" #-Credential $SQLCredential
           $SQLVersion = $SQLVersion | Select-Object Edition,Version,SP,CU
           Write-HtmlTable -InputObject $SQLVersion -Border 1 -Level 3 -File $FilePath
           Write-HTMLParagraph -Text "The following are important global settings on the SQL server.  Typically, this SQL server should be dedicated to Configuration Manager." -Level 2 -File $FilePath
-          $SQLConfig = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -QueryTimeout $SQLTimeout -Query "SELECT name ServerSetting,value_in_use Value FROM sys.configurations where configuration_id = 1543 OR configuration_id = 1544 OR configuration_id = 1539"
+          $SQLConfig = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -QueryTimeout $SQLTimeout -Query "SELECT name ServerSetting,value_in_use Value FROM sys.configurations where configuration_id = 1543 OR configuration_id = 1544 OR configuration_id = 1539" #-Credential $SQLCredential
           $SQLConfig = $SQLConfig | Select-Object @{Name='Server Setting';Expression={$_.ServerSetting}},Value
           Write-HtmlTable -InputObject $SQLConfig -Border 1 -Level 3 -File $FilePath
           Write-HTMLParagraph -Text "Site database information:" -Level 2 -File $FilePath
-          $DatabaseInfo = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -QueryTimeout $SQLTimeout -Query "SELECT name, compatibility_level, collation_name FROM sys.Databases WHERE name='$CMDatabase'"
+          $DatabaseInfo = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -QueryTimeout $SQLTimeout -Query "SELECT name, compatibility_level, collation_name FROM sys.Databases WHERE name='$CMDatabase'" #-Credential $SQLCredential
           $DatabaseInfo = $DatabaseInfo | Select-Object @{Name='Database Name';Expression={$_.name}},@{Name='Compatibility Level';Expression={$_.compatibility_level}},@{Name='Collation';Expression={$_.collation_name}}
           Write-HtmlTable -InputObject $DatabaseInfo -Border 1 -Level 3 -File $FilePath
           Write-HTMLParagraph -Text "Below are the database files for the site database ($CMDatabase):" -Level 2 -File $FilePath
-          $DatabaseFiles = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -QueryTimeout $SQLTimeout -Query "SELECT db.name `'DatabaseName`',type_desc `'FileType`',physical_name `'FilePath`',mf.state_desc `'Status`',size*8/1024 `'FileSizeMB`',max_size `'MaximumSize`',growth `'GrowthRate`',(CASE WHEN is_percent_growth = 1 THEN `'Percent`' ELSE `'MB`' END) `'GrowthUnit`',create_date `'DateCreated`',compatibility_level `'DBLevel`',user_access_desc `'AccessMode`',recovery_model_desc `'RecoveryModel`' FROM sys.master_files mf INNER JOIN sys.databases db ON db.database_id = mf.database_id where db.name = `'$CMDatabase`'"
+          $DatabaseFiles = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -QueryTimeout $SQLTimeout -Query "SELECT db.name `'DatabaseName`',type_desc `'FileType`',physical_name `'FilePath`',mf.state_desc `'Status`',size*8/1024 `'FileSizeMB`',max_size `'MaximumSize`',growth `'GrowthRate`',(CASE WHEN is_percent_growth = 1 THEN `'Percent`' ELSE `'MB`' END) `'GrowthUnit`',create_date `'DateCreated`',compatibility_level `'DBLevel`',user_access_desc `'AccessMode`',recovery_model_desc `'RecoveryModel`' FROM sys.master_files mf INNER JOIN sys.databases db ON db.database_id = mf.database_id where db.name = `'$CMDatabase`'" #-Credential $SQLCredential
           $DatabaseFiles = $DatabaseFiles | Select-Object @{Name='File Type';Expression={$_.FileType}},@{Name='File Path';Expression={$_.FilePath}},Status,@{Name='File Size MB';Expression={'{0:N0}' -f $_.FileSizeMB}},@{Name='Maximum Size';Expression={$(IF($_.MaximumSize -eq -1){"Unlimited"}else{'{0:N0}' -f ($_.MaximumSize/128)})}},@{Name='Growth Rate';Expression={"$(IF($_.GrowthUnit -eq "Percent"){"$($_.GrowthRate)%"}Else{"$($_.GrowthRate/128)MB"})"}},@{Name='Recovery Model';Expression={$_.RecoveryModel}}
           Write-HtmlTable -InputObject $DatabaseFiles -Border 1 -Level 3 -File $FilePath
           Write-HTMLParagraph -Text "Below is a fragmentation summary (%) for indexes on the site database ($CMDatabase):" -Level 2 -File $FilePath
-          $IndexFragmentation = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database $CMDatabase -QueryTimeout $SQLTimeout -Query "SELECT SUM(CASE WHEN indexstats.avg_fragmentation_in_percent > 75 THEN  1 ELSE 0 END) [Over 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 50 AND indexstats.avg_fragmentation_in_percent <= 75) THEN  1 ELSE 0 END) [50 to 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 25 AND indexstats.avg_fragmentation_in_percent <= 50) THEN  1 ELSE 0 END) [25 to 50],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 5 AND indexstats.avg_fragmentation_in_percent <= 25) THEN  1 ELSE 0 END) [5 to 25],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 1 AND indexstats.avg_fragmentation_in_percent <= 5) THEN  1 ELSE 0 END) [Under 5],SUM(CASE WHEN indexstats.avg_fragmentation_in_percent < 1 THEN  1 ELSE 0 END) [Not Fragmented] FROM sys.dm_db_index_physical_stats (DB_ID(), NULL, NULL, NULL, NULL) AS indexstats JOIN sys.tables dbtables on dbtables.[object_id] = indexstats.[object_id] WHERE indexstats.database_id = DB_ID()"
+          $IndexFragmentation = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database $CMDatabase -QueryTimeout $SQLTimeout -Query "SELECT SUM(CASE WHEN indexstats.avg_fragmentation_in_percent > 75 THEN  1 ELSE 0 END) [Over 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 50 AND indexstats.avg_fragmentation_in_percent <= 75) THEN  1 ELSE 0 END) [50 to 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 25 AND indexstats.avg_fragmentation_in_percent <= 50) THEN  1 ELSE 0 END) [25 to 50],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 5 AND indexstats.avg_fragmentation_in_percent <= 25) THEN  1 ELSE 0 END) [5 to 25],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 1 AND indexstats.avg_fragmentation_in_percent <= 5) THEN  1 ELSE 0 END) [Under 5],SUM(CASE WHEN indexstats.avg_fragmentation_in_percent < 1 THEN  1 ELSE 0 END) [Not Fragmented] FROM sys.dm_db_index_physical_stats (DB_ID(), NULL, NULL, NULL, NULL) AS indexstats JOIN sys.tables dbtables on dbtables.[object_id] = indexstats.[object_id] WHERE indexstats.database_id = DB_ID()" #-Credential $SQLCredential
           $IndexFragmentation = $IndexFragmentation | Select-Object 'Over 75','50 to 75','25 to 50','5 to 25','Under 5','Not Fragmented'
           Write-HtmlTable -InputObject $IndexFragmentation -Border 1 -Level 3 -File $FilePath
           Write-HTMLParagraph -Text "Below is a fragmentation summary (%) for indexes on the site database ($CMDatabase) for Tables over 10 MB in size:" -Level 2 -File $FilePath
-          $IndexFragmentation10 = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database $CMDatabase -QueryTimeout $SQLTimeout -Query "SELECT SUM(CASE WHEN indexstats.avg_fragmentation_in_percent > 75 THEN  1 ELSE 0 END) [Over 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 50 AND indexstats.avg_fragmentation_in_percent <= 75) THEN  1 ELSE 0 END) [50 to 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 25 AND indexstats.avg_fragmentation_in_percent <= 50) THEN  1 ELSE 0 END) [25 to 50],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 5 AND indexstats.avg_fragmentation_in_percent <= 25) THEN  1 ELSE 0 END) [5 to 25],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 1 AND indexstats.avg_fragmentation_in_percent <= 5) THEN  1 ELSE 0 END) [Under 5],SUM(CASE WHEN indexstats.avg_fragmentation_in_percent < 1 THEN  1 ELSE 0 END) [Not Fragmented] FROM sys.dm_db_index_physical_stats (DB_ID(), NULL, NULL, NULL, NULL) AS indexstats JOIN sys.tables dbtables on dbtables.[object_id] = indexstats.[object_id] WHERE indexstats.database_id = DB_ID() AND page_count > 1280" #1280 pages is 10 MB
+          $IndexFragmentation10 = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database $CMDatabase -QueryTimeout $SQLTimeout -Query "SELECT SUM(CASE WHEN indexstats.avg_fragmentation_in_percent > 75 THEN  1 ELSE 0 END) [Over 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 50 AND indexstats.avg_fragmentation_in_percent <= 75) THEN  1 ELSE 0 END) [50 to 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 25 AND indexstats.avg_fragmentation_in_percent <= 50) THEN  1 ELSE 0 END) [25 to 50],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 5 AND indexstats.avg_fragmentation_in_percent <= 25) THEN  1 ELSE 0 END) [5 to 25],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 1 AND indexstats.avg_fragmentation_in_percent <= 5) THEN  1 ELSE 0 END) [Under 5],SUM(CASE WHEN indexstats.avg_fragmentation_in_percent < 1 THEN  1 ELSE 0 END) [Not Fragmented] FROM sys.dm_db_index_physical_stats (DB_ID(), NULL, NULL, NULL, NULL) AS indexstats JOIN sys.tables dbtables on dbtables.[object_id] = indexstats.[object_id] WHERE indexstats.database_id = DB_ID() AND page_count > 1280" #-Credential $SQLCredential #1280 pages is 10 MB
           $IndexFragmentation10 = $IndexFragmentation10 | Select-Object 'Over 75','50 to 75','25 to 50','5 to 25','Under 5','Not Fragmented'
           Write-HtmlTable -InputObject $IndexFragmentation10 -Border 1 -Level 3 -File $FilePath
       }
@@ -3160,7 +3434,7 @@ if ($ListAllInformation){
   #region enumerating client push settings
     Write-ProgressEx -CurrentOperation "Enumerating Client Push Settings for Site"
     Write-HTMLHeading -Text "Client Push Settings for Site $($CMSite.SiteCode)" -Level 2 -PageBreak -File $FilePath
-    Write-HTMLParagraph -Text "Client push allows SCCM to install the client to computers in the domain directly from SCCM using admin credentials on the remote computer.  This is <a href=`"https://docs.microsoft.com/en-us/sccm/core/clients/deploy/plan/client-installation-methods`" target=`"_blank`">one of several</a> ways to install the SCCM client on computers." -Level 3 -File $FilePath
+    Write-HTMLParagraph -Text "Client push allows CM to install the client to computers in the domain directly from CM using admin credentials on the remote computer.  This is <a href=`"https://docs.microsoft.com/en-us/sccm/core/clients/deploy/plan/client-installation-methods`" target=`"_blank`">one of several</a> ways to install the CM client on computers." -Level 3 -File $FilePath
     #Client push settings are found in WMI.  They are all in the list of global properties: SMS_DISCOVERY_DATA_MANAGER
     $CPProps = (Get-WmiObject -Namespace ROOT\SMS\site_$($CMSite.SiteCode) -ComputerName $SMSProvider -Query "SELECT * FROM SMS_SCI_SCProperty where ItemType='SMS_DISCOVERY_DATA_MANAGER'")|Select-Object PropertyName,Value,Value1,Value2
     If(($CPProps | Where-Object {$_.PropertyName -eq 'SETTINGS'}).Value1 -eq 'Active'){
@@ -3257,7 +3531,7 @@ Write-ProgressEx -CurrentOperation "Completed Checking each site's configuration
 
 
 ##### Hierarchy wide configuration
-$Progress = @{'Activity'="$Title"; 'Status'='Hierarchy Wide Configuration'}
+$Progress = @{'Activity'="$Title started $($ScriptStartTime.ToShortTimeString())"; 'Status'='Hierarchy Wide Configuration'}
 
 
 Write-HTMLHeading -Level 1 -PageBreak -Text "Summary of Hierarchy Wide Configuration" -File $FilePath
@@ -4964,7 +5238,7 @@ Write-ProgressEx -CurrentOperation "Done with Administration, next Assets and Co
 ####
 #region Assets and Compliance
 ####
-$Progress = @{'Activity'="$Title"; 'Status'='Assets and Compliance'}
+$Progress = @{'Activity'="$Title started $($ScriptStartTime.ToShortTimeString())"; 'Status'='Assets and Compliance'}
 Write-ProgressEx
 
 Write-HTMLHeading -Level 1 -PageBreak -Text 'Assets and Compliance' -File $FilePath
@@ -6027,7 +6301,7 @@ Write-ProgressEx -CurrentOperation "Done with Assets and Compliance, next Softwa
 ####
 #region Software Library
 ####
-$Progress = @{'Activity'="$Title"; 'Status'='Software Library'}
+$Progress = @{'Activity'="$Title started $($ScriptStartTime.ToShortTimeString())"; 'Status'='Software Library'}
 Write-ProgressEx -CurrentOperation 'Beginning Software Library'
 
 Write-HTMLHeading -Level 1 -PageBreak -Text 'Software Library' -File $FilePath
@@ -6408,6 +6682,39 @@ if ($ListAllInformation -or $ListAppDetails){
                 Write-HTMLParagraph -Text 'There are no deployments for this application.' -Level 6 -File $FilePath
             }
             #endregion deployments
+
+            #region phaseddeployments
+            Write-ProgressEx -CurrentOperation "Application: $($App.LocalizedDisplayName)" -Activity 'Configuration Manager Application' -Status 'Application phased deployments' -Id 10
+            Write-HTMLHeading -Level 5 -Text "Phased Deployments for $($App.LocalizedDisplayName):" -File $FilePath
+            $PDs = @()
+            $PDs = Get-PWCMPhasedDeployment -DeploymentObjectID $($App.CI_ID) -SiteServer $SiteServer -SiteName $SiteName
+            if (-not [string]::IsNullOrEmpty($PDs)) {
+                foreach ($PD in $PDs){
+                    Write-HTMLHeading -Text $PD.Name -Level 6 -ExcludeTOC -File $FilePath
+                    Write-HTMLParagraph -Text "Description: $($PD.Description)" -Level 6 -File $FilePath
+                    $AppPhases = @()
+                    $AppPhases = Get-PWCMPDPhases -PhasedDeploymentID $PD.PhasedDeploymentID
+                    $AppPhasesArray = @()
+                    foreach ($Phase in $AppPhases){
+                        If ($Phase.SuccessCriteria.Number){
+                            $SuccessCriteria = "$($Phase.SuccessCriteria.Number) Computers"
+                        }
+                        If ($Phase.SuccessCriteria.Compliance){
+                            $SuccessCriteria = "$($Phase.SuccessCriteria.Compliance) Percent"
+                        }
+                        $AppPhasesArray += New-Object -TypeName psobject -Property @{'Order'=$Phase.Order;'Name'="$($Phase.Name)";'Target'="$($Phase.Target)";'Manual Start'="$($Phase.ManuallyStartPhase)";'Start After Previous Phase'="$($Phase.DaysAfterPrevPhaseSuccess) Days";'Gradually Available Over'="$($Phase.GraduallyAvailable) Days";'SuccessCriteria'="$SuccessCriteria"}
+                        Remove-Variable SuccessCriteria -ErrorAction Ignore
+                    }
+                    $AppPhasesArray = $AppPhasesArray |Select-Object 'Order','Name','Target','Manual Start','Start After Previous Phase','Gradually Available Over','SuccessCriteria'
+                    Write-HtmlTable -InputObject $AppPhasesArray -Border 1 -Level 6 -File $FilePath
+                    Remove-Variable AppPhasesArray -ErrorAction Ignore
+                    Remove-Variable AppPhases -ErrorAction Ignore
+                }
+            }else{
+                Write-HTMLParagraph -Text 'There are no phased deployments for this application.' -Level 6 -File $FilePath
+            }
+            #endregion phaseddeployments
+
         }
     }else{
         Write-HTMLParagraph -Text 'There are no Applications configured in this site.' -Level 4 -File $FilePath
