@@ -65,11 +65,11 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.52
+	VERSION: 3.53
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: June 19, 2020
+	LASTEDIT: July 7, 2020
 #>
 
 #endregion
@@ -130,7 +130,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.52'
+$DocumenationScriptVersion = '3.53'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -6687,7 +6687,7 @@ if ($ListAllInformation -or $ListAppDetails){
             Write-ProgressEx -CurrentOperation "Application: $($App.LocalizedDisplayName)" -Activity 'Configuration Manager Application' -Status 'Application phased deployments' -Id 10
             Write-HTMLHeading -Level 5 -Text "Phased Deployments for $($App.LocalizedDisplayName):" -File $FilePath
             $PDs = @()
-            $PDs = Get-PWCMPhasedDeployment -DeploymentObjectID $($App.CI_ID) -SiteServer $SiteServer -SiteName $SiteName
+            $PDs = Get-PWCMPhasedDeployment -DeploymentObjectID $($App.CI_ID) -SiteServer $SiteServer -SiteName $SiteCode
             if (-not [string]::IsNullOrEmpty($PDs)) {
                 foreach ($PD in $PDs){
                     Write-HTMLHeading -Text $PD.Name -Level 6 -ExcludeTOC -File $FilePath
@@ -7506,7 +7506,7 @@ if ($ListAllInformation){
                 Write-Debug "$(Get-Date):   Task Sequence Operating System Image: $TSOSImage"
                 $TSDetails += "Task Sequence Operating System Image: $TSOSImage"
                 #Task Sequence References
-                $TSReferences = Get-WmiObject -Namespace "Root\SMS\site_$($SiteCode)" -Query "SELECT * FROM SMS_TaskSequencePackageReference_Flat where PackageID = `'$($TaskSequence.PackageID)`'"
+                $TSReferences = Get-WmiObject -Namespace "Root\SMS\site_$($SiteCode)" -Query "SELECT * FROM SMS_TaskSequencePackageReference_Flat where PackageID = `'$($TaskSequence.PackageID)`'" -ComputerName $SMSProvider
                 $TotalSize = 0
                 $TotalTsRefs = 0
                 $TotalTsRefs = $TSReferences.count
