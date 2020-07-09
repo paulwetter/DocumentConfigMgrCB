@@ -65,11 +65,11 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.53
+	VERSION: 3.54
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: July 7, 2020
+	LASTEDIT: July 9, 2020
 #>
 
 #endregion
@@ -130,7 +130,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.53'
+$DocumenationScriptVersion = '3.54'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -1956,15 +1956,15 @@ Function Get-PWCMPhasedDeployment {
         switch ($PD.DeploymentObjectType) {
             0 {
                 $Type = 'Task Sequence'
-                $DeploymentObjectName = (Get-WmiObject -Query "SELECT * FROM SMS_TaskSequencePackage WHERE PackageID='$($PD.DeploymentObjectID)'" -Namespace "ROOT\SMS\site_$SiteName").Name
+                $DeploymentObjectName = (Get-WmiObject -Query "SELECT * FROM SMS_TaskSequencePackage WHERE PackageID='$($PD.DeploymentObjectID)'" -Namespace "ROOT\SMS\site_$SiteName" -ComputerName $SiteServer).Name
             }
             1 {
                 $Type = 'Software Update'
-                $DeploymentObjectName = (Get-WmiObject -Query "SELECT * FROM SMS_AuthorizationList WHERE CI_ID=$($PD.DeploymentObjectID)" -Namespace "ROOT\SMS\site_$SiteName").LocalizedDisplayName
+                $DeploymentObjectName = (Get-WmiObject -Query "SELECT * FROM SMS_AuthorizationList WHERE CI_ID=$($PD.DeploymentObjectID)" -Namespace "ROOT\SMS\site_$SiteName" -ComputerName $SiteServer).LocalizedDisplayName
             }
             2 {
                 $Type = 'Application'
-                $DeploymentObjectName = (Get-WmiObject -Query "SELECT * FROM SMS_ApplicationLatest WHERE CI_ID=$($PD.DeploymentObjectID)" -Namespace "ROOT\SMS\site_$SiteName").LocalizedDisplayName
+                $DeploymentObjectName = (Get-WmiObject -Query "SELECT * FROM SMS_ApplicationLatest WHERE CI_ID=$($PD.DeploymentObjectID)" -Namespace "ROOT\SMS\site_$SiteName" -ComputerName $SiteServer).LocalizedDisplayName
             }
             Default { $Type = 'Unknown' }
         }
