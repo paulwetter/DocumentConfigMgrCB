@@ -394,19 +394,8 @@ Function Write-HTMLParagraph{
         HelpMessage="This is the amount of space that the table will indent by")]
         [string]$File
     )
-    
-    switch ($Level) 
-    { 
-        0 {$Indent=0} 
-        1 {$Indent=5} 
-        2 {$Indent=15} 
-        3 {$Indent=25} 
-        4 {$Indent=35} 
-        5 {$Indent=45}
-        6 {$Indent=55} 
-        default {$Indent=5}
-    }
-    $Paragraph = "<P style=`"margin-left:$($Indent)px;`">$Text</p>"
+
+    $Paragraph = "<P class=`"L$Level`">$Text</p>"
     If ($File) {$Paragraph | Out-File -filepath $File -Append}
     Else {Return $Paragraph}
 }
