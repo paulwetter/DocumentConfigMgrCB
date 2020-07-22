@@ -2208,7 +2208,7 @@ if ($AddDateTime){
     $dirName = [io.path]::GetDirectoryName($FilePath)
     $filename = [io.path]::GetFileNameWithoutExtension($FilePath)
     $ext = [io.path]::GetExtension($FilePath)
-    $FilePath = "$dirName\$($filename)_$(get-date -f yyyyMMddTHHmmss)$ext"
+    $FilePath = "$dirName\$($filename)_$(get-date -f yyyyMMddThhmmss)$ext"
 }
 Write-host "Outputting documentation to: $FilePath"
 
@@ -3186,33 +3186,19 @@ if ($ListAllInformation){
           Write-HtmlTable -InputObject $DatabaseInfo -Border 1 -Level 3 -File $FilePath
           Write-HTMLParagraph -Text "Below are the database files for the site database ($CMDatabase):" -Level 2 -File $FilePath
           $DatabaseFiles = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -QueryTimeout $SQLTimeout -Query "SELECT db.name `'DatabaseName`',type_desc `'FileType`',physical_name `'FilePath`',mf.state_desc `'Status`',size*8/1024 `'FileSizeMB`',max_size `'MaximumSize`',growth `'GrowthRate`',(CASE WHEN is_percent_growth = 1 THEN `'Percent`' ELSE `'MB`' END) `'GrowthUnit`',create_date `'DateCreated`',compatibility_level `'DBLevel`',user_access_desc `'AccessMode`',recovery_model_desc `'RecoveryModel`' FROM sys.master_files mf INNER JOIN sys.databases db ON db.database_id = mf.database_id where db.name = `'$CMDatabase`'" #-Credential $SQLCredential
-          If ([string]::IsNullOrEmpty($DatabaseFiles)) {
-              Write-HTMLParagraph -Text "Permission to perform this action is not granted.  Run 'GRANT VIEW ANY DEFINITION TO [%UserOrGroupToGrantRightsTo%]' on the SQL instance.  See https://docs.microsoft.com/en-us/sql/relational-databases/system-catalog-views/sys-master-files-transact-sql?view=sql-server-2016#permissions for detail." -Level 7 -File $FilePath
-          } Else {
-            $DatabaseFiles = $DatabaseFiles | Select-Object @{Name='File Type';Expression={$_.FileType}},@{Name='File Path';Expression={$_.FilePath}},Status,@{Name='File Size MB';Expression={'{0:N0}' -f $_.FileSizeMB}},@{Name='Maximum Size';Expression={$(IF($_.MaximumSize -eq -1){"Unlimited"}else{'{0:N0}' -f ($_.MaximumSize/128)})}},@{Name='Growth Rate';Expression={"$(IF($_.GrowthUnit -eq "Percent"){"$($_.GrowthRate)%"}Else{"$($_.GrowthRate/128)MB"})"}},@{Name='Recovery Model';Expression={$_.RecoveryModel}}
-            Write-HtmlTable -InputObject $DatabaseFiles -Border 1 -Level 3 -File $FilePath
-          }
+          $DatabaseFiles = $DatabaseFiles | Select-Object @{Name='File Type';Expression={$_.FileType}},@{Name='File Path';Expression={$_.FilePath}},Status,@{Name='File Size MB';Expression={'{0:N0}' -f $_.FileSizeMB}},@{Name='Maximum Size';Expression={$(IF($_.MaximumSize -eq -1){"Unlimited"}else{'{0:N0}' -f ($_.MaximumSize/128)})}},@{Name='Growth Rate';Expression={"$(IF($_.GrowthUnit -eq "Percent"){"$($_.GrowthRate)%"}Else{"$($_.GrowthRate/128)MB"})"}},@{Name='Recovery Model';Expression={$_.RecoveryModel}}
+          Write-HtmlTable -InputObject $DatabaseFiles -Border 1 -Level 3 -File $FilePath
           Write-HTMLParagraph -Text "Below is a fragmentation summary (%) for indexes on the site database ($CMDatabase):" -Level 2 -File $FilePath
-          try {
-            $IndexFragmentation = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database $CMDatabase -QueryTimeout $SQLTimeout -Query "SELECT SUM(CASE WHEN indexstats.avg_fragmentation_in_percent > 75 THEN  1 ELSE 0 END) [Over 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 50 AND indexstats.avg_fragmentation_in_percent <= 75) THEN  1 ELSE 0 END) [50 to 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 25 AND indexstats.avg_fragmentation_in_percent <= 50) THEN  1 ELSE 0 END) [25 to 50],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 5 AND indexstats.avg_fragmentation_in_percent <= 25) THEN  1 ELSE 0 END) [5 to 25],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 1 AND indexstats.avg_fragmentation_in_percent <= 5) THEN  1 ELSE 0 END) [Under 5],SUM(CASE WHEN indexstats.avg_fragmentation_in_percent < 1 THEN  1 ELSE 0 END) [Not Fragmented] FROM sys.dm_db_index_physical_stats (DB_ID(), NULL, NULL, NULL, NULL) AS indexstats JOIN sys.tables dbtables on dbtables.[object_id] = indexstats.[object_id] WHERE indexstats.database_id = DB_ID()" #-Credential $SQLCredential
-            $IndexFragmentation = $IndexFragmentation | Select-Object 'Over 75','50 to 75','25 to 50','5 to 25','Under 5','Not Fragmented'
-            Write-HtmlTable -InputObject $IndexFragmentation -Border 1 -Level 3 -File $FilePath
-          } catch {
-            If ($($error[0].Exception.Message) -eq 'Exception calling "Load" with "1" argument(s): "The user does not have permission to perform this action."') {
-                Write-HTMLParagraph -Text "Error exception: $($Error[0].exception.Message)" -Level 2 -File $FilePath
-                Write-HTMLParagraph -Text "Permission to perform this action is not granted.  Run 'GRANT VIEW SERVER STATE TO [%UserOrGroupToGrantRightsTo%]' on the SQL instance.  See https://docs.microsoft.com/en-us/sql/relational-databases/system-dynamic-management-views/sys-dm-db-index-physical-stats-transact-sql?view=sql-server-2016#permissions for detail." -Level 7 -File $FilePath
-            } Else {
-                Write-HTMLParagraph -Text "Error exception: $($Error[0].exception.Message)" -Level 6 -File $FilePath
-                Write-Debug "$(Get-Date):   Error exception: $($Error[0].exception)"
-            }
-          }
+          $IndexFragmentation = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database $CMDatabase -QueryTimeout $SQLTimeout -Query "SELECT SUM(CASE WHEN indexstats.avg_fragmentation_in_percent > 75 THEN  1 ELSE 0 END) [Over 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 50 AND indexstats.avg_fragmentation_in_percent <= 75) THEN  1 ELSE 0 END) [50 to 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 25 AND indexstats.avg_fragmentation_in_percent <= 50) THEN  1 ELSE 0 END) [25 to 50],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 5 AND indexstats.avg_fragmentation_in_percent <= 25) THEN  1 ELSE 0 END) [5 to 25],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 1 AND indexstats.avg_fragmentation_in_percent <= 5) THEN  1 ELSE 0 END) [Under 5],SUM(CASE WHEN indexstats.avg_fragmentation_in_percent < 1 THEN  1 ELSE 0 END) [Not Fragmented] FROM sys.dm_db_index_physical_stats (DB_ID(), NULL, NULL, NULL, NULL) AS indexstats JOIN sys.tables dbtables on dbtables.[object_id] = indexstats.[object_id] WHERE indexstats.database_id = DB_ID()" #-Credential $SQLCredential
+          $IndexFragmentation = $IndexFragmentation | Select-Object 'Over 75','50 to 75','25 to 50','5 to 25','Under 5','Not Fragmented'
+          Write-HtmlTable -InputObject $IndexFragmentation -Border 1 -Level 3 -File $FilePath
           Write-HTMLParagraph -Text "Below is a fragmentation summary (%) for indexes on the site database ($CMDatabase) for Tables over 10 MB in size:" -Level 2 -File $FilePath
           $IndexFragmentation10 = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database $CMDatabase -QueryTimeout $SQLTimeout -Query "SELECT SUM(CASE WHEN indexstats.avg_fragmentation_in_percent > 75 THEN  1 ELSE 0 END) [Over 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 50 AND indexstats.avg_fragmentation_in_percent <= 75) THEN  1 ELSE 0 END) [50 to 75],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 25 AND indexstats.avg_fragmentation_in_percent <= 50) THEN  1 ELSE 0 END) [25 to 50],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 5 AND indexstats.avg_fragmentation_in_percent <= 25) THEN  1 ELSE 0 END) [5 to 25],SUM(CASE WHEN (indexstats.avg_fragmentation_in_percent > 1 AND indexstats.avg_fragmentation_in_percent <= 5) THEN  1 ELSE 0 END) [Under 5],SUM(CASE WHEN indexstats.avg_fragmentation_in_percent < 1 THEN  1 ELSE 0 END) [Not Fragmented] FROM sys.dm_db_index_physical_stats (DB_ID(), NULL, NULL, NULL, NULL) AS indexstats JOIN sys.tables dbtables on dbtables.[object_id] = indexstats.[object_id] WHERE indexstats.database_id = DB_ID() AND page_count > 1280" #-Credential $SQLCredential #1280 pages is 10 MB
           $IndexFragmentation10 = $IndexFragmentation10 | Select-Object 'Over 75','50 to 75','25 to 50','5 to 25','Under 5','Not Fragmented'
           Write-HtmlTable -InputObject $IndexFragmentation10 -Border 1 -Level 3 -File $FilePath
       }
       Catch{
-          Write-Warning 'Failed to collect all detailed SQL data.'
+          Write-Host -ForegroundColor Yellow 'Failed to collect all detailed SQL data.'
           Write-Debug "$(Get-Date):   Error exception: $($Error[0].exception)"
       }
       Write-ProgressEx -CurrentOperation "SQL detailed info complete."
@@ -3256,7 +3242,7 @@ if ($ListAllInformation){
     If (Test-Path -Path "filesystem::\\$MPName\C$") {$CMMPServerName=$MPName}
     Set-Location $local1
   }
-  Write-ProgressEx -CurrentOperation "Complete" -Activity "Management Points" -Status "Complete" -Id 2 -Completed
+  Write-ProgressEx -CurrentOperation "Complete" -Activity "Managent Points" -Status "Complete" -Id 2 -Completed
   Write-HtmliLink -ReturnTOC -File $FilePath
   Write-Debug "$(Get-Date):   Default Management Point: $CMMPServerName"
   #endregion Management Points
@@ -3310,7 +3296,7 @@ If (-not($PSBoundParameters.ContainsKey('SkipRemoteServerDetails'))) {
         $DPText = $DPText + "<BR />Failed to access server $CMDPServerName.<BR /><BR />" 
         }
     }
-  }
+}
     Write-HTMLParagraph -Text "$DPText" -Level 4 -File $FilePath
     $DPText = "<B>Additional Configuration:</B><ul>"
     $DPInfo = $CMDistributionPoint.Props
@@ -3372,7 +3358,7 @@ If (-not($PSBoundParameters.ContainsKey('SkipRemoteServerDetails'))) {
   Write-HTMLHeading -Text "Software Update Point Component Settings for Site $($CMSite.SiteCode)" -Level 3 -File $FilePath
   Write-HTMLParagraph -Text "This is a list of all of the software update classifications and products that are syncronized into the site as well as some of the general site configuration settings." -Level 3 -File $FilePath
 
-  $cats=Get-CMSoftwareUpdateCategory -Fast
+  $cats=Get-CMSoftwareUpdateCategory
   $UpdatesClassifications = $cats|Where-Object {$_.CategoryTypeName -eq "UpdateClassification" -and $_.AllowSubscription -eq $true}
   $SubscribedUpdatesClassifications = $UpdatesClassifications|Where-Object {$_.IsSubscribed -eq $true}
   $Products = $cats|Where-Object {$_.CategoryTypeName -eq "Product" -and $_.AllowSubscription -eq $true}
@@ -3415,7 +3401,7 @@ If (-not($PSBoundParameters.ContainsKey('SkipRemoteServerDetails'))) {
   Write-HTMLHeading -Text "Selected Software Update Classifications" -Level 4 -File $FilePath
   Write-HtmlList -InputObject ($SubscribedUpdatesClassifications.LocalizedCategoryInstanceName) -Level 4 -File $FilePath
   Write-HTMLHeading -Text "Selected Software Update Point Software Products" -Level 4 -File $FilePath
-  Write-HtmlList -InputObject ($SubscribedProducts.LocalizedCategoryInstanceName | Sort-Object) -Level 4 -File $FilePath
+  Write-HtmlList -InputObject ($SubscribedProducts.LocalizedCategoryInstanceName) -Level 4 -File $FilePath
 
 
   Write-ProgressEx -CurrentOperation "Enumerating all Software Update Points"
@@ -3618,20 +3604,20 @@ $DMADSD = Get-PWCMDiscoveryMethod -SiteServer $SMSProvider -SiteName $SiteCode -
 if ($DMADSD.DiscoveryState -eq "Enabled") {
     $SystemDiscoverySettings = @()
     $SystemDiscoverySettings += "Full discovery schedule: $($DMADSD.FullSyncSchedule)"
-    If ($DMADSD.IncrementalSync -eq "Enabled"){
-        $SystemDiscoverySettings += "Delta discovery schedule: $($DMADSD.IncrementalSyncSchedule)"
+    If ($DMADGD.IncrementalSync -eq "Enabled"){
+        $SystemDiscoverySettings += "Delta discovery schedule: $($DMADGD.IncrementalSyncSchedule)"
     } else {
         $SystemDiscoverySettings += "Delta discovery schedule: Disabled"
     }
-    If ($DMADSD.FilterExpiredLogon -eq "Enabled"){
+    If ($DMADGD.FilterExpiredLogon -eq "Enabled"){
         $SystemDiscoverySettings += "Only discover computers that have logged on to the domain in a given period of time: Enabled"
-        $SystemDiscoverySettings += "Time since last logon (days): $($DMADSD.FilterExpiredLogonTime)"
+        $SystemDiscoverySettings += "Time since last logon (days): $($DMADGD.FilterExpiredLogonTime)"
     } else {
         $SystemDiscoverySettings += "Only discover computers that have logged on to the domain in a given period of time: Disabled"
     }
-    If ($DMADSD.FilterExpiredPassword -eq "Enabled"){
+    If ($DMADGD.FilterExpiredPassword -eq "Enabled"){
         $SystemDiscoverySettings += "Only discover computers that have updated their computer account password: Enabled"
-        $SystemDiscoverySettings += "Time since last password update (days): $($DMADSD.FilterExpiredPasswordTime)"
+        $SystemDiscoverySettings += "Time since last password update (days): $($DMADGD.FilterExpiredPasswordTime)"
     } else {
         $SystemDiscoverySettings += "Only discover computers that have updated their computer account password: Disabled"
     }
@@ -3649,7 +3635,7 @@ $DMADUD = Get-PWCMDiscoveryMethod -SiteServer $SMSProvider -SiteName $SiteCode -
 if ($DMADUD.DiscoveryState -eq "Enabled") {
     $UserDiscoverySettings = @()
     $UserDiscoverySettings += "Full discovery schedule: $($DMADUD.FullSyncSchedule)"
-    If ($DMADUD.IncrementalSync -eq "Enabled"){
+    If ($DMADGD.IncrementalSync -eq "Enabled"){
         $UserDiscoverySettings += "Delta discovery schedule (minutes): $($DMADUD.IncrementalSyncSchedule)"
     } else {
         $UserDiscoverySettings += "Delta discovery schedule: Disabled"
@@ -3741,7 +3727,7 @@ $Boundaries = Get-CMBoundary
       $NamesOfBoundarySiteSystems = $Null
       if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems))
       {
-        ForEach-Object -Begin {$BoundarySiteSystems = $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
+        ForEach-Object -Begin {$BoundarySiteSystems= $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
       }
       else 
       {
@@ -3760,7 +3746,7 @@ $Boundaries = Get-CMBoundary
       $NamesOfBoundarySiteSystems = $Null
       if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems))
       {
-        ForEach-Object -Begin {$BoundarySiteSystems = $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
+        ForEach-Object -Begin {$BoundarySiteSystems= $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
       }
       else 
       {
@@ -3779,7 +3765,7 @@ $Boundaries = Get-CMBoundary
       $NamesOfBoundarySiteSystems = $Null
       if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems))
       {
-        ForEach-Object -Begin {$BoundarySiteSystems = $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
+        ForEach-Object -Begin {$BoundarySiteSystems= $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
       }
       else 
       {
@@ -7947,4 +7933,4 @@ Write-HTMLFooter -File $FilePath
 Write-HTMLTOC -InputObject $Global:DocTOC -File $FilePath
 
 Write-host "Completed execution at: $($ScriptEndTime.ToShortTimeString())."
-Write-Host "Total execution time: $ExecTimeString" 
+Write-Host "Total execution time: $ExecTimeString"
