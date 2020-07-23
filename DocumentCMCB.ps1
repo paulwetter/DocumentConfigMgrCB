@@ -50,6 +50,8 @@
     This will mask about half of the account name in the documentation
 .PARAMETER SQLCredential
     If The SQL server is on a remote system, you can pass SQL credentials here.
+.PARAMETER SkipRemoteServerDetails
+    Skip connecting directly to each remote site system server for hardware and OS details since this can take a long time on sites with many site systems
 .PARAMETER StyleSheet
     This is the path to an external CSS file that will allow you to style the report in your own way.  The style sheet will be embedded into the report.
 .EXAMPLE
@@ -123,6 +125,9 @@ Param(
     
     #[parameter(Mandatory=$False)] 
     #[System.Management.Automation.PSCredential]$SQLCredential = [System.Management.Automation.PSCredential]::Empty,
+
+    [parameter(Mandatory=$False,HelpMessage="Skip connecting directly to each site system server for hardware and OS details")]
+    [switch]$SkipRemoteServerDetails,
 
     [parameter(Mandatory=$False,HelpMessage="CSS file path")]
     [string]$StyleSheet = ""
@@ -2959,6 +2964,7 @@ If ($ListAllInformation){
   #endregion SiteRoles
 
   #region Site Server Details
+If (-Not($PSBoundParameters.ContainsKey('SkipRemoteServerDetails'))) {
   Write-ProgressEx -CurrentOperation "Collecting Site Server Information"
   $SiteServers = Get-CMSiteSystemServer | Where-Object {$_.NALType -notlike 'Windows Azure'} | Select-Object @{Name='ServerName';expression={$_.NetworkOSPath.trim('\')}}
   Write-HTMLHeading -Text "Site Server Information" -Level 2 -File $FilePath
@@ -3040,6 +3046,7 @@ If ($ListAllInformation){
   Write-ProgressEx -Id 1 -Activity "Server Details" -Status "Querying WMI" -CurrentOperation "End Collecting Site Server Information" -Completed
   Write-ProgressEx -CurrentOperation "End Collecting Site Server Information"
   Write-HtmliLink -ReturnTOC -File $FilePath
+}
   #endregion Site Server Details
 
   #region SiteMaintenanceTasks
@@ -3259,6 +3266,7 @@ if ($ListAllInformation){
   Write-HTMLHeading -Text "Summary of Distribution Points for Site $($CMSite.SiteCode)" -Level 2 -PageBreak -File $FilePath
   $CMDistributionPoints = Get-CMDistributionPoint -SiteCode $CMSite.SiteCode
   
+If (-not($PSBoundParameters.ContainsKey('SkipRemoteServerDetails'))) {
   foreach ($CMDistributionPoint in $CMDistributionPoints)
   {
     $CMDPServerName = $CMDistributionPoint.NetworkOSPath.Split('\\')[2]
@@ -3302,6 +3310,7 @@ if ($ListAllInformation){
         $DPText = $DPText + "<BR />Failed to access server $CMDPServerName.<BR /><BR />" 
         }
     }
+}
     Write-HTMLParagraph -Text "$DPText" -Level 4 -File $FilePath
     $DPText = "<B>Additional Configuration:</B><ul>"
     $DPInfo = $CMDistributionPoint.Props
@@ -7938,4 +7947,4 @@ Write-HTMLFooter -File $FilePath
 Write-HTMLTOC -InputObject $Global:DocTOC -File $FilePath
 
 Write-host "Completed execution at: $($ScriptEndTime.ToShortTimeString())."
-Write-Host "Total execution time: $ExecTimeString" 
+Write-Host "Total execution time: $ExecTimeString"
