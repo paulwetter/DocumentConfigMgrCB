@@ -67,11 +67,11 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.54
+	VERSION: 3.55
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: July 9, 2020
+	LASTEDIT: August 5, 2020
 #>
 
 #endregion
@@ -135,7 +135,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.54'
+$DocumenationScriptVersion = '3.55'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -2978,7 +2978,7 @@ If (-Not($PSBoundParameters.ContainsKey('SkipRemoteServerDetails'))) {
         $InstalledServerFeatures = ''
         $InstalledFeatures=Get-WmiObject -Query 'SELECT * FROM Win32_OptionalFeature where InstallState = 1' -ComputerName $Server -ErrorAction Stop |Select-Object Caption,Name
         foreach ($Feature in $InstalledFeatures){
-            $InstalledServerFeatures = "$InstalledServerFeatures;$($Feature.Name)"
+            $InstalledServerFeatures = "$InstalledServerFeatures; $($Feature.Name)"
         }
     }
     Catch{
@@ -5674,6 +5674,7 @@ $WiFiProfileSettings = @()
 $VpnSettings = @()
 $CertSettings = @()
 $EdgeBrowser = @()
+$KFMSettings = @()
 
 Write-ProgressEx -CurrentOperation "Processing [$($CMPolicies.count)] Configuration Policies"
 foreach ($CMPolicy in $CMPolicies){
@@ -5711,6 +5712,47 @@ foreach ($CMPolicy in $CMPolicies){
         {'SettingsAndPolicy:SMS_EdgeBrowserSettings' -in $_.CategoryInstance_UniqueIDs}{
             $EdgeBrowser += New-Object -TypeName psobject -Property @{Name = "$($CMPolicy.LocalizedDisplayName)";'Modified By' = "$($CMPolicy.LastModifiedBy)";'Modified' = "$($CMPolicy.DateLastModified)"; Deployed = "$($CMPolicy.IsAssigned)"}
         }
+        {'SettingsAndPolicy:SMS_OneDriveKnownFolderMigrationSettings' -in $_.CategoryInstance_UniqueIDs}{
+            $KfmXml = [xml](Get-CMConfigurationPolicy -Id $CMPolicy.CI_ID).SDMPackageXML
+            $KfmDeployed = $CMPolicy.IsAssigned
+            $KfmName = $KfmXml.DesiredConfigurationDigest.ConfigurationPolicy.Annotation.DisplayName.text
+            $KfmDescription = $KfmXml.DesiredConfigurationDigest.ConfigurationPolicy.Annotation.Description.text
+            $KfmPlatforms = $KfmXml.DesiredConfigurationDigest.ConfigurationPolicy.PlatformApplicabilityCondition.OperatingSystemExpression.Operands.RuleExpression.RuleId -join '; '
+            $KfmSilentMove = ($KfmXml.DesiredConfigurationDigest.ConfigurationPolicy.Rules.rule| Where-Object {$_.ID -eq 'Rule_OneDrive_KFMSilentOptIn'}).expression.operands.constantvalue.value
+            If (!([string]::IsNullOrEmpty($KfmSilentMove))){
+                $KFMSilentOptIn = 'Enabled'
+                $KFMOptInWithWizard = 'Disabled'
+                $O365ID = $KfmSilentMove
+            }
+            $KfmPromptToMove = ($KfmXml.DesiredConfigurationDigest.ConfigurationPolicy.Rules.rule| Where-Object {$_.ID -eq 'Rule_OneDrive_KFMOptInWithWizard'}).expression.operands.constantvalue.value
+            If (!([string]::IsNullOrEmpty($KfmPromptToMove))){
+                $KFMSilentOptIn = 'Disabled'
+                $KFMOptInWithWizard = 'Enabled'
+                $O365ID = $KfmPromptToMove
+            }
+            $KfmNoteAfter = ($KfmXml.DesiredConfigurationDigest.ConfigurationPolicy.Rules.rule| Where-Object {$_.ID -eq 'Rule_OneDrive_KFMSilentOptInWithNotification'}).expression.operands.constantvalue.value #1 = Enabled
+            If ($KfmNoteAfter -eq 1){
+                $KfmNoteAfter = 'Enabled'
+            } else {
+                $KfmNoteAfter = 'Disabled'
+            }
+            $KfmBlockOptOut = ($KfmXml.DesiredConfigurationDigest.ConfigurationPolicy.Rules.rule| Where-Object {$_.ID -eq 'Rule_OneDrive_KFMBlockOptOut'}).expression.operands.constantvalue.value #1 = Enabled
+            If ($KfmBlockOptOut -eq 1){
+                $KfmBlockOptOut = 'Enabled'
+            } else {
+                $KfmBlockOptOut = 'Disabled'
+            }
+            $KFMSettings += [pscustomobject]@{
+                Name           = $KfmName
+                Description    = $KfmDescription
+                Platforms      = $KfmPlatforms
+                O365ID         = $O365ID
+                PromptToMove   = $KFMOptInWithWizard
+                SilentMove     = $KFMSilentOptIn
+                NotifyComplete = $KfmNoteAfter
+                BlockOptOut    = $KfmBlockOptOut
+            }
+        }
     }
 }
 Write-HTMLHeading -Level 3 -Text 'User Data and Profiles' -File $FilePath
@@ -5719,6 +5761,21 @@ if ($UserStateSettings.count -gt 0) {
     Write-HtmlTable -InputObject $UserStateSettings -Border 1 -Level 4 -File $FilePath
 }else{
     Write-HTMLParagraph -Text 'No User Data and Profiles defined in site.' -Level 4 -File $FilePath
+}
+Write-HTMLHeading -Level 3 -Text 'OneDrive For Business Profiles' -File $FilePath
+if ($KFMSettings.count -gt 0) {
+    foreach ($KFMsetting in $KFMSettings) {
+        $listArray = @()
+        $listArray += "Supported Platforms: $($KFMsetting.Platforms)"
+        $listArray += "Office 365 TenantId: $($KFMsetting.O365ID)"
+        $listArray += "Prompt users to move Windows known folders to OneDrive: $($KFMsetting.PromptToMove)"
+        $listArray += "Silently move Windows known folders to OneDrive: $($KFMsetting.SilentMove)"
+        $listArray += "Show notification to users after folders have been redirected: $($KFMsetting.NotifyComplete)"
+        $listArray += "Prevent users from redirecting their Windows known folders back to their PC: $($KFMsetting.BlockOptOut)"
+        Write-HtmlList -Title "$($KFMsetting.Name)" -Description "$($KFMsetting.Description)" -InputObject $listArray -Level 4 -File $FilePath
+    }
+}else{
+    Write-HTMLParagraph -Text 'No OneDrive For Business Profiles defined in site.' -Level 4 -File $FilePath
 }
 Write-HTMLHeading -Level 3 -Text 'Remote Connection Profiles' -File $FilePath
 if ($RemoteSettings.count -gt 0) {
