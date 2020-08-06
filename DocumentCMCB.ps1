@@ -67,7 +67,7 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.55
+	VERSION: 3.56
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
@@ -135,7 +135,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.55'
+$DocumenationScriptVersion = '3.56'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -1954,6 +1954,7 @@ Function Get-PWCMPhasedDeployment {
         $PDs = Get-WmiObject -Query "SELECT * FROM SMS_PhasedDeployment where PhasedDeploymentID Like '$PhasedDeploymentID'" -Namespace "ROOT\SMS\site_$SiteName" -ComputerName $SiteServer
     }
     elseIf ($DeploymentObjectID){
+        Write-Verbose "Get-WmiObject -Query `"SELECT * FROM SMS_PhasedDeployment where DeploymentObjectID Like `'$DeploymentObjectID`'`" -Namespace ROOT\SMS\site_$SiteName -ComputerName $SiteServer"
         $PDs = Get-WmiObject -Query "SELECT * FROM SMS_PhasedDeployment where DeploymentObjectID Like '$DeploymentObjectID'" -Namespace "ROOT\SMS\site_$SiteName" -ComputerName $SiteServer
     } else {
         $PDs = Get-WmiObject -Query "SELECT * FROM SMS_PhasedDeployment" -Namespace "ROOT\SMS\site_$SiteName" -ComputerName $SiteServer
@@ -5751,6 +5752,8 @@ foreach ($CMPolicy in $CMPolicies){
                 SilentMove     = $KFMSilentOptIn
                 NotifyComplete = $KfmNoteAfter
                 BlockOptOut    = $KfmBlockOptOut
+                Deployed       = $KfmDeployed
+                CI_ID          = $CMPolicy.CI_ID
             }
         }
     }
@@ -5772,7 +5775,14 @@ if ($KFMSettings.count -gt 0) {
         $listArray += "Silently move Windows known folders to OneDrive: $($KFMsetting.SilentMove)"
         $listArray += "Show notification to users after folders have been redirected: $($KFMsetting.NotifyComplete)"
         $listArray += "Prevent users from redirecting their Windows known folders back to their PC: $($KFMsetting.BlockOptOut)"
-        Write-HtmlList -Title "$($KFMsetting.Name)" -Description "$($KFMsetting.Description)" -InputObject $listArray -Level 4 -File $FilePath
+        Write-HtmlList -Title "$($KFMsetting.Name)" -Description "Description: $($KFMsetting.Description)" -InputObject $listArray -Level 4 -File $FilePath
+        If ($KFMSetting.Deployed -eq "True"){
+            $KFMDeployments = Get-CMConfigurationPolicyDeployment -SmsObjectId 16780575 | foreach {Get-CMCollection -Id $_.TargetCollectionID}|select CollectionID,Name
+            Write-HTMLParagraph -Text 'Deployments:' -Level 4 -File $FilePath
+            Write-HtmlTable -InputObject $KFMDeployments -Level 4 -File $FilePath
+        } else {
+            Write-HTMLParagraph -Text 'Deployments: None' -Level 4 -File $FilePath
+        }
     }
 }else{
     Write-HTMLParagraph -Text 'No OneDrive For Business Profiles defined in site.' -Level 4 -File $FilePath
@@ -6769,7 +6779,7 @@ if ($ListAllInformation -or $ListAppDetails){
             Write-ProgressEx -CurrentOperation "Application: $($App.LocalizedDisplayName)" -Activity 'Configuration Manager Application' -Status 'Application phased deployments' -Id 10
             Write-HTMLHeading -Level 5 -Text "Phased Deployments for $($App.LocalizedDisplayName):" -File $FilePath
             $PDs = @()
-            $PDs = Get-PWCMPhasedDeployment -DeploymentObjectID $($App.CI_ID) -SiteServer $SiteServer -SiteName $SiteCode
+            $PDs = Get-PWCMPhasedDeployment -DeploymentObjectID $($App.CI_ID) -SiteServer $SMSProvider -SiteName $SiteCode
             if (-not [string]::IsNullOrEmpty($PDs)) {
                 foreach ($PD in $PDs){
                     Write-HTMLHeading -Text $PD.Name -Level 6 -ExcludeTOC -File $FilePath
