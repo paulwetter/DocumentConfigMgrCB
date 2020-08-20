@@ -5,8 +5,8 @@
 .SYNOPSIS
 	Script attempts to fully document a Microsoft Configuration Manager environment.
 .DESCRIPTION
-	This script will fully document a Configuration Manager environment.  The original 
-    script developed several years ago by David O'Brien required Microsoft Word to create 
+	This script will fully document a Configuration Manager environment.  The original
+    script developed several years ago by David O'Brien required Microsoft Word to create
     the documentation.  This updated script is more detailed and outputs the documentation
     in pure HTML.  If you so desire, you can import this HTML report into Word for easier
     editing.
@@ -30,19 +30,19 @@
 .PARAMETER Vendor
     This displays a company name in the lower right corner of the title page.
 .PARAMETER ListAllInformation
-    Specifies whether the script should only output an overview of what is configured (like count of collections) or 
-    a full output with verbose information. This includes: User & Device collections, Application, Packages, ADR Deployments, 
-    Drivers in Driver packages, Task Squence Details
+    Specifies whether the script should only output an overview of what is configured (like count of collections) or
+    a full output with verbose information. This includes: User & Device collections, Application, Packages, ADR Deployments,
+    Drivers in Driver packages, Task Sequence Details
 .PARAMETER ListAppDetails
     Like ListAllInformation, but instead of all details, lists only Application Details.
 .PARAMETER NoSqlDetail
     Skip additional details from the SQL server.  Useful when you do not have full database access to the SQL server (Normally requires access via SQL to the Master and CM database).
 .PARAMETER SMSProvider
-    Some information rely on WMI queries that need to be executed against the SMS Provider directly. 
+    Some information rely on WMI queries that need to be executed against the SMS Provider directly.
     Please specify as FQDN.
     If not specified, it assumes localhost.
 .PARAMETER UnknownClientSettings
-    With new releases of CM come new client settings.  If this parameter is added, it will display raw 
+    With new releases of CM come new client settings.  If this parameter is added, it will display raw
     information for these client settings.
 .PARAMETER SQLTimeout
     The amount of time we should wait for a sql query to time out.  Default is 300 seconds (5 minutes)
@@ -61,7 +61,7 @@
 .INPUTS
 	None.  You cannot pipe objects to this script.
 .OUTPUTS
-	No objects are output from this script.  
+	No objects are output from this script.
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
@@ -78,50 +78,50 @@
 [CmdletBinding()]
 
 Param(
-	[parameter(Mandatory=$True)] 
+	[parameter(Mandatory=$True)]
 	[string]$CompanyName,
-    
-	[parameter(Mandatory=$False)] 
+
+	[parameter(Mandatory=$False)]
     [string]$CompanyLogo = "https://blog.cyberadvisors.com/hubfs/CAI_logo.jpg",
 
-	[parameter(Mandatory=$False)] 
+	[parameter(Mandatory=$False)]
 	[Switch]$ListAllInformation,
 
-	[parameter(Mandatory=$False)] 
+	[parameter(Mandatory=$False)]
 	[Switch]$ListAppDetails,
 
-	[parameter(Mandatory=$False)] 
+	[parameter(Mandatory=$False)]
 	[string]$Author="Paul Wetter",
 
-	[parameter(Mandatory=$False)] 
+	[parameter(Mandatory=$False)]
     [string]$Vendor = "Cyber Advisors",
 
-	[parameter(Mandatory=$False)] 
+	[parameter(Mandatory=$False)]
 	[String]$Title = "Configuration Manager Site Documentation",
 
 	[parameter(Mandatory=$False)]
-    [ValidateScript({$_ -match '\.html$'})]  
+    [ValidateScript({$_ -match '\.html$'})]
 	[String]$FilePath = "CMDocumentation.html",
 
-	[parameter(Mandatory=$False)] 
+	[parameter(Mandatory=$False)]
 	[string]$SMSProvider='localhost',
 
-	[parameter(Mandatory=$False)] 
+	[parameter(Mandatory=$False)]
 	[Switch]$AddDateTime,
-	
-	[parameter(Mandatory=$False)] 
+
+	[parameter(Mandatory=$False)]
     [switch]$UnknownClientSettings,
-    
-    [parameter(Mandatory=$False)] 
+
+    [parameter(Mandatory=$False)]
     [switch]$NoSqlDetail,
 
     [parameter(Mandatory=$False)]
     [int]$SQLTimeout = 300,
 
-    [parameter(Mandatory=$False)] 
+    [parameter(Mandatory=$False)]
     [switch]$MaskAccounts,
-    
-    #[parameter(Mandatory=$False)] 
+
+    #[parameter(Mandatory=$False)]
     #[System.Management.Automation.PSCredential]$SQLCredential = [System.Management.Automation.PSCredential]::Empty,
 
     [parameter(Mandatory=$False,HelpMessage="CSS file path")]
@@ -158,7 +158,7 @@ Function Write-HtmlTable{
     Write-HtmlTable -InputObject $folders -Border 1
 .NOTES
     Author: Paul Wetter
-    Website: 
+    Website:
     Email: tellwetter[at]gmail.com
 
 #>
@@ -186,18 +186,18 @@ Function Write-HtmlTable{
         [string]$File
     )
 
-    switch ($Level) 
-    { 
-        0 {$Indent=0} 
-        1 {$Indent=5} 
-        2 {$Indent=15} 
-        3 {$Indent=25} 
-        4 {$Indent=35} 
+    switch ($Level)
+    {
+        0 {$Indent=0}
+        1 {$Indent=5}
+        2 {$Indent=15}
+        3 {$Indent=25}
+        4 {$Indent=35}
         5 {$Indent=45}
-        6 {$Indent=55} 
-        7 {$Indent=65} 
-        8 {$Indent=75} 
-        9 {$Indent=85} 
+        6 {$Indent=55}
+        7 {$Indent=65}
+        8 {$Indent=75}
+        9 {$Indent=85}
         default {$Indent=5}
     }
     if ($InputObject){
@@ -242,7 +242,7 @@ Function Write-HtmlList{
     Write-HtmlList -InputObject @('Red','Blue','Green','Yellow') -Title "Colors of the Rainbow" -Description "This is a <i>list</i> of colors in the rainbow." -level 1
 .NOTES
     Author: Paul Wetter
-    Website: 
+    Website:
     Email: tellwetter[at]gmail.com
 
 #>
@@ -271,15 +271,15 @@ Function Write-HtmlList{
         [string]$File
     )
 
-    switch ($Level) 
-    { 
-        0 {$Indent=0} 
-        1 {$Indent=5} 
-        2 {$Indent=15} 
-        3 {$Indent=25} 
-        4 {$Indent=35} 
+    switch ($Level)
+    {
+        0 {$Indent=0}
+        1 {$Indent=5}
+        2 {$Indent=15}
+        3 {$Indent=25}
+        4 {$Indent=35}
         5 {$Indent=45}
-        6 {$Indent=55} 
+        6 {$Indent=55}
         default {$Indent=5}
     }
     if ($Title)
@@ -325,7 +325,7 @@ Function Write-HTMLHeading{
     Write-HTMLHeading -Text "Test Heading 3" -Level 3 -PageBreak
 .NOTES
     Author: Paul Wetter
-    Website: 
+    Website:
     Email: tellwetter[at]gmail.com
 
 #>
@@ -376,7 +376,7 @@ Function Write-HTMLParagraph{
     Write-HTMLParagraph -Text "This is also a bunch of text. It is a lot to go into the paragraph as well." -Indent
 .NOTES
     Author: Paul Wetter
-    Website: 
+    Website:
     Email: tellwetter[at]gmail.com
 
 #>
@@ -416,7 +416,7 @@ Function Write-HTMLHeader{
     Write-HTMLHeader -Title "This is also a bunch of text for the title" -file "C:\test.html"
 .NOTES
     Author: Paul Wetter
-    Website: 
+    Website:
     Email: tellwetter[at]gmail.com
 
 #>
@@ -489,7 +489,7 @@ Function Write-HTMLFooter{
     Write-HTMLHeader -file "C:\test.html"
 .NOTES
     Author: Paul Wetter
-    Website: 
+    Website:
     Email: tellwetter[at]gmail.com
 
 #>
@@ -528,7 +528,7 @@ Function Write-HTMLCoverPage{
     Write-HTMLCoverPage -Text "This is also a bunch of text. It is a lot to go into the paragraph as well." -Indent
 .NOTES
     Author: Paul Wetter
-    Website: 
+    Website:
     Email: tellwetter[at]gmail.com
 
 #>
@@ -632,12 +632,12 @@ function Write-HTMLTOC {
             $TOC += "<DIV style=`"$Style`"><a href=`"`#$($heading.Id)`" style=`"color:blue`">$($heading.Title)</a></DIV>"
         }
     }
-    (Get-Content $File) | 
+    (Get-Content $File) |
         Foreach-Object {
             $_ # send the current line to output
-            if ($_ -match $InsertPoint) 
+            if ($_ -match $InsertPoint)
             {
-                #Add Lines after the selected pattern 
+                #Add Lines after the selected pattern
                 $TOC
             }
         } | Set-Content $File
@@ -692,89 +692,89 @@ function Write-HtmlComment{
 
 #region Additional Functions
 
-function Ping-Host { 
-  Param([string]$computername=$(Throw "You must specify a computername.")) 
-  Write-Debug "In Ping-Host function" 
-  $query="Select * from Win32_PingStatus where address='$computername'" 
-  $wmi=Get-WmiObject -query $query 
+function Ping-Host {
+  Param([string]$computername=$(Throw "You must specify a computername."))
+  Write-Debug "In Ping-Host function"
+  $query="Select * from Win32_PingStatus where address='$computername'"
+  $wmi=Get-WmiObject -query $query
   if([string]::IsNullOrEmpty($wmi.ResponseTime)){$false}Else{$true}
 }
 
 
 function Invoke-SqlDataReader {
- 
+
 <#
 .SYNOPSIS
     Runs a select statement query against a SQL Server database.
- 
+
 .DESCRIPTION
     Invoke-SqlDataReader is a PowerShell function that is designed to query
     a SQL Server database using a select statement without the need for the SQL
     PowerShell module or snap-in being installed.
- 
+
 .PARAMETER ServerInstance
     The name of an instance of the SQL Server database engine. For default instances,
     only specify the server name: 'ServerName'. For named instances, use the format
     'ServerName\InstanceName'.
- 
+
 .PARAMETER Database
     The name of the database to query on the specified SQL Server instance.
- 
+
 .PARAMETER Query
     Specifies one Transact-SQL select statement query to be run.
- 
+
 .PARAMETER QueryTimeout
     Specifies how long to wait until the SQL Query times out. default 300 Seconds
- 
+
 .PARAMETER Credential
     SQL Authentication userid and password in the form of a credential object.
- 
+
 .EXAMPLE
      Invoke-SqlDataReader -ServerInstance Server01 -Database Master -Query '
      select name, database_id, compatibility_level, recovery_model_desc from sys.databases'
- 
+
 .EXAMPLE
      'select name, database_id, compatibility_level, recovery_model_desc from sys.databases' |
      Invoke-SqlDataReader -ServerInstance Server01 -Database Master
- 
+
 .EXAMPLE
      'select name, database_id, compatibility_level, recovery_model_desc from sys.databases' |
      Invoke-SqlDataReader -ServerInstance Server01 -Database Master -Credential (Get-Credential)
- 
+
 .INPUTS
     String
- 
+
 .OUTPUTS
     DataRow
- 
+
 .NOTES
     Author:  Mike F Robbins
     Website: http://mikefrobbins.com
     Twitter: @mikefrobbins
 #>
- 
+
     [CmdletBinding()]
-    param (        
+    param (
         [Parameter(Mandatory)]
         [string]$ServerInstance,
- 
+
         [Parameter(Mandatory)]
         [string]$Database,
-        
+
         [Parameter(Mandatory,
                    ValueFromPipeline)]
         [string]$Query,
-        
+
         [Parameter(Mandatory=$false,
                    ValueFromPipeline=$false)]
         [int]$QueryTimeout = 300,
 
         [System.Management.Automation.Credential()]$Credential = [System.Management.Automation.PSCredential]::Empty
     )
-    
+
     BEGIN {
         $connection = New-Object -TypeName System.Data.SqlClient.SqlConnection
- 
+
         if (-not($PSBoundParameters.Credential)) {
             $connectionString = "Server=$ServerInstance;Database=$Database;Integrated Security=True;"
         }
@@ -785,10 +785,10 @@ function Invoke-SqlDataReader {
             $sqlCred = New-Object -TypeName System.Data.SqlClient.SqlCredential($userid, $password)
             $connection.Credential = $sqlCred
         }
- 
+
         $connection.ConnectionString = $connectionString
         $ErrorActionPreference = 'Stop'
-        
+
         try {
             $connection.Open()
             Write-Verbose -Message "Connection to the $($connection.Database) database on $($connection.DataSource) has been successfully opened."
@@ -796,45 +796,45 @@ function Invoke-SqlDataReader {
         catch {
             Write-Error -Message "An error has occurred. Error details: $($_.Exception.Message)"
         }
-        
+
         $ErrorActionPreference = 'Continue'
         $command = $connection.CreateCommand()
         $command.CommandTimeout = $QueryTimeout
     }
- 
+
     PROCESS {
         $command.CommandText = $Query
         $ErrorActionPreference = 'Stop'
- 
+
         try {
             $result = $command.ExecuteReader()
         }
         catch {
             Write-Error -Message "An error has occured. Error Details: $($_.Exception.Message)"
         }
- 
+
         $ErrorActionPreference = 'Continue'
- 
+
         if ($result) {
             $dataTable = New-Object -TypeName System.Data.DataTable
             $dataTable.Load($result)
             $dataTable
         }
     }
- 
+
     END {
         $connection.Close()
     }
- 
+
 }
 
 
 Function Read-ScheduleToken {
-  
+
   $SMS_ScheduleMethods = 'SMS_ScheduleMethods'
   $class_SMS_ScheduleMethods = [wmiclass]''
   $class_SMS_ScheduleMethods.psbase.Path ="ROOT\SMS\Site_$($SiteCode):$($SMS_ScheduleMethods)"
-  
+
   $script:ScheduleString = $class_SMS_ScheduleMethods.ReadFromString($ServiceWindow.ServiceWindowSchedules)
   return $ScheduleString
 }
@@ -866,7 +866,7 @@ Function Convert-Time {
   $min = $time % 60
   if ($min -le 9) {$min = "0$($min)" }
   $hrs = [Math]::Truncate($time/60)
-  
+
   $NewTime = "$($hrs):$($min)"
   return $NewTime
 }
@@ -907,29 +907,29 @@ Function Get-HumanReadableSchedule {
     <#
     .SYNOPSIS
     This reads the data from an CM schedule object and then converts the schedule into a readable text similar to what appears in the console dialogs
-    
+
     .PARAMETER Schedule
     this is a schedule object from within CM.  Schedules are converted from a 16 digit hex string with Convert-CMSchedule
-    
+
     .EXAMPLE
     Get-HumanReadableSchedule -Schedule (Convert-CMSchedule -ScheduleString 0001170000100038)
-    
+
     .NOTES
     Author: Paul Wetter
-    Website: 
+    Website:
     Email: tellwetter[at]gmail.com
     #>
-    
+
     [CmdletBinding()]
     param(
         $Schedule
     )
     if ($Schedule.HourDuration -gt 0) {
         $HrDuration = ", with a duration of $($Schedule.HourDuration) hours"
-    } 
+    }
     elseif ($Schedule.MinuteDuration -gt 0) {
         $HrDuration = ", with a duration of $($Schedule.MinuteDuration) minutes"
-    } 
+    }
     elseif ($Schedule.DayDuration -gt 0) {
         $HrDuration = ", with a duration of $($Schedule.DayDuration) days"
     }
@@ -966,10 +966,10 @@ Function Get-HumanReadableSchedule {
     }
     elseif ($Schedule.HourDuration -gt 0) {
         $HrSched = "Occurs on $($Schedule.StartTime), with a duration of $($Schedule.HourDuration) hours"
-    } 
+    }
     elseif ($Schedule.MinuteDuration -gt 0) {
         $HrSched = "Occurs on $($Schedule.StartTime), with a duration of $($Schedule.MinuteDuration) minutes"
-    } 
+    }
     elseif ($Schedule.DayDuration -gt 0) {
         $HrSched = "Occurs on $($Schedule.StartTime), with a duration of $($Schedule.DayDuration) days"
     }
@@ -1120,7 +1120,7 @@ Function Process-TSSteps{
                         }else{
                             $StepStatus = 'Enabled'
                         }
-                    }   
+                    }
                 catch [System.Management.Automation.PropertyNotFoundException] {
                     $StepStatus = 'Enabled'
                 }
@@ -1159,7 +1159,7 @@ Function Process-TSSteps{
                         }else{
                             $StepStatus = 'Enabled'
                         }
-                    }   
+                    }
                 catch [System.Management.Automation.PropertyNotFoundException] {
                     $StepStatus = 'Enabled'
                 }
@@ -1193,7 +1193,7 @@ Function Process-TSSteps{
                         }else{
                             $StepStatus = 'Enabled'
                         }
-                    }   
+                    }
                 catch [System.Management.Automation.PropertyNotFoundException] {
                     $StepStatus = 'Enabled'
                 }
@@ -1230,7 +1230,7 @@ Function Set-AccountMask{
         }else{
             $SamAcct = $Account
             $MaskAcct = "$($SamAcct.substring(0,$SamAcct.Length/2))"+"*"*($SamAcct.Length/2+1)
-            $MaskAcct = $Account -replace "$SamAcct","$MaskAcct"        
+            $MaskAcct = $Account -replace "$SamAcct","$MaskAcct"
         }
         $MaskAcct
     }
@@ -1251,7 +1251,7 @@ Function Get-PWCMDiscoveryMethod {
         [ValidateNotNullOrEmpty()]
         $DiscoveryMethod
     )
-    
+
     switch ($DiscoveryMethod) {
         'ActiveDirectoryForestDiscovery' { $DMX = 1 }
         'ActiveDirectoryGroupDiscovery' { $DMX = 2 }
@@ -1326,7 +1326,7 @@ Function Get-PWCMDiscoveryMethod {
                 'Days Since Last Password Set' {
                     $ADGDHash.Add('FilterExpiredPasswordTime', $Prop.Value)
                 }
-            }    
+            }
         }
         $adgroupd = @()
         $ADGroupSearch = @()
@@ -1428,14 +1428,14 @@ Function Get-PWCMDiscoveryMethod {
                         $ADFDHash.Add('SubnetBoundaryCreation', 'Disabled')
                     }
                 }
-            }    
+            }
         }
         [PSCustomObject]$ADFDHash
     }
     #endregion AD Forest Discovery
 
     #region Heartbeat Discovery
-    If ($dmx -eq 6 -or $DMX -eq 7) { 
+    If ($dmx -eq 6 -or $DMX -eq 7) {
         $HBDHash = @{ }
         $HBDHash.Add('DiscoveryMethod', 'Heartbeat Discovery')
         $HeartbeatDiscovery = Get-WmiObject -Query "SELECT * FROM SMS_SCI_ClientConfig WHERE FileType=2 AND ItemName='Client Properties' AND ItemType='Client Configuration'" -Namespace "ROOT\SMS\site_$SiteName" -ComputerName $SiteServer
@@ -1455,7 +1455,7 @@ Function Get-PWCMDiscoveryMethod {
                     }
                     $HBDHash.Add('DDRRefreshInterval', "$DDRInterval")
                 }
-                'Enable Heartbeat DDR' { 
+                'Enable Heartbeat DDR' {
                     If ($Prop.Value -eq 1) {
                         $HBDHash.Add('DiscoveryState', 'Enabled')
                     }
@@ -1682,7 +1682,7 @@ Function Get-PWCMDiscoveryMethod {
                 'Days Since Last Password Set' {
                     $ADSDHash.Add('FilterExpiredPasswordTime', $Prop.Value)
                 }
-            }    
+            }
         }
         $ADContainerDiscovery = @()
         $AdditionalADAttributes = @()
@@ -1697,7 +1697,7 @@ Function Get-PWCMDiscoveryMethod {
                         $start++
                         switch ($start) {
                             1 { $one = $value }
-                            2 { 
+                            2 {
                                 If ($value -eq 0) {
                                     $two = 'Yes'
                                 }
@@ -1796,7 +1796,7 @@ Function Get-PWCMDiscoveryMethod {
                         $ADUDHash.Add('DiscoveryState', 'Disabled')
                     }
                 }
-            }    
+            }
         }
         $ADUserContainerDiscovery = @()
         $AdditionalADUserAttributes = @()
@@ -1811,7 +1811,7 @@ Function Get-PWCMDiscoveryMethod {
                         $start++
                         switch ($start) {
                             1 { $one = $value }
-                            2 { 
+                            2 {
                                 If ($value -eq 0) {
                                     $two = 'Yes'
                                 }
@@ -1881,38 +1881,38 @@ Function Get-PWCMPhasedDeployment {
     <#
     .SYNOPSIS
     Gets the Details of a phased deployment.
-    
+
     .DESCRIPTION
     Gets the Details of a phased deployment in CM.  If no deployment specified, all are found and returned.
-    
+
     .PARAMETER Name
     Finds the phased deployment by its Name.
-    
+
     .PARAMETER PhasedDeploymentID
     Finds the phased deployment by its deployment ID, GUID.
-    
+
     .PARAMETER DeploymentObjectID
     Finds the phased deployment by the object that this deployment is targeting (Application, Task Sequence, or Update Group).
-    
+
     .PARAMETER SiteServer
     The primary site server (Where the WMI queries will be directed).
-    
+
     .PARAMETER SiteName
     Your SCCM Site code (MMS).
-    
+
     .EXAMPLE
     Get-PWCMPhasedDeployment -Name '7-Zip structured Deployment'
 
     .EXAMPLE
     Get-PWCMPhasedDeployment -PhasedDeploymentID 'FD114F32-752F-4DA9-AB2A-1B388B0E5807'
-    
+
     .EXAMPLE
     Get-PWCMPhasedDeployment -DeploymentObjectID MMS0000213
 
     .NOTES
     General notes
     #>
-    
+
     [CmdletBinding(DefaultParameterSetName = 'ByName')]
     param(
         [Parameter(Mandatory = $false, ParameterSetName='ByName')]
@@ -1967,36 +1967,36 @@ Function Get-PWCMPDPhases {
     <#
     .SYNOPSIS
     Gets the details on all the defined phases of a phased deployment.
-    
+
     .DESCRIPTION
     Gets the details on all the defined phases of a phased deployment.  Depending on the type, there are different details available.
-    
+
     .PARAMETER Name
     Finds the phased deployment by its Name.
-    
+
     .PARAMETER PhasedDeploymentID
     Finds the phased deployment by its deployment ID, GUID.
-    
+
     .PARAMETER DeploymentObjectID
     Finds the phased deployment by the object that this deployment is targeting (Application, Task Sequence, or Update Group).
-    
+
     .PARAMETER SiteServer
     The primary site server (Where the WMI queries will be directed).
-    
+
     .PARAMETER SiteName
     Your SCCM Site code (MMS).
-    
+
     .EXAMPLE
     Get-PWCMPDPhases -Name '7-Zip structured Deployment'
 
     .EXAMPLE
     Get-PWCMPDPhases -PhasedDeploymentID 'FD114F32-752F-4DA9-AB2A-1B388B0E5807'
-    
+
     .EXAMPLE
     Get-PWCMPDPhases -DeploymentObjectID MMS0000213
 
     #>
-    
+
     [CmdletBinding(DefaultParameterSetName = 'ByName')]
     param(
         [Parameter(Mandatory = $true, ParameterSetName='ByName')]
@@ -2045,7 +2045,7 @@ Function Get-PWCMPDPhases {
         try{
             $PhasedDeployment = Get-PWCMPhasedDeployment -DeploymentObjectID $DeploymentObjectID -SiteServer $SiteServer -SiteName $SiteName
             $phases = [XML]$PhasedDeployment.PhasedDeploymentDigest
-            $DeploymentType = $PhasedDeployment.DeploymentObjectTypeName    
+            $DeploymentType = $PhasedDeployment.DeploymentObjectTypeName
         }
         catch{
             Throw "Error : Could not find phased deployment by DeploymentObjectID: $DeploymentObjectID"
@@ -2130,7 +2130,7 @@ Function Get-PWCMPDPhases {
                     $ht += @{'DeploymentXML' = $DeploymentXML}
                     $ht += @{'Deployment' = $ObjPD}
                     Remove-Variable Deploy
-                    Remove-Variable ObjPD        
+                    Remove-Variable ObjPD
                 }
                 'Software Update' {
                     #Software updates phased deployments already have the data with them in XML.  So, just pass the xml.
@@ -2245,7 +2245,7 @@ if (-not [string]::IsNullOrEmpty($CAS))
 {
   Write-HTMLParagraph -Text 'The following Central Administration Site is installed:' -level 1 -File $FilePath
   $CAS = New-Object -TypeName psobject -Property @{'Site Name' = $CAS.SiteName; 'Site Code' = $CAS.SiteCode; Version = $CAS.Version };
-  
+
   Write-HtmlTable -InputObject $CAS -Border 1 -Level 1 -File $FilePath
 }
 else {
@@ -2293,7 +2293,7 @@ if (-not [string]::IsNullOrEmpty($SecondarySites)){
 
 #region Site Configuration report
 foreach ($CMSite in $CMSites)
-{  
+{
   Write-ProgressEx -CurrentOperation "Checking each site's configuration"
   Write-HTMLHeading -Text "Configuration Summary for Site $($CMSite.SiteCode)" -level 1 -File $FilePath
   Write-HTMLHeading -Text "Updates and Servicing" -Level 2 -File $FilePath
@@ -2370,7 +2370,7 @@ foreach ($CMSite in $CMSites)
   #region SiteRoles
 Write-ProgressEx -CurrentOperation "Site Roles"
 If ($ListAllInformation){
-  $SiteRolesTable = @()  
+  $SiteRolesTable = @()
   $SiteRoles = Get-CMSiteRole -SiteCode $CMSite.SiteCode
 
   Write-HTMLHeading -Text "Site Roles" -Level 2 -File $FilePath
@@ -2931,7 +2931,7 @@ If ($ListAllInformation){
   }
   $SiteRolesTable = $SiteRolesTable | Sort-Object -Property 'Server Name', 'Role' | Select-Object 'Server Name', 'Role', 'Properties'
 }else{
-  $SiteRolesTable = @()  
+  $SiteRolesTable = @()
   $SiteRoles = Get-CMSiteRole -SiteCode $CMSite.SiteCode | Select-Object -Property NALPath, rolename
 
   Write-HTMLHeading -Text "Site Roles" -Level 2 -File $FilePath
@@ -3039,7 +3039,7 @@ If ($ListAllInformation){
 if ($ListAllInformation){
   $SiteMaintenanceTasks = Get-WmiObject -Namespace "root\sms\site_$SiteCode" -Query "Select * from SMS_SCI_SQLTask" -ComputerName $SMSProvider
   Write-HTMLHeading -Text "Site Maintenance Tasks for Site $($CMSite.SiteCode)" -Level 2 -File $FilePath
-  
+
   foreach ($SiteMaintenanceTask in $SiteMaintenanceTasks) {
     $DeleteOlderThan = ""
     $BeginTime = ""
@@ -3060,7 +3060,7 @@ if ($ListAllInformation){
             }
         }
         $ScheduleTask = ($DaysToDisplay -join ", ")
-    
+
         If ($SiteMaintenanceTask.DeleteOlderThan -eq 0) { $DeleteOlderThan = "Not Applicable" }
         Else { $DeleteOlderThan = "$($SiteMaintenanceTask.DeleteOlderThan) days" }
 
@@ -3086,7 +3086,7 @@ if ($ListAllInformation){
 }else{
   $SiteMaintenanceTasks = Get-CMSiteMaintenanceTask -SiteCode $CMSite.SiteCode
   Write-HTMLHeading -Text "Site Maintenance Tasks for Site $($CMSite.SiteCode)" -Level 2 -File $FilePath
-  
+
   foreach ($SiteMaintenanceTask in $SiteMaintenanceTasks) {
     $SiteMaintenanceTaskRowHash = New-Object -TypeName PSObject -Property @{'Task Name' = $SiteMaintenanceTask.TaskName; Enabled = $SiteMaintenanceTask.Enabled};
     $SiteMaintenanceTaskTable += $SiteMaintenanceTaskRowHash;
@@ -3098,7 +3098,7 @@ if ($ListAllInformation){
   Write-HtmliLink -ReturnTOC -File $FilePath
   Write-ProgressEx -CurrentOperation "Completed Site Maintenance Tasks"
   #endregion SiteMaintenanceTasks
-  
+
   #region Site SQL Info
   Write-ProgressEx -CurrentOperation "Getting site SQL server and database information"
   Write-HTMLHeading -Text "Summary of SQL database info for Site $($CMSite.SiteCode)" -PageBreak -Level 2 -File $FilePath
@@ -3123,7 +3123,7 @@ if ($ListAllInformation){
     $Capacity = 0
     Get-WmiObject -Class win32_physicalmemory -ComputerName $SQLServer | ForEach-Object {[int64]$Capacity = $Capacity + [int64]$_.Capacity}
     $TotalMemory = $Capacity / 1024 / 1024 / 1024
-    $CPUs = Get-WmiObject -Class win32_processor -ComputerName $SQLServer 
+    $CPUs = Get-WmiObject -Class win32_processor -ComputerName $SQLServer
     [int]$Cores=0
     foreach ($CPU in $CPUs) {
         $Cores = $Cores + $CPU.NumberOfCores
@@ -3140,10 +3140,10 @@ if ($ListAllInformation){
     }
   }
   catch {
-    $SQLHWInfo += "Failed to access server: $SQLServer" 
+    $SQLHWInfo += "Failed to access server: $SQLServer"
   }
   Write-HtmlList -InputObject $SQLHWInfo -Description $SQLHWDesc -Level 2 -File $FilePath
-  
+
   If ($NoSqlDetail){
     Write-ProgressEx -CurrentOperation "Skipping SQL detailed info."
   }Else{
@@ -3228,12 +3228,12 @@ if ($ListAllInformation){
   Write-HtmliLink -ReturnTOC -File $FilePath
   Write-Debug "$(Get-Date):   Default Management Point: $CMMPServerName"
   #endregion Management Points
-  
+
   #region Distribution Point details
   Write-ProgressEx -CurrentOperation "Distribution Point(s) Summary"
   Write-HTMLHeading -Text "Summary of Distribution Points for Site $($CMSite.SiteCode)" -Level 2 -PageBreak -File $FilePath
   $CMDistributionPoints = Get-CMDistributionPoint -SiteCode $CMSite.SiteCode
-  
+
   foreach ($CMDistributionPoint in $CMDistributionPoints)
   {
     $CMDPServerName = $CMDistributionPoint.NetworkOSPath.Split('\\')[2]
@@ -3267,14 +3267,14 @@ if ($ListAllInformation){
           $Capacity = 0
           Get-WmiObject -Class win32_physicalmemory -ComputerName $CMDPServerName | ForEach-Object {[int64]$Capacity = $Capacity + [int64]$_.Capacity}
           $TotalMemory = $Capacity / 1024 / 1024 / 1024
-          $CPUs = Get-WmiObject -Class win32_processor -ComputerName $CMDPServerName 
+          $CPUs = Get-WmiObject -Class win32_processor -ComputerName $CMDPServerName
           [int]$Cores=0
           foreach ($CPU in $CPUs) {$Cores = $Cores + $CPU.NumberOfCores}
           $CPUModel = $CPU.Name
           $DPText = $DPText + "<BR /><UL><LI>$CPUModel</LI><LI>$Cores Cores</LI><LI>$($TotalMemory) GB RAM</LI></UL>"
       }
       catch {
-        $DPText = $DPText + "<BR />Failed to access server $CMDPServerName.<BR /><BR />" 
+        $DPText = $DPText + "<BR />Failed to access server $CMDPServerName.<BR /><BR />"
         }
     }
     Write-HTMLParagraph -Text "$DPText" -Level 4 -File $FilePath
@@ -3284,7 +3284,7 @@ if ($ListAllInformation){
     $UnknownMachines = ($DPInfo.Where({$_.PropertyName -eq 'SupportUnknownMachines'})).Value
     switch ($IsPXE)
     {
-      1 
+      1
       {
         $DPText = $DPText + "<li>PXE Enabled</li>"
         switch ($UnknownMachines)
@@ -3307,7 +3307,7 @@ if ($ListAllInformation){
     {
       $DPGroupIDs = $DPGroupMembers.GroupID
     }
-    
+
     #enumerating DP Group Membership
     $DPText = "<B>Distribution Point Group Membership:</B>"
     if (-not [string]::IsNullOrEmpty($DPGroupIDs))
@@ -3334,7 +3334,7 @@ if ($ListAllInformation){
   #region enumerating Software Update Points and Configuration
   Write-ProgressEx -CurrentOperation "Software Update configuration for Site"
   Write-HTMLHeading -Text "Software Update configuration for Site $($CMSite.SiteCode)" -Level 2 -PageBreak -File $FilePath
-  
+
   Write-HTMLHeading -Text "Software Update Point Component Settings for Site $($CMSite.SiteCode)" -Level 3 -File $FilePath
   Write-HTMLParagraph -Text "This is a list of all of the software update classifications and products that are syncronized into the site as well as some of the general site configuration settings." -Level 3 -File $FilePath
 
@@ -3375,7 +3375,7 @@ if ($ListAllInformation){
     }
   }
 
-  
+
   Write-HTMLHeading -Text "Software Update Point Base Settings" -Level 4 -File $FilePath
   Write-HtmlList -InputObject $SUPPropertyList -Level 4 -File $FilePath
   Write-HTMLHeading -Text "Selected Software Update Classifications" -Level 4 -File $FilePath
@@ -3701,7 +3701,7 @@ $Boundaries = Get-CMBoundary
     if (-not [string]::IsNullOrEmpty($Boundaries))
 {
   ##Boundary Site Types: 0=IP Subnet; 1=AD Site; 2=IPv6 Prefix; 3=IP Address Range
-  foreach ($Boundary in $Boundaries) {       
+  foreach ($Boundary in $Boundaries) {
     if ($Boundary.BoundaryType -eq 0) {
       $BoundaryType = 'IP Subnet';
       $NamesOfBoundarySiteSystems = $Null
@@ -3709,11 +3709,11 @@ $Boundaries = Get-CMBoundary
       {
         ForEach-Object -Begin {$BoundarySiteSystems= $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
       }
-      else 
+      else
       {
         $NamesOfBoundarySiteSystems = 'n/a'
-      } 
-      $Subnet = New-Object -TypeName psobject -Property @{'Boundary Type' = $BoundaryType; 
+      }
+      $Subnet = New-Object -TypeName psobject -Property @{'Boundary Type' = $BoundaryType;
                     'Default Site Code' = "$($Boundary.DefaultSiteCode)";
                     'Associated Site Systems' = "$NamesOfBoundarySiteSystems"
                     Description = $Boundary.DisplayName;
@@ -3721,18 +3721,18 @@ $Boundaries = Get-CMBoundary
                     }
       $SubnetBoundaryTable += $Subnet;
     }
-    elseif ($Boundary.BoundaryType -eq 1) { 
+    elseif ($Boundary.BoundaryType -eq 1) {
       $BoundaryType = 'Active Directory Site';
       $NamesOfBoundarySiteSystems = $Null
       if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems))
       {
         ForEach-Object -Begin {$BoundarySiteSystems= $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
       }
-      else 
+      else
       {
         $NamesOfBoundarySiteSystems = 'n/a'
-      } 
-      $ADBoundary = New-Object -TypeName psobject -Property @{'Boundary Type' = $BoundaryType; 
+      }
+      $ADBoundary = New-Object -TypeName psobject -Property @{'Boundary Type' = $BoundaryType;
                     'Default Site Code' = "$($Boundary.DefaultSiteCode)";
                     'Associated Site Systems' = "$NamesOfBoundarySiteSystems";
                     Description = $Boundary.DisplayName;
@@ -3740,18 +3740,18 @@ $Boundaries = Get-CMBoundary
                     }
       $ADBoundaryTable += $ADBoundary;
     }
-    elseif ($Boundary.BoundaryType -eq 2) { 
+    elseif ($Boundary.BoundaryType -eq 2) {
       $BoundaryType = 'IPv6 Prefix';
       $NamesOfBoundarySiteSystems = $Null
       if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems))
       {
         ForEach-Object -Begin {$BoundarySiteSystems= $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
       }
-      else 
+      else
       {
         $NamesOfBoundarySiteSystems = 'n/a'
-      } 
-      $IPv6Boundary = New-Object -TypeName psobject -Property @{'Boundary Type' = $BoundaryType; 
+      }
+      $IPv6Boundary = New-Object -TypeName psobject -Property @{'Boundary Type' = $BoundaryType;
                     'Default Site Code' = "$($Boundary.DefaultSiteCode)";
                     'Associated Site Systems' = "$NamesOfBoundarySiteSystems";
                     Description = $Boundary.DisplayName;
@@ -3759,18 +3759,18 @@ $Boundaries = Get-CMBoundary
                     }
       $IPv6BoundaryTable += $IPv6Boundary;
     }
-    elseif ($Boundary.BoundaryType -eq 3) 
-    { 
+    elseif ($Boundary.BoundaryType -eq 3)
+    {
       $BoundaryType = 'IP Range';
       $NamesOfBoundarySiteSystems = $Null
       if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems))
       {
         ForEach-Object -Begin {$BoundarySiteSystems= $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
       }
-      else 
+      else
       {
         $NamesOfBoundarySiteSystems = 'n/a'
-      } 
+      }
       $IPRangeBoundary = New-Object -TypeName psobject -Property @{'Boundary Type' = $BoundaryType;
                     'Default Site Code' = "$($Boundary.DefaultSiteCode)";
                     'Associated Site Systems' = "$NamesOfBoundarySiteSystems";
@@ -3915,7 +3915,7 @@ if (-not [string]::IsNullOrEmpty($BoundaryGroups))
     $BoundaryGroupRow = New-Object -TypeName psobject -Property @{Name = $BoundaryGroup.Name; Description = $BoundaryGroup.Description; 'Assigned Site' = $BoundaryGroup.DefaultSiteCode; 'Boundary Members' = "$BoundaryMembers"; 'Site Systems' = $BoundaryGroupSiteSystems;'Fallback Relationships' = "$FallBackRelationships"; 'Options' = "$BGOptions"};
     $BoundaryGroupTable += $BoundaryGroupRow
   }
-  
+
   $BoundaryGroupTable = $BoundaryGroupTable|Select-Object 'Name','Description','Assigned Site','Boundary Members','Site Systems','Fallback Relationships','Options'
   Write-HtmlTable -InputObject $BoundaryGroupTable -Level 4 -Border 1 -File $FilePath
 }
@@ -4300,7 +4300,7 @@ If ($ListAllInformation){
                     If ($UnknownProps -gt 0) {
                       Write-HtmlList -InputObject $UnknownProps -Description "Unknown Properties:" -Level 3 -File $FilePath
                     }
-                }  
+                }
             }
             8{
               $KnownProps = @("AgentID","DataCollectionSchedule","Enabled","LastUpdateTimeOfRules","MaximumUsageInstancesPerReport","MeterRuleIDList","MRUAgeLimitInDays","MRURefreshInMinutes","PSComputerName","PSShowComputerName","ReportTimeout","SmsProviderObjectPath")
@@ -4453,16 +4453,16 @@ If ($ListAllInformation){
               {
                 $ConfigList += "When any software update deployment deadline is reached, install all other software update deployments with deadline coming within a specified period of time: No"
               }
-              else 
+              else
               {
                 $ConfigList += "When any software update deployment deadline is reached, install all other software update deployments with deadline coming within a specified period of time: Yes"
-            
+
                 if ($AgentConfig.AssignmentBatchingTimeout -le '82800')
                 {
-                  $hours = [string]$AgentConfig.AssignmentBatchingTimeout / 60 / 60 
+                  $hours = [string]$AgentConfig.AssignmentBatchingTimeout / 60 / 60
                   $gracetime = "$($hours) hours"
                 }
-                else 
+                else
                 {
                   $days = [string]$AgentConfig.AssignmentBatchingTimeout / 60 / 60 / 24
                   $gracetime = "$($days) days"
@@ -5089,7 +5089,7 @@ If ($ListAllInformation){
             }
           }
         }
-        catch [System.Management.Automation.PropertyNotFoundException] 
+        catch [System.Management.Automation.PropertyNotFoundException]
         {
           Write-Debug "$(Get-Date):   Client Settings Property not found."
         }
@@ -5145,14 +5145,14 @@ Write-HTMLParagraph -Text 'Details on all administative accounts in the site:' -
 
 $AdminArray = @();
 
-foreach ($Admin in $Admins) 
+foreach ($Admin in $Admins)
 {
   switch ($Admin.AccountType)
   {
     0 { $AccountType = 'User' }
     1 { $AccountType = 'Group' }
-    2 { $AccountType = 'Machine' } 
-  } 
+    2 { $AccountType = 'Machine' }
+  }
   If ($MaskAccounts){
     $LogonName = Set-AccountMask $Admin.LogonName
   }else{
@@ -5172,9 +5172,9 @@ $SecurityRoles = Get-CMSecurityRole | Where-Object -FilterScript {-not $_.IsBuil
 if (-not [string]::IsNullOrEmpty($SecurityRoles))
 {
   $SecRoleArray = @();
-  
+
   Write-HTMLParagraph -Text 'Details on all custom security roles in the site:' -Level 2 -File $FilePath
-  
+
   foreach ($SecurityRole in $SecurityRoles)
   {
     if ($SecurityRole.NumberOfAdmins -gt 0)
@@ -5188,7 +5188,7 @@ if (-not [string]::IsNullOrEmpty($SecurityRoles))
     }
   }
   $SecRoleArray = $SecRoleArray | Select-Object -Property 'Name','Description','Copied From','Members','Role ID'
-  Write-HtmlTable -InputObject $SecRoleArray -Border 1 -Level 3 -File $FilePath  
+  Write-HtmlTable -InputObject $SecRoleArray -Border 1 -Level 3 -File $FilePath
 }
 else
 {
@@ -5475,7 +5475,7 @@ if ($ListAllInformation)
                                 $WindowRecurence = "Every $($Schedule.DaySpan) days"
                             }
                             }
-                        3 {                                              
+                        3 {
                             $WindowRecurence = "Every $($Schedule.ForNumberofWeeks) week(s) on $(Convert-WeekDay $Schedule.Day)"
                             }
                         4 {
@@ -6405,7 +6405,7 @@ if ($ListAllInformation -or $ListAppDetails){
             $ListDescription = ""
             Write-Debug "$(Get-Date):   Completed supersedence details"
             #endregion Application Details
-            
+
             #region deployment types
             Write-ProgressEx -CurrentOperation "Application: $($App.LocalizedDisplayName)" -Activity 'Configuration Manager Application' -Status 'Application deployment types' -Id 10
             Write-Debug "$(Get-Date):   Processing deployment types for: $($App.LocalizedDisplayName)"
@@ -6464,7 +6464,7 @@ if ($ListAllInformation -or $ListAppDetails){
                     #$DTListData += "Content ID: $($DT.Installer.RepairAction.Contents.Content.ContentId)"
                     $DTListData += "Run installation and uninstall program as 32-bit process on 64-bit clients:  $(($DT.Installer.InstallAction.Args.arg | Where-Object {$_.name -eq 'RunAs32Bit'}).'#text')"
                     Write-HtmlList -InputObject $DTListData -Description $DTSection -Level 6 -File $FilePath
-                    
+
                     $DTListData = @()
                     $DTSection = "Detection Method"
                     If ($DT.Installer.DetectAction.Provider -like 'MSI'){
@@ -6538,7 +6538,7 @@ if ($ListAllInformation -or $ListAppDetails){
                         }
                     }
                     Write-HtmlList -InputObject $DTListData -Description $DTSection -Level 6 -File $FilePath
-                    
+
                     $DTListData = @()
                     $DTSection = "Return Codes"
                     foreach ($XC in $DT.Installer.CustomData.ExitCodes.ExitCode) {
@@ -6555,7 +6555,7 @@ if ($ListAllInformation -or $ListAppDetails){
                         $DTListData += "One or more dependencies defined."
                     }
                     Write-HtmlList -InputObject $DTListData -Description $DTSection -Level 6 -File $FilePath
-                    
+
                     $DTListData = @()
                     $DTSection = "Install behavior - Executables that must be closed"
                     If([string]::IsNullOrEmpty($DT.Installer.CustomData.InstallProcessDetection)){
@@ -6836,7 +6836,7 @@ if ($ListAllInformation){
             }else{
                 Write-Debug "$(Get-Date):   No programs found in package $($Package.Name)..."
                 Write-HTMLParagraph -Text 'The Package has no Programs configured.' -Level 6 -File $FilePath
-            }                       
+            }
         }
     }else{
         Write-HTMLParagraph -Text 'There are no Packages configured in this site.' -Level 5 -File $FilePath
@@ -6860,11 +6860,11 @@ Write-HtmliLink -ReturnTOC -File $FilePath
 
 
 #region Software Updates
-Write-ProgressEx -CurrentOperation 'Software Updates' 
+Write-ProgressEx -CurrentOperation 'Software Updates'
 Write-HTMLHeading -Level 2 -PageBreak -Text 'Software Updates' -File $FilePath
 
 #region Update Groups
-Write-ProgressEx -CurrentOperation 'Software Update groups' 
+Write-ProgressEx -CurrentOperation 'Software Update groups'
 Write-HTMLHeading -Level 3 -PageBreak -Text 'Software Update Groups' -File $FilePath
 $UpdateGroups = Get-CMSoftwareUpdateGroup
 If(-not [string]::IsNullOrEmpty($UpdateGroups)){
@@ -7446,7 +7446,7 @@ if (-not [string]::IsNullOrEmpty($BootImages)){
                     {($_ -eq '25') -or ($_ -eq '51')} { $OCList += 'WinPE-WinReCfg' }
                     {($_ -eq '26') -or ($_ -eq '52')} { $OCList += 'WinPE-WMI' }
                 }
-                $Component = $Null    
+                $Component = $Null
             }
             Write-HtmlList -Description $OCDescription -InputObject $OCList -Level 5 -File $FilePath
         }
@@ -7913,4 +7913,4 @@ Write-HTMLFooter -File $FilePath
 Write-HTMLTOC -InputObject $Global:DocTOC -File $FilePath
 
 Write-host "Completed execution at: $($ScriptEndTime.ToShortTimeString())."
-Write-Host "Total execution time: $ExecTimeString" 
+Write-Host "Total execution time: $ExecTimeString"
