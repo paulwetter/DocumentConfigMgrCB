@@ -67,11 +67,11 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.56
+	VERSION: 3.57
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: August 5, 2020
+	LASTEDIT: August 29, 2020
 #>
 
 #endregion
@@ -135,7 +135,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.56'
+$DocumenationScriptVersion = '3.57'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -5554,25 +5554,25 @@ if ($ListAllInformation)
         $ExcludeRules = $Null
 
         try {
-            $DirectRules = $DeviceCollection | Get-CMDeviceCollectionDirectMembershipRule -ErrorAction SilentlyContinue
+            $DirectRules = $DeviceCollection | Get-CMDeviceCollectionDirectMembershipRule -ErrorAction Stop
         }
         catch [System.Management.Automation.PropertyNotFoundException] {
             Write-Debug "$(Get-Date):   Collection Direct Rule info not found"
         }
         try {
-            $QueryRules = $DeviceCollection | Get-CMDeviceCollectionQueryMembershipRule -ErrorAction SilentlyContinue
+            $QueryRules = $DeviceCollection | Get-CMDeviceCollectionQueryMembershipRule -ErrorAction Stop
         }
         catch [System.Management.Automation.PropertyNotFoundException] {
             Write-Debug "$(Get-Date):   Collection Query Rule info not found"
         }
         try {
-            $IncludeRules = $DeviceCollection | Get-CMDeviceCollectionIncludeMembershipRule -ErrorAction SilentlyContinue
+            $IncludeRules = $DeviceCollection | Get-CMDeviceCollectionIncludeMembershipRule -ErrorAction Stop
         }
         catch [System.Management.Automation.PropertyNotFoundException] {
             Write-Debug "$(Get-Date):   Collection Include Rule info not found"
         }
         try {
-            $ExcludeRules = $DeviceCollection | Get-CMDeviceCollectionExcludeMembershipRule -ErrorAction SilentlyContinue
+            $ExcludeRules = $DeviceCollection | Get-CMDeviceCollectionExcludeMembershipRule -ErrorAction Stop
         }
         catch [System.Management.Automation.PropertyNotFoundException] {
             Write-Debug "$(Get-Date):   Collection Include Rule info not found"
@@ -7313,7 +7313,7 @@ if ($ListAllInformation){
             }
             $DPackArray += "Source Files exist: $Verified"
             $DPackArray += 'This package consists of the following Drivers:'
-            If ($PackageDescription){
+            If (-not [string]::IsNullOrEmpty($PackageDescription)){
                 Write-HtmlList -Title $PackageName -Description $PackageDescription -InputObject $DPackArray -Level 4 -File $FilePath
             }else{
                 Write-HtmlList -Title $PackageName -InputObject $DPackArray -Level 4 -File $FilePath
