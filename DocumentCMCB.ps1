@@ -4513,13 +4513,10 @@ If ($ListAllInformation){
                   $ConfigList += "Allow clients to download delta content when available (Enable installation of Express installation files on clients - Before 1902): Yes"
                   $ConfigList += "Port used to download content for Express installation files: $($AgentConfig.ExpressUpdatesPort)"
               }
-              If($AgentConfig.O365Management -eq 1)
-              {
-                  $ConfigList += "Enable management of the Office 365 Client Agent: Yes"
-              }
-              else
-              {
-                  $ConfigList += "Enable management of the Office 365 Client Agent: No"
+              switch ($AgentConfig.O365Management) {
+                  0{$ConfigList += "Enable management of the Office 365 Client Agent: Not Configured"}
+                  1{$ConfigList += "Enable management of the Office 365 Client Agent: Yes"}
+                  2{$ConfigList += "Enable management of the Office 365 Client Agent: No"}
               }
               <# No longer appears this is listed in the client settings....
               If($AgentConfig.EnableThirdPartyUpdates -eq "True")
