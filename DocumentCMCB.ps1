@@ -67,11 +67,11 @@
 	This script creates a HTML document.
 .NOTES
 	NAME: DocumentCMCB.ps1
-	VERSION: 3.57
+	VERSION: 3.60
 	AUTHOR: Paul Wetter
         Based on original script developed by David O'Brien
     	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: August 29, 2020
+	LASTEDIT: November 28, 2020
 #>
 
 #endregion
@@ -135,7 +135,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.57'
+$DocumenationScriptVersion = '3.60'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -578,12 +578,13 @@ Function Write-HTMLCoverPage{
         $ImageData=Convert-Image2Base64 -Path $ImagePath
     }
     If ($ImageData){
-        $Cover += "<TR><TD Height=700 VAlign=`"bottom`" align=`"right`" style=`"border: 0px`"><img class=`"CoverImage`" src=`"$ImageData`"></TD></TR>"
+        $Cover += "<TR><TD Height=680 VAlign=`"bottom`" align=`"right`" style=`"border: 0px`"><img class=`"CoverImage`" src=`"$ImageData`"></TD></TR>"
     }Else{
-        $Cover += "<TR><TD Height=700 VAlign=`"top`" style=`"border: 0px`">&nbsp;</TD></TR>"
+        $Cover += "<TR><TD Height=680 VAlign=`"top`" style=`"border: 0px`">&nbsp;</TD></TR>"
     }
     $Cover += "<TR><TD Height=30 VAlign=`"top`" Align=`"right`" style=`"border: 0px;font-size:18pt`">Report Prepared By: $Author</TD></TR>"
     If ($Vendor) {$Cover += "<TR><TD Height=30 VAlign=`"top`" Align=`"right`" style=`"border: 0px;font-size:24pt`">$Vendor</TD></TR>"}
+    $Cover += "<TR><TD Height=20 VAlign=`"top`" align=`"right`" style=`"border: 0px;font-size:11pt;padding-left:10px`">Executed with script version: $DocumenationScriptVersion</TD></TR>"
     $Cover += "</Table>"
     If ($File) {$Cover | Out-File -filepath $File -Append}
     Else {Return $Cover}
@@ -2160,6 +2161,18 @@ Function Get-PWCMPDPhases {
         }
         [pscustomobject]$ht
         Remove-Variable ht
+    }
+}
+
+function Convert-Bool2Text {
+    #Simple function to convert a 1 to true and a 0 to false.  Or, just return the value if it isn't 1 or 0.
+    param (
+        $Value
+    )
+    switch ($Value) {
+        0 { 'False' }
+        1 { 'True' }
+        Default {$Value}
     }
 }
 
@@ -4035,7 +4048,13 @@ If ($ListAllInformation){
             Write-HTMLParagraph -Text "This client setting policy is not deployed to any collections." -Level 3 -File $FilePath
         }
       Write-HTMLParagraph -Level 3 -Text "<u><b>Setting Configuration</b></u>:" -File $FilePath
-      foreach ($AgentConfig in $ClientSetting.AgentConfigurations)
+      function Get-ClientSettingsConfigs {
+          #This function captures all the client settings for a client setting and combines them into a readable format in the documentation.
+          param (
+              $AgentConfigs,
+              [switch]$Default
+          )
+      foreach ($AgentConfig in $AgentConfigs)
       {
         try
         {
@@ -4045,8 +4064,12 @@ If ($ListAllInformation){
               $Config = 'Compliance Settings'
               $KnownProps = @("AgentID","Enabled","EnableUserStateManagement","EvaluationSchedule","PerProviderTimeout","PerScanDefaultPriority","PerScanTimeout","PerScanTTL","PSComputerName","PSShowComputerName","SmsProviderObjectPath")
               $ConfigList = @()
-              $ConfigList += "Enable compliance evaluation on clients: $($AgentConfig.Enabled)"
-              $ConfigList += "Enable user data and profiles: $($AgentConfig.EnableUserStateManagement)"
+              $ConfigList += "Enable compliance evaluation on clients: " + $(Convert-Bool2Text $AgentConfig.Enabled)
+              IF ($Default){
+                $Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.EvaluationSchedule
+                $ConfigList += "Schedule Complinace Evaluation: " + (Get-HumanReadableSchedule -Schedule $Schedule)
+              }
+              $ConfigList += "Enable user data and profiles: " + $(Convert-Bool2Text $AgentConfig.EnableUserStateManagement)
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
                   $UnknownProps = @()
@@ -4063,47 +4086,9 @@ If ($ListAllInformation){
               $Config = 'Software Inventory'
               $KnownProps = @("AgentID","CollectableFileExclude","CollectableFileMaxSize","CollectableFilePaths","CollectableFiles","CollectableFileSubdirectories","Enabled","Exclude","ExcludeWindirAndSubfolders","InventoriableTypes","Path","PSComputerName","PSShowComputerName","QueryTimeout","ReportOptions","ReportTimeout","ScanInterval","Schedule","SmsProviderObjectPath","Subdirectories")
               $ConfigList = @()
-              $ConfigList += "Enable software inventory on clients: $($AgentConfig.Enabled)"
+              $ConfigList += "Enable software inventory on clients: " + $(Convert-Bool2Text $AgentConfig.Enabled)
               $Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.Schedule
-              if ($Schedule.DaySpan -gt 0)
-              {
-                $ConfigList += "Schedule: Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.HourSpan -gt 0)
-              {
-                $ConfigList += "Schedule: Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.MinuteSpan -gt 0)
-              {
-                $ConfigList += "Schedule: Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.ForNumberOfWeeks)
-              {
-                $ConfigList += "Schedule: Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.ForNumberOfMonths)
-              {
-                if ($Schedule.MonthDay -gt 0)
-                {
-                  $ConfigList += "Schedule: Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-                }
-                elseif ($Schedule.MonthDay -eq 0)
-                {
-                  $ConfigList += "Schedule: Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-                }
-                elseif ($Schedule.WeekOrder -gt 0)
-                {
-                  switch ($Schedule.WeekOrder)
-                  {
-                    0 {$order = 'last'}
-                    1 {$order = 'first'}
-                    2 {$order = 'second'}
-                    3 {$order = 'third'}
-                    4 {$order = 'fourth'}
-                  }
-                  $ConfigList += "Schedule: Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-                }
-              }
+              $ConfigList += "Schedule: " + (Get-HumanReadableSchedule -Schedule $Schedule)
               switch ($AgentConfig.ReportOptions)
               {
                 1 { $InvDetail = 'Product only' }
@@ -4184,11 +4169,11 @@ If ($ListAllInformation){
                 15 { $RCState = 'Enabled - Firewall Profiles Configured: Domain, Private, Public' }
               }
               $ConfigList += "Enable Remote Control on clients: $RCState"
-              $ConfigList += "Users can change policy or notification settings in Software Center: $($AgentConfig.AllowClientChange)"
-              $ConfigList += "Allow Remote Control of an unattended computer: $($AgentConfig.AllowRemCtrlToUnattended)"
-              $ConfigList += "Prompt user for Remote Control permission: $($AgentConfig.PermissionRequired)"
-              $ConfigList += "Prompt user for permission to transfer content from shared clipboard: $($AgentConfig.ClipboardAccessPermissionRequired)"
-              $ConfigList += "Grant Remote Control permission to local Administrators group: $($AgentConfig.AllowLocalAdminToDoRemoteControl)"
+              $ConfigList += "Users can change policy or notification settings in Software Center: " + $(Convert-Bool2Text $AgentConfig.AllowClientChange)
+              $ConfigList += "Allow Remote Control of an unattended computer: " + $(Convert-Bool2Text $AgentConfig.AllowRemCtrlToUnattended)
+              $ConfigList += "Prompt user for Remote Control permission: " + $(Convert-Bool2Text $AgentConfig.PermissionRequired)
+              $ConfigList += "Prompt user for permission to transfer content from shared clipboard: " + $(Convert-Bool2Text $AgentConfig.ClipboardAccessPermissionRequired)
+              $ConfigList += "Grant Remote Control permission to local Administrators group: " + $(Convert-Bool2Text $AgentConfig.AllowLocalAdminToDoRemoteControl)
               switch ($AgentConfig.AccessLevel)
               {
                 0 { $accesslevel = 'No access' }
@@ -4206,8 +4191,8 @@ If ($ListAllInformation){
               } Else {
                 $ConfigList += "Permitted viewers of Remote Control and Remote Assistance: None"
               }
-              $ConfigList += "Show session notification icon on taskbar: $($AgentConfig.RemCtrlTaskbarIcon)"
-              $ConfigList += "Show session connection bar: $($AgentConfig.RemCtrlConnectionBar)"
+              $ConfigList += "Show session notification icon on taskbar: " + $(Convert-Bool2Text $AgentConfig.RemCtrlTaskbarIcon)
+              $ConfigList += "Show session connection bar: " + $(Convert-Bool2Text $AgentConfig.RemCtrlConnectionBar)
               Switch ($AgentConfig.AudibleSignal)
               {
                 0 { $ClientSound = 'None.' }
@@ -4215,27 +4200,27 @@ If ($ListAllInformation){
                 2 { $ClientSound = 'Repeatedly during session.' }
               }
               $ConfigList += "Play a sound on client: $ClientSound"
-              $ConfigList += "Manage unsolicited Remote Assistance settings: $($AgentConfig.ManageRA)"
-              $ConfigList += "Manage solicited Remote Assistance settings: $($AgentConfig.EnforceRAandTSSettings)"
+              $ConfigList += "Manage unsolicited Remote Assistance settings: " + $(Convert-Bool2Text $AgentConfig.ManageRA)
+              $ConfigList += "Manage solicited Remote Assistance settings: " + $(Convert-Bool2Text $AgentConfig.EnforceRAandTSSettings)
               #Level of access for Remote Assistance:
-              if (($AgentConfig.AllowRAUnsolicitedView -ne 'True') -and ($AgentConfig.AllowRAUnsolicitedControl -ne 'True'))
+              if (($AgentConfig.AllowRAUnsolicitedView -notin @('True',1)) -and ($AgentConfig.AllowRAUnsolicitedControl -notin @('True',1)))
               {
                 $RALevel = 'None'
               }
-              elseif (($AgentConfig.AllowRAUnsolicitedView -eq 'True') -and ($AgentConfig.AllowRAUnsolicitedControl -ne 'True'))
+              elseif (($AgentConfig.AllowRAUnsolicitedView -in @('True',1)) -and ($AgentConfig.AllowRAUnsolicitedControl -notin @('True',1)))
               {
                 $RALevel = 'Remote viewing'
               }
-              elseif (($AgentConfig.AllowRAUnsolicitedView -eq 'True') -and ($AgentConfig.AllowRAUnsolicitedControl -eq 'True'))
+              elseif (($AgentConfig.AllowRAUnsolicitedView -in @('True',1)) -and ($AgentConfig.AllowRAUnsolicitedControl -in @('True',1)))
               {
                 $RALevel = 'Full Control'
               }
               $ConfigList += "Level of access for Remote Assistance: $RALevel"
-              $ConfigList += "Manage Remote Desktop settings: $($AgentConfig.ManageTS)"
-              if ($AgentConfig.ManageTS -eq 'True')
+              $ConfigList += "Manage Remote Desktop settings: " + $(Convert-Bool2Text $AgentConfig.ManageTS)
+              if ($AgentConfig.ManageTS -in @('True',1))
               {
-                $ConfigList += "Allow permitted viewers to connect by using Remote Desktop connection: $($AgentConfig.EnableTS)"
-                $ConfigList += "Require network level authentication on computers that run Windows Vista operating system and later versions: $($AgentConfig.TSUserAuthentication)"
+                $ConfigList += "Allow permitted viewers to connect by using Remote Desktop connection: " + $(Convert-Bool2Text $AgentConfig.EnableTS)
+                $ConfigList += "Require network level authentication on computers that run Windows Vista operating system and later versions: " + $(Convert-Bool2Text $AgentConfig.TSUserAuthentication)
               }
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
@@ -4250,19 +4235,25 @@ If ($ListAllInformation){
               }
             }
             4{
-              $KnownProps = @("AddPortalToTrustedSiteList","AgentID","AllowPortalToHaveElevatedTrust","BrandingTitle","DayReminderInterval","DisplayNewProgramNotification","EnableHealthAttestation","EnableThirdPartyOrchestration","GracePeriodHours","HourReminderInterval","InstallRestriction","OnPremHAServiceUrl","OSDBrandingSubTitle","PortalUrl","PowerShellExecutionPolicy","PSComputerName","PSShowComputerName","ReminderInterval","SmsProviderObjectPath","SUMBrandingSubTitle","SuspendBitLocker","SWDBrandingSubTitle","SystemRestartTurnaroundTime","UseNewSoftwareCenter","UseOnPremHAService")
+              $KnownProps = @("AddPortalToTrustedSiteList","AgentID","AllowPortalToHaveElevatedTrust","BrandingTitle","DayReminderInterval","DisplayNewProgramNotification","EnableHealthAttestation","EnableThirdPartyOrchestration","GracePeriodHours","HourReminderInterval","InstallRestriction","OnPremHAServiceUrl","OSDBrandingSubTitle","PortalUrl","PowerShellExecutionPolicy","PSComputerName","PSShowComputerName","ReminderInterval","SmsProviderObjectPath","SUMBrandingSubTitle","SuspendBitLocker","SWDBrandingSubTitle","SystemRestartTurnaroundTime","UseNewSoftwareCenter","UseOnPremHAService","DevicesHealthCollectionEnabled")
               $Config = 'Computer Agent'
               $ConfigList = @()
-              $ConfigList += "Deployment deadline greater than 24 hours, remind user every (hours): $([string]($AgentConfig.ReminderInterval) / 60 / 60)"
-              $ConfigList += "Deployment deadline less than 24 hours, remind user every (hours): $([string]($AgentConfig.DayReminderInterval) / 60 / 60)"
-              $ConfigList += "Deployment deadline less than 1 hour, remind user every (minutes): $([string]($AgentConfig.HourReminderInterval) / 60)"
+              If ($Default){
+                $ConfigList += "Deployment deadline greater than 24 hours, remind user every (hours): $([string]($AgentConfig.ReminderInterval))"
+                $ConfigList += "Deployment deadline less than 24 hours, remind user every (hours): $([string]($AgentConfig.DayReminderInterval))"
+                $ConfigList += "Deployment deadline less than 1 hour, remind user every (minutes): $([string]($AgentConfig.HourReminderInterval))"  
+              } Else {
+                $ConfigList += "Deployment deadline greater than 24 hours, remind user every (hours): $([string]($AgentConfig.ReminderInterval) / 60 / 60)"
+                $ConfigList += "Deployment deadline less than 24 hours, remind user every (hours): $([string]($AgentConfig.DayReminderInterval) / 60 / 60)"
+                $ConfigList += "Deployment deadline less than 1 hour, remind user every (minutes): $([string]($AgentConfig.HourReminderInterval) / 60)"  
+              }
               $ConfigList += "Default application catalog website point: $($AgentConfig.PortalUrl)"
-              $ConfigList += "Add default Application Catalog website to Internet Explorer trusted sites zone: $($AgentConfig.AddPortalToTrustedSiteList)"
-              $ConfigList += "Allow Silverlight applications to run in elevated trust mode: $($AgentConfig.AllowPortalToHaveElevatedTrust)"
+              $ConfigList += "Add default Application Catalog website to Internet Explorer trusted sites zone: " + $(Convert-Bool2Text $AgentConfig.AddPortalToTrustedSiteList)
+              $ConfigList += "Allow Silverlight applications to run in elevated trust mode: " + $(Convert-Bool2Text $AgentConfig.AllowPortalToHaveElevatedTrust)
               $ConfigList += "Organization name displayed in Software Center: $($AgentConfig.BrandingTitle)"
-              $ConfigList += "Use New Software Center: $($AgentConfig.UseNewSoftwareCenter)"
-              $ConfigList += "Enable communication with Health Attestation Service: $($AgentConfig.EnableHealthAttestation)"
-              $ConfigList += "Use on-premises Health Attestation Service: $($AgentConfig.UseOnPremHAService)"
+              $ConfigList += "Use New Software Center: " + $(Convert-Bool2Text $AgentConfig.UseNewSoftwareCenter)
+              $ConfigList += "Enable communication with Health Attestation Service: " + $(Convert-Bool2Text $AgentConfig.EnableHealthAttestation)
+              $ConfigList += "Use on-premises Health Attestation Service: " + $(Convert-Bool2Text $AgentConfig.UseOnPremHAService)
               switch ($AgentConfig.InstallRestriction)
               {
                 0 { $InstallRestriction = 'All Users' }
@@ -4293,7 +4284,9 @@ If ($ListAllInformation){
               switch ($AgentConfig.DisplayNewProgramNotification)
               {
                 False { $DisplayNotifications = 'No' }
+                0 { $DisplayNotifications = 'No' }
                 True { $DisplayNotifications = 'Yes' }
+                1 { $DisplayNotifications = 'Yes' }
               }
               $ConfigList += "Show notifications for new deployments: $($DisplayNotifications)"
               #The deadline randomization setting now appears in AgentID 25.  But since in GUI under 'Computer Agent', we will loop the config to find agent 25 and get the setting here.
@@ -4308,6 +4301,12 @@ If ($ListAllInformation){
               }
               $ConfigList += "Disable deadline randomization: $($DisableGlobalRandomization)"
               $ConfigList += "Grace period for enforcement after deployment deadline (hours): $($AgentConfig.GracePeriodHours)"
+              switch ($AgentConfig.DevicesHealthCollectionEnabled) {
+                    '1' {$EndPointAnalytics = "Yes"}
+                    '0' {$EndPointAnalytics = "No"}
+                    Default {$EndPointAnalytics = "Yes"}
+              }
+              $ConfigList += "Enable Endpoint Analytics data collection: " + $EndPointAnalytics
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
                   $UnknownProps = @()
@@ -4341,47 +4340,9 @@ If ($ListAllInformation){
               $KnownProps = @("AgentID","DataCollectionSchedule","Enabled","LastUpdateTimeOfRules","MaximumUsageInstancesPerReport","MeterRuleIDList","MRUAgeLimitInDays","MRURefreshInMinutes","PSComputerName","PSShowComputerName","ReportTimeout","SmsProviderObjectPath")
               $Config = 'Software Metering'
               $ConfigList = @()
-              $ConfigList += "Enable software metering on clients: $($AgentConfig.Enabled)"
+              $ConfigList += "Enable software metering on clients: " + $(Convert-Bool2Text $AgentConfig.Enabled)
               $Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.DataCollectionSchedule
-              if ($Schedule.DaySpan -gt 0)
-              {
-                $DCSched = " Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.HourSpan -gt 0)
-              {
-                $DCSched = " Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.MinuteSpan -gt 0)
-              {
-                $DCSched = " Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.ForNumberOfWeeks)
-              {
-                $DCSched = " Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.ForNumberOfMonths)
-              {
-                if ($Schedule.MonthDay -gt 0)
-                {
-                  $DCSched = " Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-                }
-                elseif ($Schedule.MonthDay -eq 0)
-                {
-                  $DCSched = " Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-                }
-                elseif ($Schedule.WeekOrder -gt 0)
-                {
-                  switch ($Schedule.WeekOrder)
-                  {
-                    0 {$order = 'last'}
-                    1 {$order = 'first'}
-                    2 {$order = 'second'}
-                    3 {$order = 'third'}
-                    4 {$order = 'fourth'}
-                  }
-                  $DCSched = " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-                }
-              }
+              $DCSched = Get-HumanReadableSchedule -Schedule $Schedule
               $ConfigList += "Schedule data collection: $DCSched"
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
@@ -4399,90 +4360,14 @@ If ($ListAllInformation){
               $KnownProps = @("AgentID","AlternateContentProviders","AssignmentBatchingTimeout","BrandingSubTitle","BrandingTitle","ContentDownloadTimeout","ContentLocationTimeout","DayReminderInterval","Enabled","EnableExpressUpdates","EvaluationSchedule","ExpressUpdatesPort","HourReminderInterval","MaxRandomDelayMinutes","MaxScanRetryCount","O365Management","PerDPInactivityTimeout","PSComputerName","PSShowComputerName","ReminderInterval","ScanRetryDelay","ScanSchedule","SmsProviderObjectPath","TotalInactivityTimeout","UpdateStatusRefreshIntervalDays","UserExperience","UserJobPerDPInactivityTimeout","UserJobTotalInactivityTimeout","WSUSLocationTimeout","WSUSScanRetryCodes","WUAMaxRebootsWhenOnInternet","WUASuccessCodes","WUfBEnabled","EnableThirdPartyUpdates","ServiceWindowManagement","NEOPriorityOption","DynamicUpdateOption")
               $Config = 'Software Updates'
               $ConfigList = @()
-              $ConfigList += "Enable software updates on clients: $($AgentConfig.Enabled)"
+              $ConfigList += "Enable software updates on clients: " + $(Convert-Bool2Text $AgentConfig.Enabled)
               ##Software Update scan schedule:
               $Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.ScanSchedule
-              if ($Schedule.DaySpan -gt 0)
-              {
-                $SoftScanSched = " Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.HourSpan -gt 0)
-              {
-                $SoftScanSched = " Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.MinuteSpan -gt 0)
-              {
-                $SoftScanSched = " Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.ForNumberOfWeeks)
-              {
-                $SoftScanSched = " Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.ForNumberOfMonths)
-              {
-                if ($Schedule.MonthDay -gt 0)
-                {
-                  $SoftScanSched = " Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-                }
-                elseif ($Schedule.MonthDay -eq 0)
-                {
-                  $SoftScanSched = " Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-                }
-                elseif ($Schedule.WeekOrder -gt 0)
-                {
-                  switch ($Schedule.WeekOrder)
-                  {
-                    0 {$order = 'last'}
-                    1 {$order = 'first'}
-                    2 {$order = 'second'}
-                    3 {$order = 'third'}
-                    4 {$order = 'fourth'}
-                  }
-                  $SoftScanSched = " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-                }
-              }
+              $SoftScanSched = Get-HumanReadableSchedule -Schedule $Schedule
               $ConfigList += "Software Update scan schedule: $SoftScanSched"
               ##Schedule deployment re-evaluation:
               $Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.EvaluationSchedule
-              if ($Schedule.DaySpan -gt 0)
-              {
-                $SoftReevalSched = " Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.HourSpan -gt 0)
-              {
-                $SoftReevalSched = " Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.MinuteSpan -gt 0)
-              {
-                $SoftReevalSched = " Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.ForNumberOfWeeks)
-              {
-                $SoftReevalSched = " Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.ForNumberOfMonths)
-              {
-                if ($Schedule.MonthDay -gt 0)
-                {
-                  $SoftReevalSched = " Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-                }
-                elseif ($Schedule.MonthDay -eq 0)
-                {
-                  $SoftReevalSched = " Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-                }
-                elseif ($Schedule.WeekOrder -gt 0)
-                {
-                  switch ($Schedule.WeekOrder)
-                  {
-                    0 {$order = 'last'}
-                    1 {$order = 'first'}
-                    2 {$order = 'second'}
-                    3 {$order = 'third'}
-                    4 {$order = 'fourth'}
-                  }
-                  $SoftReevalSched = " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-                }
-              }
+              $SoftReevalSched = Get-HumanReadableSchedule -Schedule $Schedule
               $ConfigList += "Schedule deployment re-evaluation: $SoftReevalSched"
               if ($AgentConfig.AssignmentBatchingTimeout -eq '0')
               {
@@ -4506,7 +4391,7 @@ If ($ListAllInformation){
               }
               if($AgentConfig.EnableExpressUpdates -eq $False)
               {
-                  $ConfigList += "Allow clients to download delta content when available (Enable installation of Express installation files on clients - Before 1902): No"
+                  $ConfigList += "Allow clients to download delta content when available (`"Enable installation of Express installation files on clients`" - Before 1902): No"
               }
               else
               {
@@ -4560,7 +4445,7 @@ If ($ListAllInformation){
               $KnownProps = @("AgentID","AllowUserAffinity","AllowUserAffinityAfterMinutes","AutoApproveAffinity","ConsoleMinutes","IntervalDays","PSComputerName","PSShowComputerName","SmsProviderObjectPath")
               $Config = 'User and Device Affinity'
               $ConfigList = @()
-              if ($ClientSetting.Type -eq '1'){
+              if ($Default -or $ClientSetting.Type -eq '1'){
                   $ConfigList += "User device affinity usage threshold (minutes): $($AgentConfig.ConsoleMinutes)"
                   $ConfigList += "User device affinity usage threshold (days): $($AgentConfig.IntervalDays)"
                   if ($AgentConfig.AutoApproveAffinity -eq '0')
@@ -4580,6 +4465,14 @@ If ($ListAllInformation){
                   }
                   $ConfigList += "Allow user to define their primary devices: $UserDefinedAffinity"
               }
+              IF ($Default){
+                IF ($($AgentConfig.AllowUserAffinity) -eq '1'){
+                    $UserDefinedAffinity = 'Yes'
+                  }Else{
+                    $UserDefinedAffinity = 'No'
+                  }
+                  $ConfigList += "User Setting:  Allow user to define their primary devices: $UserDefinedAffinity"
+              }
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
                   $UnknownProps = @()
@@ -4596,11 +4489,11 @@ If ($ListAllInformation){
               $KnownProps = @("AgentID","ApplyToAllClients","EnableBitsMaxBandwidth","EnableDownloadOffSchedule","MaxBandwidthValidFrom","MaxBandwidthValidTo","MaxTransferRateOffSchedule","MaxTransferRateOnSchedule","PSComputerName","PSShowComputerName","SmsProviderObjectPath")
               $Config = 'Background Intelligent Transfer'
               $ConfigList = @()
-              $ConfigList += "Limit the maximum network bandwidth for BITS background transfers: $($AgentConfig.EnableBitsMaxBandwidth)"
+              $ConfigList += "Limit the maximum network bandwidth for BITS background transfers: " + $(Convert-Bool2Text $AgentConfig.EnableBitsMaxBandwidth)
               $ConfigList += "Throttling window start time (24hr): $($AgentConfig.MaxBandwidthValidFrom):00"
               $ConfigList += "Throttling window end time (24hr): $($AgentConfig.MaxBandwidthValidTo):00"
               $ConfigList += "Maximum transfer rate during throttling window (kbps): $($AgentConfig.MaxTransferRateOnSchedule)"
-              $ConfigList += "Allow BITS downloads outside the throttling window: $($AgentConfig.EnableDownloadOffSchedule)"
+              $ConfigList += "Allow BITS downloads outside the throttling window: " + $(Convert-Bool2Text $AgentConfig.EnableDownloadOffSchedule)
               $ConfigList += "Maximum transfer rate outside the throttling window (Kbps): $($AgentConfig.MaxTransferRateOffSchedule)"
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
@@ -4618,7 +4511,7 @@ If ($ListAllInformation){
               $KnownProps = @("AgentID","DeviceEnrollmentProfileID","EnableDeviceEnrollment","EnableFileCollection","EnableHardwareInventory","EnableModernDeviceEnrollment","EnableSoftwareDistribution","EnableSoftwareInventory","FailureRetryCount","FailureRetryInterval","FileCollectionExcludeCompressed","FileCollectionExcludeEncrypted","FileCollectionFilter","FileCollectionInterval","FileCollectionPath","FileCollectionSubdirectories","HardwareInventoryInterval","MDMPollInterval","ModernDeviceEnrollmentProfileID","PollingInterval","PollServer","PSComputerName","PSShowComputerName","SmsProviderObjectPath","SoftwareInventoryExcludeCompressed","SoftwareInventoryExcludeEncrypted","SoftwareInventoryFilter","SoftwareInventoryInterval","SoftwareInventoryPath","SoftwareInventorySubdirectories")
               $Config = 'Enrollment'
               $ConfigList = @()
-              if ($ClientSetting.Type -eq '1'){
+              if ($Default -or $ClientSetting.Type -eq '1'){
                   $ConfigList += "Polling interval for modern devices (minutes): $($AgentConfig.MDMPollInterval)"
               } Else {
                   If ($AgentConfig.EnableDeviceEnrollment -eq '1'){
@@ -4627,7 +4520,7 @@ If ($ListAllInformation){
                     $MacDEName = (Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -Query "Select * from SMS_DeviceEnrollmentProfile where ProfileID = `'$($AgentConfig.DeviceEnrollmentProfileID)`'" -ComputerName $SMSProvider).Name
                     $ConfigList += "Enrollment Profile: $MacDEName (ID: $MacDEID)"
                   }else{
-                    $ConfigList += 'Allow users to enroll mobile devices and Mac computers: Yes'
+                    $ConfigList += 'Allow users to enroll mobile devices and Mac computers: No'
                   }
                   If ($AgentConfig.EnableModernDeviceEnrollment -eq '1'){
                     $ConfigList += "Allow users to enroll modern devices: Yes"
@@ -4635,6 +4528,23 @@ If ($ListAllInformation){
                     $ConfigList += "Modern device enrollment profile: $ModernDEID"
                   }else{
                     $ConfigList += "Allow users to enroll modern devices: No"
+                  }
+              }
+              IF ($Default){
+                If ($AgentConfig.EnableDeviceEnrollment -eq '1'){
+                    $ConfigList += 'User Setting: Allow users to enroll mobile devices and Mac computers: Yes'
+                    $MacDEID = "$($AgentConfig.DeviceEnrollmentProfileID)"
+                    $MacDEName = (Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -Query "Select * from SMS_DeviceEnrollmentProfile where ProfileID = `'$($AgentConfig.DeviceEnrollmentProfileID)`'" -ComputerName $SMSProvider).Name
+                    $ConfigList += "User Setting: Enrollment Profile: $MacDEName (ID: $MacDEID)"
+                  }else{
+                    $ConfigList += 'User Setting: Allow users to enroll mobile devices and Mac computers: No'
+                  }
+                  If ($AgentConfig.EnableModernDeviceEnrollment -eq '1'){
+                    $ConfigList += "User Setting: Allow users to enroll modern devices: Yes"
+                    $ModernDEID = "$($AgentConfig.ModernDeviceEnrollmentProfileID)"
+                    $ConfigList += "User Setting: Modern device enrollment profile: $ModernDEID"
+                  }else{
+                    $ConfigList += "User Setting: Allow users to enroll modern devices: No"
                   }
               }
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
@@ -4654,8 +4564,9 @@ If ($ListAllInformation){
               $Config = 'Client Policy'
               $ConfigList = @()
               $ConfigList += "Client policy polling interval (minutes): $($AgentConfig.PolicyRequestAssignmentTimeout)"
-              $ConfigList += "Enable user policy on clients: $($AgentConfig.PolicyEnableUserPolicyPolling)"
-              $ConfigList += "Enable user policy requests from Internet clients: $($AgentConfig.PolicyEnableUserPolicyOnInternet)"
+              $ConfigList += "Enable user policy on clients: " + $(Convert-Bool2Text $AgentConfig.PolicyEnableUserPolicyPolling)
+              $ConfigList += "Enable user policy requests from Internet clients: " + $(Convert-Bool2Text $AgentConfig.PolicyEnableUserPolicyOnInternet)
+              $ConfigList += "Enable user policy for multiple user sessions: " + $(Convert-Bool2Text $AgentConfig.PolicyEnableUserPolicyOnTS)
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
                   $UnknownProps = @()
@@ -4672,48 +4583,21 @@ If ($ListAllInformation){
               $KnownProps = @("AgentID","Enabled","InventoryReportID","LastUpdateTime","Max3rdPartyMIFSize","MaxRandomDelayMinutes","MIFCollection","ProviderTimeout","PSComputerName","PSShowComputerName","Schedule","SmsProviderObjectPath")
               $Config = 'Hardware Inventory'
               $ConfigList = @()
-              $ConfigList += "Enable hardware inventory on clients: $($AgentConfig.Enabled)"
+              $ConfigList += "Enable hardware inventory on clients: " + $(Convert-Bool2Text $AgentConfig.Enabled)
               $Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.Schedule
-              if ($Schedule.DaySpan -gt 0)
-              {
-                $ConfigList += "Hardware inventory schedule: Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.HourSpan -gt 0)
-              {
-                $ConfigList += "Hardware inventory schedule: Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.MinuteSpan -gt 0)
-              {
-                $ConfigList += "Hardware inventory schedule: Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.ForNumberOfWeeks)
-              {
-                $ConfigList += "Hardware inventory schedule: Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.ForNumberOfMonths)
-              {
-                if ($Schedule.MonthDay -gt 0)
-                {
-                  $ConfigList += "Hardware inventory schedule: Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-                }
-                elseif ($Schedule.MonthDay -eq 0)
-                {
-                  $ConfigList += "Hardware inventory schedule: Occurs on last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-                }
-                elseif ($Schedule.WeekOrder -gt 0)
-                {
-                  switch ($Schedule.WeekOrder)
-                  {
-                    0 {$order = 'last'}
-                    1 {$order = 'first'}
-                    2 {$order = 'second'}
-                    3 {$order = 'third'}
-                    4 {$order = 'fourth'}
-                  }
-                  $ConfigList += "Hardware inventory schedule: Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-                }
-              }
+              $HardwareInvSched = Get-HumanReadableSchedule -Schedule $Schedule
+              $ConfigList += "Hardware inventory schedule: $HardwareInvSched"
               $ConfigList += "Maximum random delay (minutes): $($AgentConfig.MaxRandomDelayMinutes)"
+              IF ($Default){
+                $ConfigList += "Maximum custom MIF file size (KB): $($AgentConfig.Max3rdPartyMIFSize)"
+                switch ($AgentConfig.MIFCollection) {
+                    0 { $MIFfiles = 'None' }
+                    4 { $MIFfiles = 'Collect NOIDMIF files' }
+                    8 { $MIFfiles = 'Collect IDMIF files' }
+                    12 { $MIFfiles = 'Collect IDMIF and NOIDMIF files' }
+                }
+                $ConfigList += "Collect MIF files: $MIFfiles"
+              }
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
                   $UnknownProps = @()
@@ -4748,45 +4632,8 @@ If ($ListAllInformation){
               $Config = 'Software Deployment'
               $ConfigList = @()
               $Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.EvaluationSchedule
-              if ($Schedule.DaySpan -gt 0)
-              {
-                $ConfigList += "Schedule re-evaluation for deployments: Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.HourSpan -gt 0)
-              {
-                $ConfigList += "Schedule re-evaluation for deployments: Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.MinuteSpan -gt 0)
-              {
-                $ConfigList += "Schedule re-evaluation for deployments: Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.ForNumberOfWeeks)
-              {
-                $ConfigList += "Schedule re-evaluation for deployments: Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
-              }
-              elseif ($Schedule.ForNumberOfMonths)
-              {
-                if ($Schedule.MonthDay -gt 0)
-                {
-                  $ConfigList += "Schedule re-evaluation for deployments: Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-                }
-                elseif ($Schedule.MonthDay -eq 0)
-                {
-                  $ConfigList += "Schedule re-evaluation for deployments: Occurs on last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-                }
-                elseif ($Schedule.WeekOrder -gt 0)
-                {
-                  switch ($Schedule.WeekOrder)
-                  {
-                    0 {$order = 'last'}
-                    1 {$order = 'first'}
-                    2 {$order = 'second'}
-                    3 {$order = 'third'}
-                    4 {$order = 'fourth'}
-                  }
-                  $ConfigList += "Schedule re-evaluation for deployments: Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
-                }
-              }
+              $AgentEvalSched = Get-HumanReadableSchedule -Schedule $Schedule
+              $ConfigList += "Schedule re-evaluation for deployments: $AgentEvalSched"
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
                   $UnknownProps = @()
@@ -4803,8 +4650,8 @@ If ($ListAllInformation){
               $KnownProps = @("AgentID","AllowUserToOptOutFromPowerPlan","Enabled","EnableP2PWakeupSolution","EnableUserIdleMonitoring","EnableWakeupProxy","MaxCPU","MaxMachinesPerManager","MinimumServersNeeded","NumOfDaysToKeep","NumOfMonthsToKeep","Port","PSComputerName","PSShowComputerName","SmsProviderObjectPath","WakeupProxyDirectAccessPrefixList","WakeupProxyFirewallFlags","WolPort","AllowWakeup")
               $Config = 'Power Management'
               $ConfigList = @()
-              $ConfigList += "Allow power management of clients: $($AgentConfig.Enabled)"
-              $ConfigList += "Allow users to exclude their device from power management: $($AgentConfig.AllowUserToOptOutFromPowerPlan)"
+              $ConfigList += "Allow power management of clients: " + $(Convert-Bool2Text $AgentConfig.Enabled)
+              $ConfigList += "Allow users to exclude their device from power management: " + $(Convert-Bool2Text $AgentConfig.AllowUserToOptOutFromPowerPlan)
               #AllowWakeup: 0 = Not Configured; 1 = Enabled; 2 = Disabled
               switch ($AgentConfig.AllowWakeup) {
                 0 { $Wakeup = 'Not Configured' }
@@ -4812,7 +4659,7 @@ If ($ListAllInformation){
                 2 { $Wakeup = 'Disabled' }
               }
               $ConfigList += "Allow network wake-up: $Wakeup"
-              $ConfigList += "Enable wake-up proxy: $($AgentConfig.EnableWakeupProxy)"
+              $ConfigList += "Enable wake-up proxy: " + $(Convert-Bool2Text $AgentConfig.EnableWakeupProxy)
               $ConfigList += "Wake On LAN port number (UDP): $($AgentConfig.WolPort)"
               if ($AgentConfig.EnableWakeupProxy -eq 'True')
               {
@@ -4853,18 +4700,18 @@ If ($ListAllInformation){
               $KnownProps = @("AgentID","DisableFirstSignatureUpdate","EnableBlueProvider","EnableEP","ForceRebootPeriod","InstallRetryPeriod","InstallSCEPClient","LicenseAgreed","OverrideMaintenanceWindow","PersistInstallation","PolicyEnforcePeriod","PSComputerName","PSShowComputerName","Remove3rdParty","SmsProviderObjectPath","SuppressReboot")
               $Config = 'Endpoint Protection'
               $ConfigList = @()
-              $ConfigList += "Manage Endpoint Protection client on client computers: $($AgentConfig.EnableEP)"
-              $ConfigList += "Install Endpoint Protection client on client computers: $($AgentConfig.InstallSCEPClient)"
+              $ConfigList += "Manage Endpoint Protection client on client computers: " + $(Convert-Bool2Text $AgentConfig.EnableEP)
+              $ConfigList += "Install Endpoint Protection client on client computers: " + $(Convert-Bool2Text $AgentConfig.InstallSCEPClient)
               #$ConfigList += "Automatically remove previously installed antimalware software before Endpoint Protection is installed: $($AgentConfig.Remove3rdParty)"
-              $ConfigList += "Allow Endpoint Protection client installation and restarts outside maintenance windows. Maintenance windows must be at least 30 minutes long for client installation: $($AgentConfig.OverrideMaintenanceWindow)"
-              $ConfigList += "For Windows Embedded devices with write filters, commit Endpoint Protection client installation (requires restart): $($AgentConfig.PersistInstallation)"
-              $ConfigList += "Suppress any required computer restarts after the Endpoint Protection client is installed: $($AgentConfig.SuppressReboot)"
+              $ConfigList += "Allow Endpoint Protection client installation and restarts outside maintenance windows. Maintenance windows must be at least 30 minutes long for client installation: " + $(Convert-Bool2Text $AgentConfig.OverrideMaintenanceWindow)
+              $ConfigList += "For Windows Embedded devices with write filters, commit Endpoint Protection client installation (requires restart): " + $(Convert-Bool2Text $AgentConfig.PersistInstallation)
+              $ConfigList += "Suppress any required computer restarts after the Endpoint Protection client is installed: " + $(Convert-Bool2Text $AgentConfig.SuppressReboot)
               If($AgentConfig.SuppressReboot -eq $false){
                 $ConfigList += "Allowed period of time users can postpone a required restart to complete the Endpoint Protection installation (hours): $($AgentConfig.ForceRebootPeriod)"
               }Else{
                 $ConfigList += "Allowed period of time users can postpone a required restart to complete the Endpoint Protection installation (hours): N/A"
               }
-              $ConfigList += "Disable alternate sources (such as Microsoft Windows Update, Microsoft Windows Server Update Services, or UNC shares) for the initial definition update on client computers: $($AgentConfig.DisableFirstSignatureUpdate)"
+              $ConfigList += "Disable alternate sources (such as Microsoft Windows Update, Microsoft Windows Server Update Services, or UNC shares) for the initial definition update on client computers: " + $(Convert-Bool2Text $AgentConfig.DisableFirstSignatureUpdate)
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
                   $UnknownProps = @()
@@ -4878,13 +4725,18 @@ If ($ListAllInformation){
               }
             }
             21{
-              $KnownProps = @("AgentID","PSComputerName","PSShowComputerName","RebootLogoffNotificationCountdownDuration","RebootLogoffNotificationFinalWindow","SmsProviderObjectPath","CountdownSnoozeInterval","RebootNotificationsDialog")
+              $KnownProps = @("AgentID","PSComputerName","PSShowComputerName","RebootLogoffNotificationCountdownDuration","RebootLogoffNotificationFinalWindow","SmsProviderObjectPath","CountdownSnoozeInterval","RebootNotificationsDialog","EnforceReboot")
               $Config = 'Computer Restart'
               $ConfigList = @()
+              $ConfigList += "Configuration Manager can force a device to restart: " + $(Convert-Bool2Text $AgentConfig.EnforceReboot)
               $ConfigList += "Display a temporary notification to the user that indicates the interval before the user is logged of or the computer restarts (minutes): $($AgentConfig.RebootLogoffNotificationCountdownDuration)"
-              $ConfigList += "Display a dialog box that the user cannot close, which displays the countdown interval before the user is logged of or the computer restarts (minutes): $([string]$AgentConfig.RebootLogoffNotificationFinalWindow / 60)"
+              if ($Default){
+                $ConfigList += "Display a dialog box that the user cannot close, which displays the countdown interval before the user is logged of or the computer restarts (minutes): $([string]$AgentConfig.RebootLogoffNotificationFinalWindow)"
+              } else {
+                $ConfigList += "Display a dialog box that the user cannot close, which displays the countdown interval before the user is logged of or the computer restarts (minutes): $([string]$AgentConfig.RebootLogoffNotificationFinalWindow / 60)"
+              }
               $ConfigList += "Specify the snooze suration for computer restart countdown notifications (minutes): $($AgentConfig.CountdownSnoozeInterval)"
-              $ConfigList += "When a deployment requires a restart, show a dialog windows to the user instead of a toast notification: $($AgentConfig.RebootNotificationsDialog)"
+              $ConfigList += "When a deployment requires a restart, show a dialog windows to the user instead of a toast notification: " + $(Convert-Bool2Text $AgentConfig.RebootNotificationsDialog)
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
                   $UnknownProps = @()
@@ -4901,9 +4753,9 @@ If ($ListAllInformation){
               $KnownProps = @("AADAuthFlags","AgentID","AllowCloudDP","AllowCMG","AutoAADJoin","AutoMDMEnrollment","CoManagementFlags","PSComputerName","PSShowComputerName","SmsProviderObjectPath")
               $Config = 'Cloud Services'
               $ConfigList = @()
-              $ConfigList += "Allow access to Cloud Distribution Point: $($AgentConfig.AllowCloudDP)"
-              $ConfigList += "Automatically register new Windows 10 domain joined devices with Azure Active Directory: $($AgentConfig.AutoAADJoin)"
-              $ConfigList += "Enable clients to use a cloud management gateway: $($AgentConfig.AllowCMG)"
+              $ConfigList += "Allow access to Cloud Distribution Point: " + $(Convert-Bool2Text $AgentConfig.AllowCloudDP)
+              $ConfigList += "Automatically register new Windows 10 domain joined devices with Azure Active Directory: " + $(Convert-Bool2Text $AgentConfig.AutoAADJoin)
+              $ConfigList += "Enable clients to use a cloud management gateway: " + $(Convert-Bool2Text $AgentConfig.AllowCMG)
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
                   $UnknownProps = @()
@@ -4946,10 +4798,10 @@ If ($ListAllInformation){
               $KnownProps = @("AgentID","BranchCacheEnabled","BroadcastPort","CachePartialContent","CanBeSuperPeer","ConfigureBranchCache","ConfigureCacheSize","HttpPort","HttpsEnabled","MaxAvgDiskQueueLength","MaxBranchCacheSizePercent","MaxCacheSizeMB","MaxCacheSizePercent","MaxConnectionCountOnClients","MaxConnectionCountOnServers","MaxPercentProcessorTime","PSComputerName","PSShowComputerName","RejectWhenBatteryLow","SmsProviderObjectPath","UsePartialSource")
               $Config = 'Client Cache Settings'
               $ConfigList = @()
-              $ConfigList += "Configure BranchCache: $($AgentConfig.ConfigureBranchCache)"
-              $ConfigList += "Enable BranchCache: $($AgentConfig.BranchCacheEnabled)"
+              $ConfigList += "Configure BranchCache: " + $(Convert-Bool2Text $AgentConfig.ConfigureBranchCache)
+              $ConfigList += "Enable BranchCache: " + $(Convert-Bool2Text $AgentConfig.BranchCacheEnabled)
               $ConfigList += "Maximum BranchCache cache size (percentage of disk): $($AgentConfig.MaxBranchCacheSizePercent)"
-              $ConfigList += "Configure client cache size: $($AgentConfig.ConfigureCacheSize)"
+              $ConfigList += "Configure client cache size: " + $(Convert-Bool2Text $AgentConfig.ConfigureCacheSize)
               $ConfigList += "Maximum cache size (MB): $($AgentConfig.MaxCacheSizeMB)"
               $ConfigList += "Maximum cache size (percentage of disk): $($AgentConfig.MaxCacheSizePercent)"
               #Client Cache duration appears in AgentID 6.  But since in GUI under 'Client cache settings', we will loop the config to find agent 6 and get the setting here.
@@ -4958,7 +4810,7 @@ If ($ListAllInformation){
                     $ConfigList += "Minimum duration before the client can remove cached content (minutes): $($AC.CacheTombstoneContentMinDuration/60)"
                 }
               }
-              $ConfigList += "Enable as peer cache source (Enable Configuration Manager client in full OS to share content - 1902 and earlier): $($AgentConfig.CanBeSuperPeer)"
+              $ConfigList += "Enable as peer cache source (Enable Configuration Manager client in full OS to share content - 1902 and earlier): " + $(Convert-Bool2Text $AgentConfig.CanBeSuperPeer)
               $ConfigList += "Port for initial network broadcast: $($AgentConfig.BroadcastPort)"
               $ConfigList += "Port for content download from peer: $($AgentConfig.HttpPort)"
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
@@ -5020,9 +4872,14 @@ If ($ListAllInformation){
               }
             }
             30{
-              $KnownProps = @("AgentID","PSComputerName","PSShowComputerName","SmsProviderObjectPath","SCBrandingColor","SCBrandingString","SCLogo","SCShowApplicationsTab","SCShowComplianceTab","SCShowInstallationTab","SCShowOptionsTab","SCShowOSDTab","SCShowUpdatesTab","SC_Old_Branding","SettingsXml")
+              $KnownProps = @("AgentID","PSComputerName","PSShowComputerName","SmsProviderObjectPath","SCBrandingColor","SCBrandingString","SCLogo","SCShowApplicationsTab","SCShowComplianceTab","SCShowInstallationTab","SCShowOptionsTab","SCShowOSDTab","SCShowUpdatesTab","SC_Old_Branding","SettingsXml","SC_UserPortal")
               $Config = 'Software Center'
               $ConfigList = @()
+              switch ($AgentConfig.SC_UserPortal) {
+                  0 { $UserPortal = 'Software Center' }
+                  1 { $UserPortal = 'Company Portal' }
+              }
+              $ConfigList += "Select the user portal: $UserPortal"
               If ($AgentConfig.SC_Old_Branding -eq 1){
                   $ConfigList += "Select these new settings to specify company information: Yes"
                   $SCBrand = ([xml]$AgentConfig.SettingsXml).settings
@@ -5106,7 +4963,7 @@ If ($ListAllInformation){
                 $WindowsDO = 'No'
               }
               $ConfigList += "Use Configuration Manager Boundary Groups for Delivery Optimization Group ID: $WindowsDO"
-              $ConfigList += "Enable devices managed by Configuration Manager to use Delivery Optimization In-Network Cacheeserver (Beta) for content download: $($AgentConfig.StampDOINC)"
+              $ConfigList += "Enable devices managed by Configuration Manager to use Delivery Optimization In-Network Cacheeserver (Beta) for content download: " + $(Convert-Bool2Text $AgentConfig.StampDOINC)
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
                   $UnknownProps = @()
@@ -5128,6 +4985,56 @@ If ($ListAllInformation){
 
       }
     }
+    Get-ClientSettingsConfigs -AgentConfigs $ClientSetting.AgentConfigurations
+    }
+
+    #Region Default Client Settings
+    Write-ProgressEx -CurrentOperation "Default Client Setting" -Activity 'Client Settings' -Status 'Building default client settings object' -Id 5
+    #These next lines build a client setting much like other custom clinet settings do with the AgentConfigurations property
+    $DefaultCS = @{}
+    $dc = (Get-CMClientSetting -Id 0)
+    $DefaultCS += @{Description = $dc.Description}
+    $DefaultCS += @{SettingsID = $dc.SettingsID}
+    $DefaultCS += @{Priority = $dc.Priority}
+    $DefaultCS += @{Name = $dc.Name}
+    $DCS = @() #Default Client settings
+    $DCS += (Get-CMClientSetting -Id 0 -Setting ComplianceSettings) + @{AgentID=1}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting SoftwareInventory) + @{AgentID=2}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting RemoteTools) + @{AgentID=3}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting ComputerAgent) + @{AgentID=4}
+    #5 -- NAP agent.  depricated.
+    #7 client cache duration setting?
+    $DCS += (Get-CMClientSetting -Id 0 -Setting SoftwareMetering) + @{AgentID=8}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting SoftwareUpdates) + @{AgentID=9}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting UserAndDeviceAffinity) + @{AgentID=10}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting BackgroundIntelligentTransfer) + @{AgentID=11}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting MobileDevice) + @{AgentID=12}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting ClientPolicy) + @{AgentID=13}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting HardwareInventory) + @{AgentID=15}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting StateMessaging) + @{AgentID=16}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting SoftwareDeployment) + @{AgentID=17}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting PowerManagement) + @{AgentID=18}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting EndpointProtection) + @{AgentID=20}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting ComputerRestart) + @{AgentID=21}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting Cloud) + @{AgentID=22}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting MeteredNetwork) + @{AgentID=23}
+    #25#The deadline randomization setting now appears in AgentID 25.  But since in GUI under 'Computer Agent' (4), we will loop that into configuration agent 4.
+    $DCS += (Get-CMClientSetting -Id 0 -Setting ClientCache) + @{AgentID=27}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting WindowsAnalytics) + @{AgentID=29}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting SoftwareCenter) + @{AgentID=30}
+    $DCS += (Get-CMClientSetting -Id 0 -Setting DeliveryOptimization) + @{AgentID=32}
+    $DefaultCS += @{AgentConfigurations = $DCS}
+    Write-ProgressEx -CurrentOperation "Default Client Setting" -Activity 'Client Settings' -Status 'Documenting default client settings' -Id 5
+    $SettingInfo = @()
+    $SettingInfo += "Client Settings Description: $($DefaultCS.Description)"
+    $SettingInfo += "Client Settings ID: $($DefaultCS.SettingsID)"
+    $SettingInfo += "Client Settings Priority: $($DefaultCS.Priority)"
+    $SettingDescription = 'This is default client Device Setting.  If no other client settings are assigned, these are used.'
+    Write-HTMLHeading -Level 3 -Text "Client Settings Name: $($DefaultCS.Name)" -File $FilePath
+    Write-HtmlList -InputObject $SettingInfo -Description $SettingDescription -Level 2 -File $FilePath
+    Get-ClientSettingsConfigs -AgentConfigs $DefaultCS.AgentConfigurations -Default
+    #EndRegion Default Client Settings
+
 }else{
     foreach ($ClientSetting in $AllClientSettings){
       Write-ProgressEx -CurrentOperation "Client Setting: $($ClientSetting.Name)" -Activity 'Client Settings' -Status 'Collecting basic settings' -Id 5
