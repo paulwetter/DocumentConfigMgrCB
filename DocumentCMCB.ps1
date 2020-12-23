@@ -2337,10 +2337,15 @@ foreach ($CMSite in $CMSites)
     $SiteUpdates = @()
     foreach ($SiteUpdate in $SiteUpdateHistory){
         Switch($SiteUpdate.State){
-            196612{$UpdateState = "Installed"}
-            262146{$UpdateState = "Ready to Install"}
-            131074{$UpdateState = 'Prerequisite check passed'}
-	    default{$UpdateState = "Other ($($SiteUpdate.State))"}
+              65538 { $UpdateState = 'Checking prerequisites' }
+             131074 { $UpdateState = 'Prerequisite check passed'}
+             131075 { $UpdateState = 'Prerequisite check passed with warnings' }
+             196607 { $UpdateState = 'Prerequisite check failed' }
+             196609 { $UpdateState = 'Installing' }
+             196612 { $UpdateState = 'Installed' }
+             262146 { $UpdateState = 'Ready to Install' }
+             327682 { $UpdateState = 'Available to Download' }
+            default { $UpdateState = "Other ($($SiteUpdate.State))" }
         }
         If($UpdateState -eq "Installed"){
             $InstalledDate = $SiteUpdate.LastUpdateTime
