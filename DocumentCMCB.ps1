@@ -3677,9 +3677,9 @@ if ($DMADUD.DiscoveryState -eq "Enabled") {
     $UserDiscoverySettings += "Search Containers:"
     Write-HtmlList -Description "Active Directory System Discovery is currently enabled with the following settings:" -InputObject $UserDiscoverySettings -Level 3 -File $FilePath
     Write-HtmlTable -InputObject $DMADUD.ActiveDirectoryContainers -Level 4 -File $FilePath
-    Write-HtmlList -Description "The following addtional attributes are synced from AD:" -InputObject $DMADUD.ActiveDirectoryAttributes -Level 3 -File $FilePath
+    Write-HtmlList -Description "The following additional attributes are synced from AD:" -InputObject $DMADUD.ActiveDirectoryAttributes -Level 3 -File $FilePath
 }else{
-    Write-HTMLParagraph -Text "Active Directory System Discovery is currently disabled." -Level 3 -File $FilePath
+    Write-HTMLParagraph -Text "Active Directory User Discovery is currently disabled." -Level 3 -File $FilePath
 }
 
 Write-ProgressEx -CurrentOperation "Enumerating Network Discovery Method" -Activity 'Discovery Method' -Status 'Collecting settings' -Id 4
@@ -5768,7 +5768,7 @@ if ($EdgeBrowser.count -gt 0) {
     $EdgeBrowser = $EdgeBrowser | Select-Object 'Name','Modified By','Modified','Deployed'
     Write-HtmlTable -InputObject $EdgeBrowser -Border 1 -Level 4 -File $FilePath
 }else{
-    Write-HTMLParagraph -Text 'No Windows 10 Edition Upgrades defined in site.' -Level 4 -File $FilePath
+    Write-HTMLParagraph -Text 'Microsoft Edge Browser Profiles defined in site.' -Level 4 -File $FilePath
 }
 Write-ProgressEx -CurrentOperation 'Completed Configuration Policies'
 #endregion enumerating Configuration Policies
