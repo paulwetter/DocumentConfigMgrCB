@@ -2317,6 +2317,51 @@ Function Get-pwCMManagementPoints {
     Write-ProgressEx -CurrentOperation "Complete" -Activity "Management Points" -Status "Complete" -Id 2 -Completed
 }
 
+Function Get-pwCMSiteServicingUpdates {
+    <#
+    .SYNOPSIS
+    Gets the Details of a ConfigMgr Site Servicing Updates
+    .PARAMETER SiteCode
+    Your SCCM Site code (MMS).
+    .PARAMETER FilePath
+    This is the path of the documentation file.    
+    .EXAMPLE
+    Get-pwCMSiteServicingUpdates -SiteCode 'MMS' -FilePath 'C:\Documents\CMDocumentation.html'
+    .NOTES
+    ========== Change Log History ==========
+    - 2021/01/22 by Chad@ChadsTech.net / Chad.Simmons@CatapultSystems.com - Moved to function, updated sort, scopped to SiteCode
+    - 2018/03/07 by Paul Wetter - Created
+    === To Do / Proposed Changes ===
+    #>
+    param (
+        [Parameter()][ValidateNotNullOrEmpty()][string]$SiteCode = $CMSite.SiteCode,
+        [Parameter()][ValidateNotNullOrEmpty()][string]$FilePath = $FilePath
+    )
+    Write-ProgressEx -CurrentOperation 'Enumerating Configuration Manager Update Status and History'
+    Write-HTMLHeading -Text 'Update Status and History' -Level 3 -File $FilePath
+    Write-HTMLParagraph -Text 'Below is a history of updates that have been made available to this Site.  It includes information for if, or when, they were installed.  Some older updates may be listed as ready to install, however, they were never installed nor will they be available to install as they are superseded by the newer updates.' -Level 3 -File $FilePath
+    $SiteUpdateHistory = Get-CMSiteUpdateHistory | Where-Object { $_.ManagedObject -like "*\root\sms\site_$($CMSite.SiteCode)`:SMS_CM_UpdatePackagesHistory*"} | Sort-Object FullVersion | Select-Object Name, @{N='Version'; E={$_.FullVersion}}, State, @{N='Installed Date'; E={$_.LastUpdateTime}}, @{N='Release Date'; E={$_.DateReleased}}
+    If (-not [string]::IsNullOrEmpty($SiteUpdateHistory)) {
+        ForEach ($SiteUpdate in $SiteUpdateHistory) {
+            Switch ($SiteUpdate.State) {
+                65538 { $SiteUpdate.State = 'Checking prerequisites' }
+               131074 { $SiteUpdate.State = 'Prerequisite check passed'}
+               131075 { $SiteUpdate.State = 'Prerequisite check passed with warnings' }
+               196607 { $SiteUpdate.State = 'Prerequisite check failed' }
+               196609 { $SiteUpdate.State = 'Installing' }
+               196612 { $SiteUpdate.State = 'Installed' }
+               262146 { $SiteUpdate.State = 'Ready to Install' }
+               327682 { $SiteUpdate.State = 'Available to Download' }
+              default { $SiteUpdate.State = "Other ($($SiteUpdate.State))" }
+            }
+          If ($SiteUpdate.State -ne 'Installed') { $SiteUpdate.'Installed Date' = 'N/A' }
+        }
+        Write-HtmlTable -InputObject $SiteUpdateHistory -Border 1 -Level 3 -File $FilePath
+    }
+    Remove-Variable -Name SiteUpdateHistory -ErrorAction SilentlyContinue -Force -WhatIf:$false
+    Write-ProgressEx -CurrentOperation 'Completed Configuration Manager Update Status and History'    
+}
+
 Function Write-ProgressEx {
     [CmdletBinding()]
     param(
@@ -2470,35 +2515,7 @@ foreach ($CMSite in $CMSites)
   Write-HTMLHeading -Text "Updates and Servicing" -Level 2 -File $FilePath
 
   #region Site Servicing Updates
-  Write-ProgressEx -CurrentOperation "Enumerating Configuration Manager Update Status and History"
-  Write-HTMLHeading -Text "Update Status and History" -Level 3 -File $FilePath
-  Write-HTMLParagraph -Text "Below is a history of updates that have been made available to this Site.  It includes information for if, or when, they were installed.  Some older updates may be listed as ready to install, however, they were never installed nor will they be avialable to install as they are superseded by the newer updates." -Level 3 -File $FilePath
-  $SiteUpdateHistory = Get-CMSiteUpdateHistory| Select-Object Name,FullVersion,Impact,State,UpdateType,LastUpdateTime|Sort-Object LastUpdateTime
-  if(-not [string]::IsNullOrEmpty($SiteUpdateHistory)){
-    $SiteUpdates = @()
-    foreach ($SiteUpdate in $SiteUpdateHistory){
-        Switch($SiteUpdate.State){
-              65538 { $UpdateState = 'Checking prerequisites' }
-             131074 { $UpdateState = 'Prerequisite check passed'}
-             131075 { $UpdateState = 'Prerequisite check passed with warnings' }
-             196607 { $UpdateState = 'Prerequisite check failed' }
-             196609 { $UpdateState = 'Installing' }
-             196612 { $UpdateState = 'Installed' }
-             262146 { $UpdateState = 'Ready to Install' }
-             327682 { $UpdateState = 'Available to Download' }
-            default { $UpdateState = "Other ($($SiteUpdate.State))" }
-        }
-        If($UpdateState -eq "Installed"){
-            $InstalledDate = $SiteUpdate.LastUpdateTime
-        }else{
-            $InstalledDate = "N/A"
-        }
-        $SiteUpdates += New-Object -TypeName PSObject -Property @{'Name'="$($SiteUpdate.Name)";'Version'="$($SiteUpdate.FullVersion)";'Status'="$UpdateState";'Installed Date'="$InstalledDate"}
-    }
-    $SiteUpdates = $SiteUpdates | Select-Object 'Name','Version','Status','Installed Date'
-    Write-HtmlTable -InputObject $SiteUpdates -Border 1 -Level 3 -File $FilePath
-  }
-  Write-ProgressEx -CurrentOperation "Completed Configuration Manager Update Status and History"
+  Get-pwCMSiteServicingUpdates -SiteCode $CMSite.SiteCode -FilePath $FilePath
   #endregion Site Servicing Updates
 
   #region Site Features
