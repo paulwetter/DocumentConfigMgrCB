@@ -5,23 +5,23 @@
 .SYNOPSIS
 	Script attempts to fully document a Microsoft Configuration Manager environment.
 .DESCRIPTION
-	This script will fully document a Configuration Manager environment.  The original 
+    This script will fully document a Configuration Manager environment.  The original 
     script developed several years ago by David O'Brien required Microsoft Word to create 
     the documentation.  This updated script is more detailed and outputs the documentation
     in pure HTML.  If you so desire, you can import this HTML report into Word for easier
     editing.
 .PARAMETER Title
-	The title you would like to use for this documentation.  default is "Configuration Manager Site Documentation".
+    The title you would like to use for this documentation.  default is "Configuration Manager Site Documentation".
 .PARAMETER FilePath
-	This is the path of the documentation file.  By default, the file will be created in the same directory as the
+    This is the path of the documentation file.  By default, the file will be created in the same directory as the
     where the script is currently located. And named CMDocumentation.html
 .PARAMETER AddDateTime
-	Adds a date time stamp to the end of the file name.
-	Time stamp is in the format of yyyy-MM-dd_HHmm.
-	June 1, 2014 at 6PM is 2014-06-01_1800.
-	Output filename will be ReportName_2014-06-01_1800.html.
+    Adds a date time stamp to the end of the file name.
+    Time stamp is in the format of yyyy-MM-dd_HHmm.
+    June 1, 2014 at 6PM is 2014-06-01_1800.
+    Output filename will be ReportName_2014-06-01_1800.html.
 .PARAMETER CompanyName
-	This is the name of the company or organization that the documentation will be created for.
+    This is the name of the company or organization that the documentation will be created for.
 .PARAMETER CompanyLogo
     This is a UNC or URL path to a image file jpg, or png to embed into the document on the title page.  By default,
     the Cyber Advisors logo will display.
@@ -55,23 +55,23 @@
 .PARAMETER StyleSheet
     This is the path to an external CSS file that will allow you to style the report in your own way.  The style sheet will be embedded into the report.
 .EXAMPLE
-	DocumentCMCB.ps1 -ListAllInformation
+    DocumentCMCB.ps1 -ListAllInformation
 .EXAMPLE
-	DocumentCMCB.ps1 -CompanyLogo 'http://www.contoso.com/logo.jpg' -ListAllInformation
+    DocumentCMCB.ps1 -CompanyLogo 'http://www.contoso.com/logo.jpg' -ListAllInformation
 .EXAMPLE
-	DocumentCMCB.ps1 -CompanyLogo 'http://www.contoso.com/logo.jpg' -Author "Bugs Bunny" -Vendor "Acme" -ListAllInformation
+    DocumentCMCB.ps1 -CompanyLogo 'http://www.contoso.com/logo.jpg' -Author "Bugs Bunny" -Vendor "Acme" -ListAllInformation
 .INPUTS
-	None.  You cannot pipe objects to this script.
+    None.  You cannot pipe objects to this script.
 .OUTPUTS
-	No objects are output from this script.  
-	This script creates a HTML document.
+    No objects are output from this script.  
+    This script creates a HTML document.
 .NOTES
-	NAME: DocumentCMCB.ps1
-	VERSION: 3.60
-	AUTHOR: Paul Wetter
-        Based on original script developed by David O'Brien
-    	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: November 28, 2020
+    NAME: DocumentCMCB.ps1
+    VERSION: 3.61
+    AUTHOR: Paul Wetter
+    Based on original script developed by David O'Brien
+    CONTRIBUTOR: Florian Valente (BlackCatDeployment), Skatterbrainz, ChadSimmons
+    LASTEDIT: January 26, 2021
 #>
 
 #endregion
@@ -80,38 +80,38 @@
 [CmdletBinding()]
 
 Param(
-	[parameter(Mandatory=$True)] 
-	[string]$CompanyName,
+    [parameter(Mandatory=$True)] 
+    [string]$CompanyName,
     
-	[parameter(Mandatory=$False)] 
+    [parameter(Mandatory=$False)] 
     [string]$CompanyLogo = "https://blog.cyberadvisors.com/hubfs/CAI_logo.jpg",
 
-	[parameter(Mandatory=$False)] 
-	[Switch]$ListAllInformation,
+    [parameter(Mandatory=$False)] 
+    [Switch]$ListAllInformation,
 
-	[parameter(Mandatory=$False)] 
-	[Switch]$ListAppDetails,
+    [parameter(Mandatory=$False)] 
+    [Switch]$ListAppDetails,
 
-	[parameter(Mandatory=$False)] 
-	[string]$Author="Paul Wetter",
+    [parameter(Mandatory=$False)] 
+    [string]$Author="Paul Wetter",
 
-	[parameter(Mandatory=$False)] 
+    [parameter(Mandatory=$False)] 
     [string]$Vendor = "Cyber Advisors",
 
-	[parameter(Mandatory=$False)] 
-	[String]$Title = "Configuration Manager Site Documentation",
+    [parameter(Mandatory=$False)] 
+    [String]$Title = "Configuration Manager Site Documentation",
 
-	[parameter(Mandatory=$False)]
+    [parameter(Mandatory=$False)]
     [ValidateScript({$_ -match '\.html$'})]  
-	[String]$FilePath = "CMDocumentation.html",
+    [String]$FilePath = "CMDocumentation.html",
 
-	[parameter(Mandatory=$False)] 
-	[string]$SMSProvider='localhost',
+    [parameter(Mandatory=$False)] 
+    [string]$SMSProvider='localhost',
 
-	[parameter(Mandatory=$False)] 
-	[Switch]$AddDateTime,
+    [parameter(Mandatory=$False)] 
+    [Switch]$AddDateTime,
 	
-	[parameter(Mandatory=$False)] 
+    [parameter(Mandatory=$False)] 
     [switch]$UnknownClientSettings,
     
     [parameter(Mandatory=$False)] 
@@ -135,7 +135,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.60'
+$DocumenationScriptVersion = '3.61'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -901,7 +901,7 @@ Function Get-SiteCode
   return $SiteCode
 }
 
-#small funtion that will convert utc time to local time, option to ignore daylight savings time.
+#small function that will convert utc time to local time, option to ignore daylight savings time.
 function Convert-UTCtoLocal{
     param(
         [parameter(Mandatory=$true)]
@@ -2209,6 +2209,84 @@ Function Get-pwCMSiteServicingUpdates {
     Write-ProgressEx -CurrentOperation 'Completed Configuration Manager Update Status and History'    
 }
 
+Function Get-pwCMManagementPoints {
+    <#
+    .SYNOPSIS
+    Gets the Details of a ConfigMgr Site's Management Point(s)
+    .PARAMETER SiteCode
+    Your SCCM Site code (MMS).
+    .PARAMETER FilePath
+    This is the path of the documentation file.    
+    .EXAMPLE
+    Get-pwCMManagementPoints -SiteCode 'MMS' -FilePath 'C:\Documents\CMDocumentation.html'
+    .NOTES
+    ========== Change Log History ==========
+    - 2021/01/26 by Chad@ChadsTech.net / Chad.Simmons@CatapultSystems.com - Moved to function, added 
+    - 2018/03/07 by Paul Wetter - Created
+    === To Do / Proposed Changes ===
+    #TODO: MP: mobile device and Mac computer access
+    #>
+    param (
+        [Parameter()][ValidateNotNullOrEmpty()][string]$SiteCode = $CMSite.SiteCode,
+        [Parameter()][ValidateNotNullOrEmpty()][string]$FilePath = $FilePath
+    )
+    Write-ProgressEx -CurrentOperation "Management Points"
+    $CMManagementPoints = Get-CMManagementPoint -SiteCode $SiteCode
+    Write-HTMLHeading -Text "Summary of Management Points for Site $SiteCode" -PageBreak -Level 2 -File $FilePath
+    ForEach ($CMManagementPoint in $CMManagementPoints) {
+        Write-Verbose "$(Get-Date):   Management Point: $($CMManagementPoint)"
+    
+        $MPText = @()
+        $MPName = $CMManagementPoint.NetworkOSPath.Split('\\')[2]
+        Write-ProgressEx -CurrentOperation "Management Point Name: $MPName" -Activity "Managent Points" -Status "Collecting from DB" -Id 2
+        $MPSslState = $CMManagementPoint.SslState
+        $MPText += "Client connections: $(If ($MPSslState -eq 0) { 'HTTP' } Else { 'HTTPS' })"
+        Write-Debug "$(Get-Date): Management Point SslState: $MPSslState"
+    
+        $MPCMGTraffic = [bool]($CMManagementPoint.props|Where-Object {$_.PropertyName -eq 'AllowProxyTraffic'}).value
+        $MPText += "Allow Configuration Manager cloud management gateway traffic: $MPCMGTraffic"
+        Write-Debug "$(Get-Date): Management Point CMG traffic: $MPCMGTraffic"
+        
+        $MPIntranet = [bool]($CMManagementPoint.props|Where-Object {$_.PropertyName -eq "MPIntranetFacing"}).value
+        $MPInternet = [bool]($CMManagementPoint.props|Where-Object {$_.PropertyName -eq "MPInternetFacing"}).value
+        $MPText += "Allow intranet connections: $MPIntranet"
+        $MPText += "Allow Internet connections: $MPInternet"
+        Write-Debug "$(Get-Date): Management Point Internet: $MPInternet Intranet: $MPIntranet"
+    
+        $MPText += "Allow mobile devices and Mac computers to use this management point: unknown"
+    
+        $MPHealthAlert = [bool](Get-CMAlert -Name "Not healthy alert for site role: Management point on '$MPName'").Enabled
+        $MPText += "Alert Generate alert when management point is not healthy: $MPHealthAlert"
+        Write-Debug "$(Get-Date): Management Point healthy alert: $MPHealthAlert"
+    
+        If (($CMManagementPoint.props | Where-Object {$_.PropertyName -eq 'UseSiteDatabase'}).value -eq 1) { $UseSiteDB = 'Site DB' } Else { $UseSiteDB = 'database replica' }
+        Write-Debug "$(Get-Date): Management Point database: $UseSiteDB"
+        $MPText += "Database to use with this management point: $UseSiteDB"
+        If ($UseSiteDB -eq 'database replica') {       
+            $MPText += "Database server: $(($CMManagementPoint.props | Where-Object {$_.PropertyName -eq 'SQLServerName'}).Value1)"
+            $MPText += "Database name: $(($CMManagementPoint.props | Where-Object {$_.PropertyName -eq 'DatabaseName'}).Value1)"
+            If (-not [String]::IsNullOrEmpty(($CMManagementPoint.Props | Where-Object { $_.PropertyName -eq 'UserName' }).Value1)) {
+                $MPText += "Connection account: $(($CMManagementPoint.Props | Where-Object { $_.PropertyName -eq "UserName" }).Value1)"
+            } Else {
+                $MPText += "Connection account: computer account of the management point"
+            }
+        }
+        Write-HtmlList -InputObject $MPText -Title "Management Point Name: <B>$MPName</B>" -Level 2 -File $FilePath
+        Remove-Variable -Name MPText, MPIntranet, MPInternet, MPHealthAlert, UseSiteDB, MPCMGTraffic
+        If (-not($PSBoundParameters.ContainsKey('SkipRemoteServerDetails'))) {
+            Write-Debug "$(Get-Date):   Test-Path -Path `"filesystem::\\$MPName\C$`""
+            Push-Location -Path 'C:'
+            $PathTest = Test-Path -Path "filesystem::\\$MPName\C$"
+            Write-Debug "$(Get-Date):   Testing Access to Management Point: $MPName -- $PathTest"
+            If (Test-Path -Path "filesystem::\\$MPName\C$") {$CMMPServerName=$MPName}
+            Pop-Location
+        }
+    }
+    Write-Debug "$(Get-Date):   Default Management Point: $CMMPServerName"
+    Write-HtmliLink -ReturnTOC -File $FilePath
+    Write-ProgressEx -CurrentOperation "Complete" -Activity "Management Points" -Status "Complete" -Id 2 -Completed
+}
+
 function Convert-Bool2Text {
     #Simple function to convert a 1 to true and a 0 to false.  Or, just return the value if it isn't 1 or 0.
     param (
@@ -2694,18 +2772,21 @@ If ($ListAllInformation){
             $RoleSettings += @("--B--General--/B--")
             If ($SiteRole.SslState -eq 1) { $RoleSettings += @("- Client connections: HTTPS") }
             Else { $RoleSettings += @("- Client connections: HTTP") }
+	    <# moved to Management Point role details / Get-pwCMManagementPoints
             If (Get-CMAlert -Name "Not healthy*Management point*$(($SiteRole.NALPath).ToString().Split('\\')[2])*") {
                 $RoleSettings += @("- Generate alert when the MP is not healthy - CHECKED")
             }
             Else {
                 $RoleSettings += @("- Generate alert when the MP is not healthy - UNCHECKED")
             }
+	    #>
             $RoleSettings += @("--B--Management Point Database--/B--")
             If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "UseSiteDatabase" }).Value -eq 1) {
                 $RoleSettings += @("- Database: Site database")
             }
             Else {
                 $RoleSettings += @("- Database: Database replica")
+	    <# moved to Management Point role details / Get-pwCMManagementPoints
                 $RoleSettings += @("--TAB--Database server: $(($SiteRole.Props | Where-Object { $_.PropertyName -eq "SQLServerName" }).Value1)")
                 $RoleSettings += @("--TAB--Database name: $(($SiteRole.Props | Where-Object { $_.PropertyName -eq "DatabaseName" }).Value1)")
             }
@@ -2714,7 +2795,8 @@ If ($ListAllInformation){
             }
             Else {
                 $RoleSettings += @("- Connection account: MP's computer account")
-            }
+            #>
+	    }
         }
         #endregion RoleMP
         #region RoleFSP
@@ -3256,45 +3338,9 @@ if ($ListAllInformation){
   #endregion Getting Site SQL Info
 
   #region Management Points
-  Write-ProgressEx -CurrentOperation "Management Points"
-  $CMManagementPoints = Get-CMManagementPoint -SiteCode $CMSite.SiteCode
-  Write-HTMLHeading -Text "Summary of Management Points for Site $($CMSite.SiteCode)" -PageBreak -Level 2 -File $FilePath
-  foreach ($CMManagementPoint in $CMManagementPoints)
-  {
-    $MPText = @()
-    #Write-Verbose "$(Get-Date):   Management Point: $($CMManagementPoint)"
-    $MPName = $CMManagementPoint.NetworkOSPath.Split('\\')[2]
-    Write-ProgressEx -CurrentOperation "Management Point Name: $MPName" -Activity "Managent Points" -Status "Collecting from DB" -Id 2
-    [bool]$SSLENabled = if($CMManagementPoint.SslState -eq 0){$false}else{$true}
-    $MPText += "SSL Enabled: $SSLENabled"
-    $UseSiteDB = ($CMManagementPoint.props|Where-Object {$_.PropertyName -like "UseSiteDatabase"}).value
-    [bool]$UseSiteDB = if($UseSiteDB -eq 1) {$true}else{$false}
-    $MPText += "Using Site Database: $UseSiteDB"
-    $MPIntranet = ($CMManagementPoint.props|Where-Object {$_.PropertyName -like "MPIntranetFacing"}).value
-    $MPInternet = ($CMManagementPoint.props|Where-Object {$_.PropertyName -like "MPInternetFacing"}).value
-    Write-Debug "$(Get-Date): Internet: $MPInternet Intranet: $MPIntranet"
-    If (!($MPIntranet) -and !($MPInternet)) {[bool]$MPIntranet = $true; [bool]$MPInternet = $false}
-    Else {
-        [bool]$MPIntranet = If($MPIntranet -eq 1){$true}else{$false}
-        [bool]$MPInternet = If($MPInternet -eq 1){$true}else{$false}
-    }
-    $MPText += "Intranet Clients: $MPIntranet"
-    $MPText += "Internet Clients: $MPInternet"
-    Write-HtmlList -InputObject $MPText -Title "Management Point Name: <B>$MPName</B>" -Level 2 -File $FilePath
-    Remove-Variable MPIntranet
-    Remove-Variable MPInternet
-    Write-Debug "$(Get-Date):   Test-Path -Path `"filesystem::\\$MPName\C$`""
-    $local1 = (Get-Location).path
-    Set-Location C:
-    $PathTest = Test-Path -Path "filesystem::\\$MPName\C$"
-    Write-Debug "$(Get-Date):   Testing Access to Management Point: $MPName -- $PathTest"
-    If (Test-Path -Path "filesystem::\\$MPName\C$") {$CMMPServerName=$MPName}
-    Set-Location $local1
-  }
-  Write-ProgressEx -CurrentOperation "Complete" -Activity "Management Points" -Status "Complete" -Id 2 -Completed
-  Write-HtmliLink -ReturnTOC -File $FilePath
-  Write-Debug "$(Get-Date):   Default Management Point: $CMMPServerName"
+  Get-pwCMManagementPoints -SiteCode $CMSite.SiteCode
   #endregion Management Points
+
   
   #region Distribution Point details
   Write-ProgressEx -CurrentOperation "Distribution Point(s) Summary"
@@ -3405,7 +3451,7 @@ If (-not($PSBoundParameters.ContainsKey('SkipRemoteServerDetails'))) {
   Write-HTMLHeading -Text "Software Update configuration for Site $($CMSite.SiteCode)" -Level 2 -PageBreak -File $FilePath
   
   Write-HTMLHeading -Text "Software Update Point Component Settings for Site $($CMSite.SiteCode)" -Level 3 -File $FilePath
-  Write-HTMLParagraph -Text "This is a list of all of the software update classifications and products that are syncronized into the site as well as some of the general site configuration settings." -Level 3 -File $FilePath
+  Write-HTMLParagraph -Text "This is a list of all of the software update classifications and products that are synchronized into the site as well as some of the general site configuration settings." -Level 3 -File $FilePath
 
   $cats=Get-CMSoftwareUpdateCategory -Fast
   $UpdatesClassifications = $cats|Where-Object {$_.CategoryTypeName -eq "UpdateClassification" -and $_.AllowSubscription -eq $true}
@@ -3673,7 +3719,7 @@ if ($DMADSD.DiscoveryState -eq "Enabled") {
     $SystemDiscoverySettings += "Search Containers:"
     Write-HtmlList -Description "Active Directory System Discovery is currently enabled with the following settings:" -InputObject $SystemDiscoverySettings -Level 3 -File $FilePath
     Write-HtmlTable -InputObject $DMADSD.ActiveDirectoryContainers -Level 4 -File $FilePath
-    Write-HtmlList -Description "The following addtional attributes are synced from AD:" -InputObject $DMADSD.ActiveDirectoryAttributes -Level 3 -File $FilePath
+    Write-HtmlList -Description "The following additional attributes are synced from AD:" -InputObject $DMADSD.ActiveDirectoryAttributes -Level 3 -File $FilePath
 }else{
     Write-HTMLParagraph -Text "Active Directory System Discovery is currently disabled." -Level 3 -File $FilePath
 }
@@ -4031,6 +4077,10 @@ Write-ProgressEx -CurrentOperation "Completed Enumerating Default Boundary Group
 Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion enumerating all Boundary Groups and their members
 
+#region Cloud Services
+Get-pwCMCloudManagementGateway -SiteCode $CMSite.SiteCode -FilePath $FilePath
+#endregion Cloud Services
+
 #region enumerating Client Policies
 Write-ProgressEx -CurrentOperation "Enumerating all Client Settings"
 Write-HTMLHeading -Level 2 -PageBreak -Text 'Summary of Custom Client Device Settings' -File $FilePath
@@ -4088,7 +4138,7 @@ If ($ListAllInformation){
               $ConfigList += "Enable compliance evaluation on clients: " + $(Convert-Bool2Text $AgentConfig.Enabled)
               IF ($Default){
                 $Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.EvaluationSchedule
-                $ConfigList += "Schedule Complinace Evaluation: " + (Get-HumanReadableSchedule -Schedule $Schedule)
+                $ConfigList += "Schedule Compliance Evaluation: " + (Get-HumanReadableSchedule -Schedule $Schedule)
               }
               $ConfigList += "Enable user data and profiles: " + $(Convert-Bool2Text $AgentConfig.EnableUserStateManagement)
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
@@ -4288,7 +4338,7 @@ If ($ListAllInformation){
                 0 { $SuspendBitlocker = 'Never' }
                 1 { $SuspendBitlocker = 'Always' }
               }
-              $ConfigList += "Suspend Bitlocker PIN entry on restart: $($SuspendBitlocker)"
+              $ConfigList += "Suspend BitLocker PIN entry on restart: $($SuspendBitlocker)"
               Switch ($AgentConfig.EnableThirdPartyOrchestration)
               {
                 0 { $EnableThirdPartyTool = 'No' }
@@ -4301,7 +4351,7 @@ If ($ListAllInformation){
                 1 { $ExecutionPolicy = 'Bypass' }
                 2 { $ExecutionPolicy = 'Restricted' }
               }
-              $ConfigList += "Powershell execution policy: $($ExecutionPolicy)"
+              $ConfigList += "PowerShell execution policy: $($ExecutionPolicy)"
               switch ($AgentConfig.DisplayNewProgramNotification)
               {
                 False { $DisplayNotifications = 'No' }
@@ -4756,7 +4806,7 @@ If ($ListAllInformation){
               } else {
                 $ConfigList += "Display a dialog box that the user cannot close, which displays the countdown interval before the user is logged of or the computer restarts (minutes): $([string]$AgentConfig.RebootLogoffNotificationFinalWindow / 60)"
               }
-              $ConfigList += "Specify the snooze suration for computer restart countdown notifications (minutes): $($AgentConfig.CountdownSnoozeInterval)"
+              $ConfigList += "Specify the snooze duration for computer restart countdown notifications (minutes): $($AgentConfig.CountdownSnoozeInterval)"
               $ConfigList += "When a deployment requires a restart, show a dialog windows to the user instead of a toast notification: " + $(Convert-Bool2Text $AgentConfig.RebootNotificationsDialog)
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
@@ -4799,7 +4849,7 @@ If ($ListAllInformation){
                 2 { $Usage = 'Limit' }
                 4 { $Usage = 'Block' }
               }
-              $ConfigList += "Specifiy how clients communicate on metered network connections: $($Usage)"
+              $ConfigList += "Specify how clients communicate on metered network connections: $($Usage)"
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
                   $UnknownProps = @()
@@ -4984,7 +5034,7 @@ If ($ListAllInformation){
                 $WindowsDO = 'No'
               }
               $ConfigList += "Use Configuration Manager Boundary Groups for Delivery Optimization Group ID: $WindowsDO"
-              $ConfigList += "Enable devices managed by Configuration Manager to use Delivery Optimization In-Network Cacheeserver (Beta) for content download: " + $(Convert-Bool2Text $AgentConfig.StampDOINC)
+              $ConfigList += "Enable devices managed by Configuration Manager to use Delivery Optimization In-Network Cache server (Beta) for content download: " + $(Convert-Bool2Text $AgentConfig.StampDOINC)
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
                   $UnknownProps = @()
@@ -5464,9 +5514,9 @@ if ($ListAllInformation)
                         true {$WindowEnabled = 'Yes'}
                         false {$WindowEnabled = 'No'}
                     }
-                $ServiceWindowArray += New-Object -TypeName psobject -Property @{'Name' = $SWName; 'Start Time' = $StartTime; 'UTC' = $UTCTime; 'Duration' = $Duration; 'Recurance' = $WindowRecurence; 'Type' = $WindowType; 'Enabled' = $WindowEnabled}
+                $ServiceWindowArray += New-Object -TypeName psobject -Property @{'Name' = $SWName; 'Start Time' = $StartTime; 'UTC' = $UTCTime; 'Duration' = $Duration; 'Recurrence' = $WindowRecurence; 'Type' = $WindowType; 'Enabled' = $WindowEnabled}
             }
-        $ServiceWindowArray = $ServiceWindowArray | Select-Object 'Name','Start Time','UTC','Duration','Recurance','Type','Enabled'
+        $ServiceWindowArray = $ServiceWindowArray | Select-Object 'Name','Start Time','UTC','Duration','Recurrence','Type','Enabled'
         Write-HtmlTable -InputObject $ServiceWindowArray -Border 1 -Level 5 -File $FilePath
     } else {
         Write-HTMLParagraph -Level 4 -File $FilePath -Text 'No maintenance windows configured on this collection.'
@@ -5910,7 +5960,7 @@ if (-not ($Null -eq $(Get-CMEndpointProtectionPoint))){
                         foreach ($ExcludedProcess in $AgentConfig.ExcludedProcesses){
                             $ProcessArray += "$($ExcludedProcess)"
                         }
-                        $listArray += Write-HtmlList -Description 'Excluded processes:' -InputObject $filesArray -Level 1
+                        $listArray += Write-HtmlList -Description 'Excluded processes:' -InputObject $ProcessArray -Level 1
                         Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
                         $listTitle = 'Advanced'
                         $listArray = @()
@@ -6283,7 +6333,7 @@ if (-not [string]::IsNullOrEmpty($ApplicationGuardPolicies)) {
     Write-HTMLParagraph -Text 'No Application Guard Policies defined in site.' -Level 4 -File $FilePath
 }
 $DeviceGuardPolicies = Get-CMConfigurationPolicy -Fast | Where-Object {$_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_DeviceGuardSettings'} | Select-Object CategoryInstance_UniqueIDs,LocalizedDisplayName,LocalizedCategoryInstanceNames,CI_ID,LastModifiedBy,DateLastModified,IsAssigned
-Write-HTMLHeading -Level 3 -Text 'Windows Defender Applicatin Control Policies' -File $FilePath
+Write-HTMLHeading -Level 3 -Text 'Windows Defender Application Control Policies' -File $FilePath
 if (-not [string]::IsNullOrEmpty($DeviceGuardPolicies)) {
     $DeviceGuardArray = @()
     foreach ($DGP in $DeviceGuardPolicies){
@@ -6292,7 +6342,7 @@ if (-not [string]::IsNullOrEmpty($DeviceGuardPolicies)) {
     $DeviceGuardArray = $DeviceGuardArray | Select-Object 'Name','Modified By','Modified','Deployed'
     Write-HtmlTable -InputObject $DeviceGuardArray -Border 1 -Level 4 -File $FilePath
 }else{
-    Write-HTMLParagraph -Text 'No Applicatin Control Policies defined in site.' -Level 4 -File $FilePath
+    Write-HTMLParagraph -Text 'No Application Control Policies defined in site.' -Level 4 -File $FilePath
 }
 Write-ProgressEx -CurrentOperation 'Completed Firewall and Device Guard'
 #endregion firewall and Device Guard
@@ -6334,7 +6384,7 @@ Write-HTMLHeading -Level 3 -Text 'Applications' -File $FilePath
 $Applications = Get-CMApplication|Sort-Object LocalizedDisplayName
 if ($ListAllInformation -or $ListAppDetails){
     if (-not [string]::IsNullOrEmpty($Applications)) {
-        Write-HTMLParagraph -Text "Below are a summary of all $($Applications.Count) application installers defined in this site. These are applications that are installed with the configuration manager application model.  Packages are covered later in the documentation." -Level 3 -File $FilePath
+        Write-HTMLParagraph -Text "Below is a summary of all $($Applications.Count) application installers defined in this site. These are applications that are installed with the configuration manager application model.  Packages are covered later in the documentation." -Level 3 -File $FilePath
         foreach ($App in $Applications) {
             #region Application Details
             Write-ProgressEx -CurrentOperation "Application: $($App.LocalizedDisplayName)" -Activity 'Configuration Manager Application' -Status 'Application details' -Id 10
@@ -6423,9 +6473,9 @@ if ($ListAllInformation -or $ListAppDetails){
             $AppList += "Supersedes other applications:  $($app.IsSuperseding)"
             $AppList += "Is superseded by another application:  $($app.IsSuperseded)"
             if ($xml.AppMgmtDigest.Application.DisplaySupersedes -eq 'true'){
-                $AppList += "Allow user to see this app and all apps that it supercedes in Software Center: Yes"
+                $AppList += "Allow user to see this app and all apps that it supersedes in Software Center: Yes"
             } else {
-                $AppList += "Allow user to see this app and all apps that it supercedes in Software Center: No"
+                $AppList += "Allow user to see this app and all apps that it supersedes in Software Center: No"
             }
             Write-HtmlList -InputObject $AppList -Description $ListDescription -Level 5 -File $FilePath
             $ListDescription = ""
