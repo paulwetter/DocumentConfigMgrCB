@@ -2176,6 +2176,84 @@ function Convert-Bool2Text {
     }
 }
 
+Function Get-pwCMManagementPoints {
+    <#
+    .SYNOPSIS
+    Gets the Details of a ConfigMgr Site's Management Point(s)
+    .PARAMETER SiteCode
+    Your SCCM Site code (MMS).
+    .PARAMETER FilePath
+    This is the path of the documentation file.    
+    .EXAMPLE
+    Get-pwCMManagementPoints -SiteCode 'MMS' -FilePath 'C:\Documents\CMDocumentation.html'
+    .NOTES
+    ========== Change Log History ==========
+    - 2021/01/26 by Chad@ChadsTech.net / Chad.Simmons@CatapultSystems.com - Moved to function, added 
+    - 2018/03/07 by Paul Wetter - Created
+    === To Do / Proposed Changes ===
+    #TODO: MP: mobile device and Mac computer access
+    #>
+    param (
+        [Parameter()][ValidateNotNullOrEmpty()][string]$SiteCode = $CMSite.SiteCode,
+        [Parameter()][ValidateNotNullOrEmpty()][string]$FilePath = $FilePath
+    )
+    Write-ProgressEx -CurrentOperation "Management Points"
+    $CMManagementPoints = Get-CMManagementPoint -SiteCode $SiteCode
+    Write-HTMLHeading -Text "Summary of Management Points for Site $SiteCode" -PageBreak -Level 2 -File $FilePath
+    ForEach ($CMManagementPoint in $CMManagementPoints) {
+        Write-Verbose "$(Get-Date):   Management Point: $($CMManagementPoint)"
+    
+        $MPText = @()
+        $MPName = $CMManagementPoint.NetworkOSPath.Split('\\')[2]
+        Write-ProgressEx -CurrentOperation "Management Point Name: $MPName" -Activity "Managent Points" -Status "Collecting from DB" -Id 2
+        $MPSslState = $CMManagementPoint.SslState
+        $MPText += "Client connections: $(If ($MPSslState -eq 0) { 'HTTP' } Else { 'HTTPS' })"
+        Write-Debug "$(Get-Date): Management Point SslState: $MPSslState"
+    
+        $MPCMGTraffic = [bool]($CMManagementPoint.props|Where-Object {$_.PropertyName -eq 'AllowProxyTraffic'}).value
+        $MPText += "Allow Configuration Manager cloud management gateway traffic: $MPCMGTraffic"
+        Write-Debug "$(Get-Date): Management Point CMG traffic: $MPCMGTraffic"
+        
+        $MPIntranet = [bool]($CMManagementPoint.props|Where-Object {$_.PropertyName -eq "MPIntranetFacing"}).value
+        $MPInternet = [bool]($CMManagementPoint.props|Where-Object {$_.PropertyName -eq "MPInternetFacing"}).value
+        $MPText += "Allow intranet connections: $MPIntranet"
+        $MPText += "Allow Internet connections: $MPInternet"
+        Write-Debug "$(Get-Date): Management Point Internet: $MPInternet Intranet: $MPIntranet"
+    
+        $MPText += "Allow mobile devices and Mac computers to use this management point: unknown"
+    
+        $MPHealthAlert = [bool](Get-CMAlert -Name "Not healthy alert for site role: Management point on '$MPName'").Enabled
+        $MPText += "Alert Generate alert when management point is not healthy: $MPHealthAlert"
+        Write-Debug "$(Get-Date): Management Point healthy alert: $MPHealthAlert"
+    
+        If (($CMManagementPoint.props | Where-Object {$_.PropertyName -eq 'UseSiteDatabase'}).value -eq 1) { $UseSiteDB = 'Site DB' } Else { $UseSiteDB = 'database replica' }
+        Write-Debug "$(Get-Date): Management Point database: $UseSiteDB"
+        $MPText += "Database to use with this management point: $UseSiteDB"
+        If ($UseSiteDB -eq 'database replica') {       
+            $MPText += "Database server: $(($CMManagementPoint.props | Where-Object {$_.PropertyName -eq 'SQLServerName'}).Value1)"
+            $MPText += "Database name: $(($CMManagementPoint.props | Where-Object {$_.PropertyName -eq 'DatabaseName'}).Value1)"
+            If (-not [String]::IsNullOrEmpty(($CMManagementPoint.Props | Where-Object { $_.PropertyName -eq 'UserName' }).Value1)) {
+                $MPText += "Connection account: $(($CMManagementPoint.Props | Where-Object { $_.PropertyName -eq "UserName" }).Value1)"
+            } Else {
+                $MPText += "Connection account: computer account of the management point"
+            }
+        }
+        Write-HtmlList -InputObject $MPText -Title "Management Point Name: <B>$MPName</B>" -Level 2 -File $FilePath
+        Remove-Variable -Name MPText, MPIntranet, MPInternet, MPHealthAlert, UseSiteDB, MPCMGTraffic
+        If (-not($PSBoundParameters.ContainsKey('SkipRemoteServerDetails'))) {
+            Write-Debug "$(Get-Date):   Test-Path -Path `"filesystem::\\$MPName\C$`""
+            Push-Location -Path 'C:'
+            $PathTest = Test-Path -Path "filesystem::\\$MPName\C$"
+            Write-Debug "$(Get-Date):   Testing Access to Management Point: $MPName -- $PathTest"
+            If (Test-Path -Path "filesystem::\\$MPName\C$") {$CMMPServerName=$MPName}
+            Pop-Location
+        }
+    }
+    Write-Debug "$(Get-Date):   Default Management Point: $CMMPServerName"
+    Write-HtmliLink -ReturnTOC -File $FilePath
+    Write-ProgressEx -CurrentOperation "Complete" -Activity "Management Points" -Status "Complete" -Id 2 -Completed
+}
+
 Function Write-ProgressEx {
     [CmdletBinding()]
     param(
@@ -2679,18 +2757,21 @@ If ($ListAllInformation){
             $RoleSettings += @("--B--General--/B--")
             If ($SiteRole.SslState -eq 1) { $RoleSettings += @("- Client connections: HTTPS") }
             Else { $RoleSettings += @("- Client connections: HTTP") }
+	    <# moved to Management Point role details / Get-pwCMManagementPoints
             If (Get-CMAlert -Name "Not healthy*Management point*$(($SiteRole.NALPath).ToString().Split('\\')[2])*") {
                 $RoleSettings += @("- Generate alert when the MP is not healthy - CHECKED")
             }
             Else {
                 $RoleSettings += @("- Generate alert when the MP is not healthy - UNCHECKED")
             }
+	    #>
             $RoleSettings += @("--B--Management Point Database--/B--")
             If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "UseSiteDatabase" }).Value -eq 1) {
                 $RoleSettings += @("- Database: Site database")
             }
             Else {
                 $RoleSettings += @("- Database: Database replica")
+	    <# moved to Management Point role details / Get-pwCMManagementPoints
                 $RoleSettings += @("--TAB--Database server: $(($SiteRole.Props | Where-Object { $_.PropertyName -eq "SQLServerName" }).Value1)")
                 $RoleSettings += @("--TAB--Database name: $(($SiteRole.Props | Where-Object { $_.PropertyName -eq "DatabaseName" }).Value1)")
             }
@@ -2699,7 +2780,8 @@ If ($ListAllInformation){
             }
             Else {
                 $RoleSettings += @("- Connection account: MP's computer account")
-            }
+            #>
+	    }
         }
         #endregion RoleMP
         #region RoleFSP
@@ -3241,45 +3323,9 @@ if ($ListAllInformation){
   #endregion Getting Site SQL Info
 
   #region Management Points
-  Write-ProgressEx -CurrentOperation "Management Points"
-  $CMManagementPoints = Get-CMManagementPoint -SiteCode $CMSite.SiteCode
-  Write-HTMLHeading -Text "Summary of Management Points for Site $($CMSite.SiteCode)" -PageBreak -Level 2 -File $FilePath
-  foreach ($CMManagementPoint in $CMManagementPoints)
-  {
-    $MPText = @()
-    #Write-Verbose "$(Get-Date):   Management Point: $($CMManagementPoint)"
-    $MPName = $CMManagementPoint.NetworkOSPath.Split('\\')[2]
-    Write-ProgressEx -CurrentOperation "Management Point Name: $MPName" -Activity "Managent Points" -Status "Collecting from DB" -Id 2
-    [bool]$SSLENabled = if($CMManagementPoint.SslState -eq 0){$false}else{$true}
-    $MPText += "SSL Enabled: $SSLENabled"
-    $UseSiteDB = ($CMManagementPoint.props|Where-Object {$_.PropertyName -like "UseSiteDatabase"}).value
-    [bool]$UseSiteDB = if($UseSiteDB -eq 1) {$true}else{$false}
-    $MPText += "Using Site Database: $UseSiteDB"
-    $MPIntranet = ($CMManagementPoint.props|Where-Object {$_.PropertyName -like "MPIntranetFacing"}).value
-    $MPInternet = ($CMManagementPoint.props|Where-Object {$_.PropertyName -like "MPInternetFacing"}).value
-    Write-Debug "$(Get-Date): Internet: $MPInternet Intranet: $MPIntranet"
-    If (!($MPIntranet) -and !($MPInternet)) {[bool]$MPIntranet = $true; [bool]$MPInternet = $false}
-    Else {
-        [bool]$MPIntranet = If($MPIntranet -eq 1){$true}else{$false}
-        [bool]$MPInternet = If($MPInternet -eq 1){$true}else{$false}
-    }
-    $MPText += "Intranet Clients: $MPIntranet"
-    $MPText += "Internet Clients: $MPInternet"
-    Write-HtmlList -InputObject $MPText -Title "Management Point Name: <B>$MPName</B>" -Level 2 -File $FilePath
-    Remove-Variable MPIntranet
-    Remove-Variable MPInternet
-    Write-Debug "$(Get-Date):   Test-Path -Path `"filesystem::\\$MPName\C$`""
-    $local1 = (Get-Location).path
-    Set-Location C:
-    $PathTest = Test-Path -Path "filesystem::\\$MPName\C$"
-    Write-Debug "$(Get-Date):   Testing Access to Management Point: $MPName -- $PathTest"
-    If (Test-Path -Path "filesystem::\\$MPName\C$") {$CMMPServerName=$MPName}
-    Set-Location $local1
-  }
-  Write-ProgressEx -CurrentOperation "Complete" -Activity "Management Points" -Status "Complete" -Id 2 -Completed
-  Write-HtmliLink -ReturnTOC -File $FilePath
-  Write-Debug "$(Get-Date):   Default Management Point: $CMMPServerName"
+  Get-pwCMManagementPoints -SiteCode $CMSite.SiteCode
   #endregion Management Points
+
   
   #region Distribution Point details
   Write-ProgressEx -CurrentOperation "Distribution Point(s) Summary"
