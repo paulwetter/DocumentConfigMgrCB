@@ -5962,7 +5962,7 @@ if (-not ($Null -eq $(Get-CMEndpointProtectionPoint))){
                         foreach ($ExcludedProcess in $AgentConfig.ExcludedProcesses){
                             $ProcessArray += "$($ExcludedProcess)"
                         }
-                        $listArray += Write-HtmlList -Description 'Excluded processes:' -InputObject $filesArray -Level 1
+                        $listArray += Write-HtmlList -Description 'Excluded processes:' -InputObject $ProcessArray -Level 1
                         Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
                         $listTitle = 'Advanced'
                         $listArray = @()
