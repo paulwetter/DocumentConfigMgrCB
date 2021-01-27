@@ -5,23 +5,23 @@
 .SYNOPSIS
 	Script attempts to fully document a Microsoft Configuration Manager environment.
 .DESCRIPTION
-	This script will fully document a Configuration Manager environment.  The original 
+    This script will fully document a Configuration Manager environment.  The original 
     script developed several years ago by David O'Brien required Microsoft Word to create 
     the documentation.  This updated script is more detailed and outputs the documentation
     in pure HTML.  If you so desire, you can import this HTML report into Word for easier
     editing.
 .PARAMETER Title
-	The title you would like to use for this documentation.  default is "Configuration Manager Site Documentation".
+    The title you would like to use for this documentation.  default is "Configuration Manager Site Documentation".
 .PARAMETER FilePath
-	This is the path of the documentation file.  By default, the file will be created in the same directory as the
+    This is the path of the documentation file.  By default, the file will be created in the same directory as the
     where the script is currently located. And named CMDocumentation.html
 .PARAMETER AddDateTime
-	Adds a date time stamp to the end of the file name.
-	Time stamp is in the format of yyyy-MM-dd_HHmm.
-	June 1, 2014 at 6PM is 2014-06-01_1800.
-	Output filename will be ReportName_2014-06-01_1800.html.
+    Adds a date time stamp to the end of the file name.
+    Time stamp is in the format of yyyy-MM-dd_HHmm.
+    June 1, 2014 at 6PM is 2014-06-01_1800.
+    Output filename will be ReportName_2014-06-01_1800.html.
 .PARAMETER CompanyName
-	This is the name of the company or organization that the documentation will be created for.
+    This is the name of the company or organization that the documentation will be created for.
 .PARAMETER CompanyLogo
     This is a UNC or URL path to a image file jpg, or png to embed into the document on the title page.  By default,
     the Cyber Advisors logo will display.
@@ -55,23 +55,23 @@
 .PARAMETER StyleSheet
     This is the path to an external CSS file that will allow you to style the report in your own way.  The style sheet will be embedded into the report.
 .EXAMPLE
-	DocumentCMCB.ps1 -ListAllInformation
+    DocumentCMCB.ps1 -ListAllInformation
 .EXAMPLE
-	DocumentCMCB.ps1 -CompanyLogo 'http://www.contoso.com/logo.jpg' -ListAllInformation
+    DocumentCMCB.ps1 -CompanyLogo 'http://www.contoso.com/logo.jpg' -ListAllInformation
 .EXAMPLE
-	DocumentCMCB.ps1 -CompanyLogo 'http://www.contoso.com/logo.jpg' -Author "Bugs Bunny" -Vendor "Acme" -ListAllInformation
+    DocumentCMCB.ps1 -CompanyLogo 'http://www.contoso.com/logo.jpg' -Author "Bugs Bunny" -Vendor "Acme" -ListAllInformation
 .INPUTS
-	None.  You cannot pipe objects to this script.
+    None.  You cannot pipe objects to this script.
 .OUTPUTS
-	No objects are output from this script.  
-	This script creates a HTML document.
+    No objects are output from this script.  
+    This script creates a HTML document.
 .NOTES
-	NAME: DocumentCMCB.ps1
-	VERSION: 3.60
-	AUTHOR: Paul Wetter
-        Based on original script developed by David O'Brien
-    	CONTRIBUTOR: Florian Valente (BlackCatDeployment)
-	LASTEDIT: November 28, 2020
+    NAME: DocumentCMCB.ps1
+    VERSION: 3.61
+    AUTHOR: Paul Wetter
+    Based on original script developed by David O'Brien
+    CONTRIBUTOR: Florian Valente (BlackCatDeployment), Skatterbrainz, ChadSimmons
+    LASTEDIT: January 26, 2021
 #>
 
 #endregion
@@ -80,38 +80,38 @@
 [CmdletBinding()]
 
 Param(
-	[parameter(Mandatory=$True)] 
-	[string]$CompanyName,
+    [parameter(Mandatory=$True)] 
+    [string]$CompanyName,
     
-	[parameter(Mandatory=$False)] 
+    [parameter(Mandatory=$False)] 
     [string]$CompanyLogo = "https://blog.cyberadvisors.com/hubfs/CAI_logo.jpg",
 
-	[parameter(Mandatory=$False)] 
-	[Switch]$ListAllInformation,
+    [parameter(Mandatory=$False)] 
+    [Switch]$ListAllInformation,
 
-	[parameter(Mandatory=$False)] 
-	[Switch]$ListAppDetails,
+    [parameter(Mandatory=$False)] 
+    [Switch]$ListAppDetails,
 
-	[parameter(Mandatory=$False)] 
-	[string]$Author="Paul Wetter",
+    [parameter(Mandatory=$False)] 
+    [string]$Author="Paul Wetter",
 
-	[parameter(Mandatory=$False)] 
+    [parameter(Mandatory=$False)] 
     [string]$Vendor = "Cyber Advisors",
 
-	[parameter(Mandatory=$False)] 
-	[String]$Title = "Configuration Manager Site Documentation",
+    [parameter(Mandatory=$False)] 
+    [String]$Title = "Configuration Manager Site Documentation",
 
-	[parameter(Mandatory=$False)]
+    [parameter(Mandatory=$False)]
     [ValidateScript({$_ -match '\.html$'})]  
-	[String]$FilePath = "CMDocumentation.html",
+    [String]$FilePath = "CMDocumentation.html",
 
-	[parameter(Mandatory=$False)] 
-	[string]$SMSProvider='localhost',
+    [parameter(Mandatory=$False)] 
+    [string]$SMSProvider='localhost',
 
-	[parameter(Mandatory=$False)] 
-	[Switch]$AddDateTime,
+    [parameter(Mandatory=$False)] 
+    [Switch]$AddDateTime,
 	
-	[parameter(Mandatory=$False)] 
+    [parameter(Mandatory=$False)] 
     [switch]$UnknownClientSettings,
     
     [parameter(Mandatory=$False)] 
@@ -135,7 +135,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.60'
+$DocumenationScriptVersion = '3.61'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -901,7 +901,7 @@ Function Get-SiteCode
   return $SiteCode
 }
 
-#small funtion that will convert utc time to local time, option to ignore daylight savings time.
+#small function that will convert utc time to local time, option to ignore daylight savings time.
 function Convert-UTCtoLocal{
     param(
         [parameter(Mandatory=$true)]
@@ -3453,7 +3453,7 @@ If (-not($PSBoundParameters.ContainsKey('SkipRemoteServerDetails'))) {
   Write-HTMLHeading -Text "Software Update configuration for Site $($CMSite.SiteCode)" -Level 2 -PageBreak -File $FilePath
   
   Write-HTMLHeading -Text "Software Update Point Component Settings for Site $($CMSite.SiteCode)" -Level 3 -File $FilePath
-  Write-HTMLParagraph -Text "This is a list of all of the software update classifications and products that are syncronized into the site as well as some of the general site configuration settings." -Level 3 -File $FilePath
+  Write-HTMLParagraph -Text "This is a list of all of the software update classifications and products that are synchronized into the site as well as some of the general site configuration settings." -Level 3 -File $FilePath
 
   $cats=Get-CMSoftwareUpdateCategory -Fast
   $UpdatesClassifications = $cats|Where-Object {$_.CategoryTypeName -eq "UpdateClassification" -and $_.AllowSubscription -eq $true}
@@ -3721,7 +3721,7 @@ if ($DMADSD.DiscoveryState -eq "Enabled") {
     $SystemDiscoverySettings += "Search Containers:"
     Write-HtmlList -Description "Active Directory System Discovery is currently enabled with the following settings:" -InputObject $SystemDiscoverySettings -Level 3 -File $FilePath
     Write-HtmlTable -InputObject $DMADSD.ActiveDirectoryContainers -Level 4 -File $FilePath
-    Write-HtmlList -Description "The following addtional attributes are synced from AD:" -InputObject $DMADSD.ActiveDirectoryAttributes -Level 3 -File $FilePath
+    Write-HtmlList -Description "The following additional attributes are synced from AD:" -InputObject $DMADSD.ActiveDirectoryAttributes -Level 3 -File $FilePath
 }else{
     Write-HTMLParagraph -Text "Active Directory System Discovery is currently disabled." -Level 3 -File $FilePath
 }
@@ -4140,7 +4140,7 @@ If ($ListAllInformation){
               $ConfigList += "Enable compliance evaluation on clients: " + $(Convert-Bool2Text $AgentConfig.Enabled)
               IF ($Default){
                 $Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.EvaluationSchedule
-                $ConfigList += "Schedule Complinace Evaluation: " + (Get-HumanReadableSchedule -Schedule $Schedule)
+                $ConfigList += "Schedule Compliance Evaluation: " + (Get-HumanReadableSchedule -Schedule $Schedule)
               }
               $ConfigList += "Enable user data and profiles: " + $(Convert-Bool2Text $AgentConfig.EnableUserStateManagement)
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
@@ -4340,7 +4340,7 @@ If ($ListAllInformation){
                 0 { $SuspendBitlocker = 'Never' }
                 1 { $SuspendBitlocker = 'Always' }
               }
-              $ConfigList += "Suspend Bitlocker PIN entry on restart: $($SuspendBitlocker)"
+              $ConfigList += "Suspend BitLocker PIN entry on restart: $($SuspendBitlocker)"
               Switch ($AgentConfig.EnableThirdPartyOrchestration)
               {
                 0 { $EnableThirdPartyTool = 'No' }
@@ -4353,7 +4353,7 @@ If ($ListAllInformation){
                 1 { $ExecutionPolicy = 'Bypass' }
                 2 { $ExecutionPolicy = 'Restricted' }
               }
-              $ConfigList += "Powershell execution policy: $($ExecutionPolicy)"
+              $ConfigList += "PowerShell execution policy: $($ExecutionPolicy)"
               switch ($AgentConfig.DisplayNewProgramNotification)
               {
                 False { $DisplayNotifications = 'No' }
@@ -4808,7 +4808,7 @@ If ($ListAllInformation){
               } else {
                 $ConfigList += "Display a dialog box that the user cannot close, which displays the countdown interval before the user is logged of or the computer restarts (minutes): $([string]$AgentConfig.RebootLogoffNotificationFinalWindow / 60)"
               }
-              $ConfigList += "Specify the snooze suration for computer restart countdown notifications (minutes): $($AgentConfig.CountdownSnoozeInterval)"
+              $ConfigList += "Specify the snooze duration for computer restart countdown notifications (minutes): $($AgentConfig.CountdownSnoozeInterval)"
               $ConfigList += "When a deployment requires a restart, show a dialog windows to the user instead of a toast notification: " + $(Convert-Bool2Text $AgentConfig.RebootNotificationsDialog)
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
@@ -4851,7 +4851,7 @@ If ($ListAllInformation){
                 2 { $Usage = 'Limit' }
                 4 { $Usage = 'Block' }
               }
-              $ConfigList += "Specifiy how clients communicate on metered network connections: $($Usage)"
+              $ConfigList += "Specify how clients communicate on metered network connections: $($Usage)"
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
                   $UnknownProps = @()
@@ -5036,7 +5036,7 @@ If ($ListAllInformation){
                 $WindowsDO = 'No'
               }
               $ConfigList += "Use Configuration Manager Boundary Groups for Delivery Optimization Group ID: $WindowsDO"
-              $ConfigList += "Enable devices managed by Configuration Manager to use Delivery Optimization In-Network Cacheeserver (Beta) for content download: " + $(Convert-Bool2Text $AgentConfig.StampDOINC)
+              $ConfigList += "Enable devices managed by Configuration Manager to use Delivery Optimization In-Network Cache server (Beta) for content download: " + $(Convert-Bool2Text $AgentConfig.StampDOINC)
               Write-HtmlList -InputObject $ConfigList -Description "<b>$Config</b>" -Level 3 -File $FilePath
               If ($UnknownClientSettings) {
                   $UnknownProps = @()
@@ -5516,9 +5516,9 @@ if ($ListAllInformation)
                         true {$WindowEnabled = 'Yes'}
                         false {$WindowEnabled = 'No'}
                     }
-                $ServiceWindowArray += New-Object -TypeName psobject -Property @{'Name' = $SWName; 'Start Time' = $StartTime; 'UTC' = $UTCTime; 'Duration' = $Duration; 'Recurance' = $WindowRecurence; 'Type' = $WindowType; 'Enabled' = $WindowEnabled}
+                $ServiceWindowArray += New-Object -TypeName psobject -Property @{'Name' = $SWName; 'Start Time' = $StartTime; 'UTC' = $UTCTime; 'Duration' = $Duration; 'Recurrence' = $WindowRecurence; 'Type' = $WindowType; 'Enabled' = $WindowEnabled}
             }
-        $ServiceWindowArray = $ServiceWindowArray | Select-Object 'Name','Start Time','UTC','Duration','Recurance','Type','Enabled'
+        $ServiceWindowArray = $ServiceWindowArray | Select-Object 'Name','Start Time','UTC','Duration','Recurrence','Type','Enabled'
         Write-HtmlTable -InputObject $ServiceWindowArray -Border 1 -Level 5 -File $FilePath
     } else {
         Write-HTMLParagraph -Level 4 -File $FilePath -Text 'No maintenance windows configured on this collection.'
@@ -6335,7 +6335,7 @@ if (-not [string]::IsNullOrEmpty($ApplicationGuardPolicies)) {
     Write-HTMLParagraph -Text 'No Application Guard Policies defined in site.' -Level 4 -File $FilePath
 }
 $DeviceGuardPolicies = Get-CMConfigurationPolicy -Fast | Where-Object {$_.CategoryInstance_UniqueIDs -contains 'SettingsAndPolicy:SMS_DeviceGuardSettings'} | Select-Object CategoryInstance_UniqueIDs,LocalizedDisplayName,LocalizedCategoryInstanceNames,CI_ID,LastModifiedBy,DateLastModified,IsAssigned
-Write-HTMLHeading -Level 3 -Text 'Windows Defender Applicatin Control Policies' -File $FilePath
+Write-HTMLHeading -Level 3 -Text 'Windows Defender Application Control Policies' -File $FilePath
 if (-not [string]::IsNullOrEmpty($DeviceGuardPolicies)) {
     $DeviceGuardArray = @()
     foreach ($DGP in $DeviceGuardPolicies){
@@ -6344,7 +6344,7 @@ if (-not [string]::IsNullOrEmpty($DeviceGuardPolicies)) {
     $DeviceGuardArray = $DeviceGuardArray | Select-Object 'Name','Modified By','Modified','Deployed'
     Write-HtmlTable -InputObject $DeviceGuardArray -Border 1 -Level 4 -File $FilePath
 }else{
-    Write-HTMLParagraph -Text 'No Applicatin Control Policies defined in site.' -Level 4 -File $FilePath
+    Write-HTMLParagraph -Text 'No Application Control Policies defined in site.' -Level 4 -File $FilePath
 }
 Write-ProgressEx -CurrentOperation 'Completed Firewall and Device Guard'
 #endregion firewall and Device Guard
@@ -6386,7 +6386,7 @@ Write-HTMLHeading -Level 3 -Text 'Applications' -File $FilePath
 $Applications = Get-CMApplication|Sort-Object LocalizedDisplayName
 if ($ListAllInformation -or $ListAppDetails){
     if (-not [string]::IsNullOrEmpty($Applications)) {
-        Write-HTMLParagraph -Text "Below are a summary of all $($Applications.Count) application installers defined in this site. These are applications that are installed with the configuration manager application model.  Packages are covered later in the documentation." -Level 3 -File $FilePath
+        Write-HTMLParagraph -Text "Below is a summary of all $($Applications.Count) application installers defined in this site. These are applications that are installed with the configuration manager application model.  Packages are covered later in the documentation." -Level 3 -File $FilePath
         foreach ($App in $Applications) {
             #region Application Details
             Write-ProgressEx -CurrentOperation "Application: $($App.LocalizedDisplayName)" -Activity 'Configuration Manager Application' -Status 'Application details' -Id 10
@@ -6475,9 +6475,9 @@ if ($ListAllInformation -or $ListAppDetails){
             $AppList += "Supersedes other applications:  $($app.IsSuperseding)"
             $AppList += "Is superseded by another application:  $($app.IsSuperseded)"
             if ($xml.AppMgmtDigest.Application.DisplaySupersedes -eq 'true'){
-                $AppList += "Allow user to see this app and all apps that it supercedes in Software Center: Yes"
+                $AppList += "Allow user to see this app and all apps that it supersedes in Software Center: Yes"
             } else {
-                $AppList += "Allow user to see this app and all apps that it supercedes in Software Center: No"
+                $AppList += "Allow user to see this app and all apps that it supersedes in Software Center: No"
             }
             Write-HtmlList -InputObject $AppList -Description $ListDescription -Level 5 -File $FilePath
             $ListDescription = ""
