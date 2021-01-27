@@ -2164,6 +2164,69 @@ Function Get-PWCMPDPhases {
     }
 }
 
+Function Get-pwCMCloudManagementGateway {
+    <#
+    .SYNOPSIS
+    Gets the Details of a ConfigMgr Site's Cloud Management Gateway(s) 
+    .PARAMETER SiteCode
+    Your SCCM Site code (MMS).
+    .PARAMETER FilePath
+    This is the path of the documentation file.    
+    .EXAMPLE
+    Get-pwCMCloudManagementGateway -SiteCode 'MMS' -FilePath 'C:\Documents\CMDocumentation.html'
+    .NOTES
+    ========== Change Log History ==========
+    - 2021/01/22 by Chad@ChadsTech.net / Chad.Simmons@CatapultSystems.com - Created
+    === To Do / Proposed Changes ===
+    #TODO: CMG: Role Endpoints
+    #TODO: CMG: Validate multiple CMGs, multiple sites
+    #TODO: CMG: Validate features added since ConfigMgr v1910
+    #>
+    param (
+        [Parameter()][ValidateNotNullOrEmpty()][string]$SiteCode = $CMSite.SiteCode,
+        [Parameter()][ValidateNotNullOrEmpty()][string]$FilePath = $FilePath
+    )
+    Write-ProgressEx -CurrentOperation 'Enumerating Configuration Manager Cloud Management Gateway(s)'
+    Write-HTMLHeading -Text 'Cloud Management Gateway' -Level 3 -File $FilePath
+    #select * from vSMS_Azure_CloudService Where SiteCode = "$SiteCode"
+    $CMGs = Get-CMCloudManagementGateway | Where-Object { $_.SiteCode -eq "$SiteCode"}
+    ForEach ($CMG in $CMGs) {
+        Write-Debug -Message $CMG
+        #transform values to meaningful names
+        $CMG | Add-Member -MemberType NoteProperty -Name 'ResourceGroup' -Value $CMG.AffinityGroup
+        $CMG | Add-Member -MemberType NoteProperty -Name 'DeploymentModelName' -Value $CMG.DeploymentModel
+        Switch ($CMG.DeploymentModel) {
+            1 { $CMG.DeploymentModelName = 'Azure Resource Manager'}
+        }
+        $CMG | Add-Member -MemberType NoteProperty -Name 'AzureEnvironment' -Value $CMG.AzureEnvironmentId
+        Switch ($CMG.AzureEnvironmentId) {
+            1 { $CMG.AzureEnvironment = 'AzurePublicCloud'}
+        }
+        $CMG | Add-Member -MemberType NoteProperty -Name 'StateName' -Value $CMG.State
+        Switch ($CMG.State) {
+            0 { $CMG.StateName = 'Ready'}
+            4 { $CMG.StateName = 'Starting'}
+            6 { $CMG.StateName = 'Stopped'}
+        }
+        #transform object to multicolumn array and seperate known configuration items from unknown
+        $CMGarray = @()
+        $CMGarrayAdditional = @()
+        ForEach ($prop in $($CMG | Get-Member -MemberType Property,NoteProperty | Where-Object { $_.Name -notlike '_*'})) { 
+            If ($Prop.Name -in @($('Name,Fqdn,ServiceCName,StateName,StatusDetails,NALPath,AADApplicationId,AzureServiceID,AzureEnvironment,SubscriptionID,ResourceGroup,CreationTime,DeploymentModelName,DeploymentSlot,NumberOfInstances,Region,RootCertificate,SubCACertificate,StorageServiceName,StorageUsage,StorageQuotaInGB,StorageQuotaGrow,StorageWarningThreshold,StorageCriticalThreshold,TrafficOutUsage,TrafficOutInGB,TrafficOutStopService,TrafficWarningThreshold,TrafficCriticalThreshold' -split ','))) {
+                $CMGarray += $(New-Object -TypeName PSObject -Property $([ordered]@{Configuration = $prop.name; Value = $CMG.$($prop.name)}))
+            } ElseIf ($Prop.Name -notIn @('SerializedServiceCertificate','ServiceCertificate','ProxyCertificateConfig','AffinityGroup','DeploymentModel','AzureEnvironmentId','State')) {
+                $CMGarrayAdditional += $(New-Object -TypeName PSObject -Property $([ordered]@{Configuration = $prop.name; Value = $CMG.$($prop.name)}))
+            }
+        }
+        Write-HTMLParagraph -Text 'Cloud Management Gateway details.' -Level 3 -File $FilePath
+        Write-HtmlTable -Border 1 -Level 3 -File $FilePath -InputObject $CMGarray
+        Write-HTMLParagraph -Text 'Cloud Management Gateway additional details.' -Level 3 -File $FilePath
+        Write-HtmlTable -Border 1 -Level 3 -File $FilePath -InputObject $CMGarrayAdditional
+    }
+    If (-not($CMGs)) { Write-HTMLParagraph -Text 'Cloud Management Gateway not detected.' -Level 3 -File $FilePath }
+    Write-ProgressEx -CurrentOperation 'Completed Configuration Manager Cloud Management Gateway(s)'
+}
+
 function Convert-Bool2Text {
     #Simple function to convert a 1 to true and a 0 to false.  Or, just return the value if it isn't 1 or 0.
     param (
@@ -4015,6 +4078,10 @@ Write-ProgressEx -CurrentOperation "Completed Enumerating Default Boundary Group
 #endregion Default Boundary Group
 Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion enumerating all Boundary Groups and their members
+
+#region Cloud Services
+Get-pwCMCloudManagementGateway -SiteCode $CMSite.SiteCode -FilePath $FilePath
+#endregion Cloud Services
 
 #region enumerating Client Policies
 Write-ProgressEx -CurrentOperation "Enumerating all Client Settings"
