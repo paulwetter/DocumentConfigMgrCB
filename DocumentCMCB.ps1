@@ -2174,104 +2174,6 @@ Function Get-PWCMPDPhases {
     }
 }
 
-Function Get-pwDesktopAnalytics {
-    <#
-    .SYNOPSIS
-    Get the Details of a Desktop Analytics workspace connected to ConfigMgr
-    .PARAMETER SiteCode
-    ConfigMgr 3 character Site code (MMS).
-    .PARAMETER SMSProvider
-    ConfigMgr SMS Provider / Primary site server NetBIOS or Fully Qualified Domain Name (FQDN) where WMI queries will be executed on
-    .PARAMETER FilePath
-    Full file path and name to the documentation output file
-    .EXAMPLE
-    Get-pwDesktopAnalytics -SiteCode 'MMS' -SiteServer Primary.contoso.com -FilePath 'C:\Documents\CMDocumentation.html'
-    .NOTES
-    ========== Change Log History ==========
-    - 2021/02/02 by Chad@ChadsTech.net / Chad.Simmons@CatapultSystems.com - Created
-    === To Do / Proposed Changes ===
-    #>
-    param (
-        [Parameter()][ValidateNotNullOrEmpty()][string]$SiteCode = $CMSite.SiteCode,
-        [Parameter()][ValidateNotNullOrEmpty()][Alias('SiteServer')][string]$SMSProvider = $SMSProvider,
-        [Parameter()][ValidateNotNullOrEmpty()][string]$FilePath = $FilePath
-    )
-    Write-ProgressEx -CurrentOperation 'Enumerating Desktop Analytics'
-    Write-HTMLHeading -Text 'Desktop Analytics' -Level 3 -File $FilePath
- 
-    $DesktopAnalyticsSettings = [ordered]@{
-        'Name' = $null
-        'Description' = $null
-        'Azure Environment' = '<TBD>'
-        'Azure Tenant ID' = $null
-        'Azure Tenant Name' = $null
-        'Web app' = '<TBD>'
-        'Commercial ID' = $null
-        'Windows 10 diagnostic level' = '<TBD>' #Basic | Enhanced (Limited) | Enhanced | Full
-        'Allow Device Name in diagnostic data' = '<TBD>' #Disable | Enable
-        'Connection Display Name' = $null
-        'Devices in the target collection use a user-authenticated proxy for outbound communiction' = '<TBD>' #Yes | No
-        'Configuration Collection ID' = $null
-        'Configuration Collection Member Count' = $null
-        'Configuration Collection Name' = $null
-        'Configuration Collection Comment' = $null
-        'Configuration Collection Enabled' = $null
-        #TODO: Deployment Plan Collections ... Collection ID, Collection Member Count, Collection Name
-    }
-    
-    
-    #Desktop Analytics policy
-    $DesktopAnalyticsPolicy = Get-WmiObject -ComputerName $SMSProvider -Namespace "root\sms\site_$($SiteCode)" -Query "SELECT * FROM SMS_ConfigurationPolicy WHERE IsLatest = 1 AND LocalizedDisplayName = 'M365ASettings'" #AND LocalizedDescription = 'Desktop Analytics policy'
-    $DesktopAnalyticsPolicy | Select-Object LocalizedDescription, CI_ID, CI_UniqueID, CreatedBy, DateCreated, DateLastModified, IsAssigned, IsEnabled, LastModifiedBy, ModelID, ModelName, SedoObjectVersion, PlatformCategoryInstance_UniqueIDs
-    
-    $DACollections = Get-WmiObject -ComputerName $SMSProvider -Namespace "root\sms\site_$($SiteCode)" -Query "SELECT * FROM SMS_M365ACollection"
-    #$DesktopAnalyticsSettings.'Configuration Collection ID' = $DACollection.CollectionID
-    #$DesktopAnalyticsSettings.'Configuration Collection Name' = $DACollection.CollectionName
-    #$CollectionInfo = Get-WmiObject -ComputerName $SMSProvider -Namespace "root\sms\site_$($SiteCode)" -Query "SELECT * FROM SMS_Collection WHERE CollectionID = '$($DACollection.CollectionID)'"
-    #$DesktopAnalyticsSettings.'Configuration Collection Member Count' = $CollectionInfo.MemberCount
-    #$DesktopAnalyticsSettings.'Configuration Collection Comment' = $CollectionInfo.Comment
-    #$DesktopAnalyticsSettings.'Configuration Collection Enabled' = $DACollection.CollectionEnabled
-    #$DACollection.AADAppID
-    
-    Function Get-pwCMCollectionDetails ($CollectionID, $SMSProvider=$SMSProvider, $SiteCode=$CMSite.SiteCode) {
-        $CollectionInfo = Get-WmiObject -ComputerName $SMSProvider -Namespace "root\sms\site_$($SiteCode)" -Query "SELECT * FROM SMS_Collection WHERE CollectionID = '$CollectionID'"
-        Return $CollectionInfo
-    }
-    ForEach ($Collection in $DACollections) {
-        $CollectionInfo = Get-pwCMCollectionDetails -CollectionID $Collection.CollectionID
-        $DesktopAnalyticsSettings.'Configuration Collection Member Count' = $CollectionInfo.MemberCount
-        $DesktopAnalyticsSettings.'Configuration Collection Comment' = $CollectionInfo.Comment
-        $DesktopAnalyticsSettings.'Configuration Collection Enabled' = $DACollection.CollectionEnabled            
-    }
-    
-    $DAInfo = Get-WmiObject -ComputerName $SMSProvider -Namespace "root\sms\site_$($SiteCode)" -Query "SELECT * FROM SMS_AAD_Tenant_Ex_Property Where PropertyName='CollectionDisplayName'"
-    $DesktopAnalyticsSettings.'Azure Tenant ID' = $DAInfo.TenantID
-    $DesktopAnalyticsSettings.'Azure Tenant Name' = $DAInfo.TenantName
-    $DesktopAnalyticsSettings.'Connection Display Name' = $DAInfo.Value
-    $DAInfo = Get-WmiObject -ComputerName $SMSProvider -Namespace "root\sms\site_$($SiteCode)" -Query "SELECT * FROM SMS_AAD_Tenant_Ex_Property Where PropertyName='CommercialId'"
-    $DesktopAnalyticsSettings.'Commercial ID' = $DAInfo.Value
-    
-    #Get-WmiObject -ComputerName $SiteServer -Namespace "root\sms\site_$SiteCode" -Query "SELECT * FROM SMS_Azure_CloudService Where ServiceType = 4 and SiteCode = '$SiteCode'"
-    $DAInfo = Get-WmiObject -ComputerName $SMSProvider -Namespace "root\sms\site_$($SiteCode)" -Query "SELECT * FROM SMS_Azure_CloudService Where ServiceType = 4 and SiteCode = 'LAB'"
-    $DesktopAnalyticsSettings.Name = $DAInfo.Name
-    $DesktopAnalyticsSettings.Description = $DAInfo.Description
-    #TODO: AuthenticationType
-    #TODO: AssociatedAADWebApplications
-    
-    #Get-WmiObject -ComputerName $SMSProvider -Namespace "root\sms\site_$($SiteCode)" -Query "SELECT * FROM SMS_M365ASettings WHERE IsLatest = 1 AND SourceSite = 'LAB' AND CI_UniqueID = 'GLOBAL/CCMSS_M365A_Settings'"
-    #SMS_M365ADeploymentPlan
-    #SMS_M365ADeploymentPlanDevice
-    #Get-WmiObject -ComputerName $SMSProvider -Namespace "root\sms\site_$($SiteCode)" -Query "SELECT TenantName, TenantID, PropertyName, ID, Value FROM SMS_M365AProperty" | Select TenantName, TenantID, PropertyName, ID, Value
-    $DAInfo = Get-WmiObject -ComputerName $SMSProvider -Namespace "root\sms\site_$($SiteCode)" -Query "SELECT * FROM SMS_AAD_Application_Ex" | Select-Object ApplicationCreationTime, AssociatedAADApplications, ClientID, ID, IdentifierUri, IsClientApp, LastUpdateTime, Name, ReplyUrl, SecretKeyCreationTime, SecretKeyExpiry
-    
-    $DAarray = @() #Convert Hashtable to Array so Write-HtmlTable will parse it properly
-    $DAarray += ForEach($prop in $DesktopAnalyticsSettings.GetEnumerator()) { 
-        New-Object -TypeName PSObject -Property $([ordered]@{Configuration = $prop.name; Value = $prop.value})
-    }   
-    Write-HtmlTable -Border 1 -Level 3 -File $FilePath -InputObject $DAarray
-    Write-ProgressEx -CurrentOperation 'Completed Desktop Analytics'
-}
-
 Function Get-pwCMCloudManagementGateway {
     <#
     .SYNOPSIS
@@ -4241,7 +4143,6 @@ Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion enumerating all Boundary Groups and their members
 
 #region Cloud Services
-Get-pwDesktopAnalytics -SiteCode $CMSite.SiteCode -FilePath $FilePath
 Get-pwCMCloudManagementGateway -SiteCode $CMSite.SiteCode -FilePath $FilePath
 #endregion Cloud Services
 
