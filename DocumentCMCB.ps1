@@ -4864,6 +4864,7 @@ If ($ListAllInformation){
               $KnownProps = @("AgentID","PSComputerName","PSShowComputerName","RebootLogoffNotificationCountdownDuration","RebootLogoffNotificationFinalWindow","SmsProviderObjectPath","CountdownSnoozeInterval","RebootNotificationsDialog","EnforceReboot")
               $Config = 'Computer Restart'
               $ConfigList = @()
+              If ([string]::IsNullOrEmpty($AgentConfig.EnforceReboot)) {$AgentConfig.EnforceReboot = $true}
               $ConfigList += "Configuration Manager can force a device to restart: " + $(Convert-Bool2Text $AgentConfig.EnforceReboot)
               $ConfigList += "Display a temporary notification to the user that indicates the interval before the user is logged of or the computer restarts (minutes): $($AgentConfig.RebootLogoffNotificationCountdownDuration)"
               if ($Default){
