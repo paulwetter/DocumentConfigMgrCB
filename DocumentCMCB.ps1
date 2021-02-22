@@ -67,10 +67,11 @@
     This script creates a HTML document.
 .NOTES
     NAME: DocumentCMCB.ps1
+    VERSION: 3.63
     AUTHOR: Paul Wetter
     Based on original script developed by David O'Brien
     CONTRIBUTOR: Florian Valente (BlackCatDeployment), Skatterbrainz, ChadSimmons
-    LASTEDIT: February 3, 2021
+    LASTEDIT: February 22, 2021
 #>
 
 #endregion
@@ -134,7 +135,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.62'
+$DocumenationScriptVersion = '3.63'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -4864,6 +4865,7 @@ If ($ListAllInformation){
               $KnownProps = @("AgentID","PSComputerName","PSShowComputerName","RebootLogoffNotificationCountdownDuration","RebootLogoffNotificationFinalWindow","SmsProviderObjectPath","CountdownSnoozeInterval","RebootNotificationsDialog","EnforceReboot")
               $Config = 'Computer Restart'
               $ConfigList = @()
+              If ([string]::IsNullOrEmpty($AgentConfig.EnforceReboot)) {$AgentConfig.EnforceReboot = $true}
               $ConfigList += "Configuration Manager can force a device to restart: " + $(Convert-Bool2Text $AgentConfig.EnforceReboot)
               $ConfigList += "Display a temporary notification to the user that indicates the interval before the user is logged of or the computer restarts (minutes): $($AgentConfig.RebootLogoffNotificationCountdownDuration)"
               if ($Default){
@@ -5817,7 +5819,7 @@ if ($KFMSettings.count -gt 0) {
         $listArray += "Prevent users from redirecting their Windows known folders back to their PC: $($KFMsetting.BlockOptOut)"
         Write-HtmlList -Title "$($KFMsetting.Name)" -Description "Description: $($KFMsetting.Description)" -InputObject $listArray -Level 4 -File $FilePath
         If ($KFMSetting.Deployed -eq "True"){
-            $KFMDeployments = Get-CMConfigurationPolicyDeployment -SmsObjectId 16780575 | foreach {Get-CMCollection -Id $_.TargetCollectionID}|select CollectionID,Name
+            $KFMDeployments = Get-CMConfigurationPolicyDeployment -SmsObjectId $KFMsetting.CI_ID | ForEach-Object {Get-CMCollection -Id $_.TargetCollectionID}|Select-Object CollectionID,Name
             Write-HTMLParagraph -Text 'Deployments:' -Level 4 -File $FilePath
             Write-HtmlTable -InputObject $KFMDeployments -Level 4 -File $FilePath
         } else {
