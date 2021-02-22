@@ -67,11 +67,11 @@
     This script creates a HTML document.
 .NOTES
     NAME: DocumentCMCB.ps1
-    VERSION: 3.61
+    VERSION: 3.62
     AUTHOR: Paul Wetter
     Based on original script developed by David O'Brien
     CONTRIBUTOR: Florian Valente (BlackCatDeployment), Skatterbrainz, ChadSimmons
-    LASTEDIT: January 26, 2021
+    LASTEDIT: February 21, 2021
 #>
 
 #endregion
@@ -135,7 +135,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.61'
+$DocumenationScriptVersion = '3.62'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -5817,7 +5817,7 @@ if ($KFMSettings.count -gt 0) {
         $listArray += "Prevent users from redirecting their Windows known folders back to their PC: $($KFMsetting.BlockOptOut)"
         Write-HtmlList -Title "$($KFMsetting.Name)" -Description "Description: $($KFMsetting.Description)" -InputObject $listArray -Level 4 -File $FilePath
         If ($KFMSetting.Deployed -eq "True"){
-            $KFMDeployments = Get-CMConfigurationPolicyDeployment -SmsObjectId 16780575 | foreach {Get-CMCollection -Id $_.TargetCollectionID}|select CollectionID,Name
+            $KFMDeployments = Get-CMConfigurationPolicyDeployment -SmsObjectId $KFMsetting.CI_ID | ForEach-Object {Get-CMCollection -Id $_.TargetCollectionID}|Select-Object CollectionID,Name
             Write-HTMLParagraph -Text 'Deployments:' -Level 4 -File $FilePath
             Write-HtmlTable -InputObject $KFMDeployments -Level 4 -File $FilePath
         } else {
