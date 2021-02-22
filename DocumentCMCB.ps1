@@ -67,11 +67,11 @@
     This script creates a HTML document.
 .NOTES
     NAME: DocumentCMCB.ps1
-    VERSION: 3.62
+    VERSION: 3.63
     AUTHOR: Paul Wetter
     Based on original script developed by David O'Brien
     CONTRIBUTOR: Florian Valente (BlackCatDeployment), Skatterbrainz, ChadSimmons
-    LASTEDIT: February 21, 2021
+    LASTEDIT: February 22, 2021
 #>
 
 #endregion
@@ -135,7 +135,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.62'
+$DocumenationScriptVersion = '3.63'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -145,7 +145,7 @@ Write-host "Beginning Execution of version $DocumenationScriptVersion at: $($Scr
 Write-Verbose "Beginning Execution of version $DocumenationScriptVersion at: $($ScriptStartTime.ToShortTimeString())"
 
 #region HTML Writing Functions
-Function Write-HtmlTable{
+Function Write-HTMLTable{
 <#
 .SYNOPSIS
     This will take an input array of objects and turn it into an HTML table.  Optionally, you can set a border for the table as well.
@@ -160,14 +160,13 @@ Function Write-HtmlTable{
 .PARAMETER File
     This is the file that the HTML will be written to.
 .EXAMPLE
-    Write-HtmlTable -InputObject $folders -Border 1
+    Write-HTMLTable -InputObject $folders -Border 1
 .NOTES
     Author: Paul Wetter
     Website: 
     Email: tellwetter[at]gmail.com
 
 #>
-
     [CmdletBinding()]
     param (
         [Parameter(Mandatory=$true,ValueFromPipeline=$false,
@@ -191,8 +190,7 @@ Function Write-HtmlTable{
         [string]$File
     )
 
-    switch ($Level) 
-    { 
+    Switch ($Level) { 
         0 {$Indent=0} 
         1 {$Indent=5} 
         2 {$Indent=15} 
@@ -205,21 +203,11 @@ Function Write-HtmlTable{
         9 {$Indent=85} 
         default {$Indent=5}
     }
-    if ($InputObject){
+    If ($InputObject) {
         $table = $InputObject|ConvertTo-Html -Fragment
         $table[0] = "<table cellpadding=$Padding cellspacing=$Spacing border=$Border style=`"margin-left:$($Indent)px;`">"
-        $table = $table -replace "--CRLF--","<BR />"
-        $table = $table -replace "--TAB--","&nbsp;&nbsp;"
-        $table = $table -replace "--B--","<B>"
-        $table = $table -replace "--/B--","</B>"
-        $table = $table -replace "--I--","<I>"
-        $table = $table -replace "--/I--","</I>"
-        $table = $table -replace "--U--","<U>"
-        $table = $table -replace "--/U--","</U>"
-        $table = $table -replace "--CBOX--","&#9745;"
-        $table = $table -replace "--UNCBOX--","&#9744;"
-        $table = $table -replace "--BULLET--","&bull;"
-    }else{
+        $table = Convert-HTMLTags -InputString $table
+    } Else {
         Write-Verbose 'Input object was empty outputting empty object paragraph text...'
         Write-HTMLParagraph -Text 'There was no data to output from this query.' -Level $Level -File $file
     }
@@ -310,8 +298,6 @@ Function Write-HtmlList{
     Else {Return $ListHTML}
 }
 
-
-
 Function Write-HTMLHeading{
 <#
 .SYNOPSIS
@@ -364,7 +350,6 @@ Function Write-HTMLHeading{
     Else {Return $HeadLine}
 }
 
-
 Function Write-HTMLParagraph{
 <#
 .SYNOPSIS
@@ -400,8 +385,7 @@ Function Write-HTMLParagraph{
         [string]$File
     )
     
-    switch ($Level) 
-    { 
+    Switch ($Level) { 
         0 {$Indent=0} 
         1 {$Indent=5} 
         2 {$Indent=15} 
@@ -411,7 +395,7 @@ Function Write-HTMLParagraph{
         6 {$Indent=55} 
         default {$Indent=5}
     }
-    $Paragraph = "<P style=`"margin-left:$($Indent)px;`">$Text</p>"
+    $Paragraph = "<P style=`"margin-left:$($Indent)px;`">$(Convert-HTMLTags -InputString $Text)</p>"
     If ($File) {$Paragraph | Out-File -filepath $File -Append}
     Else {Return $Paragraph}
 }
@@ -888,6 +872,33 @@ Function Convert-Time {
   return $NewTime
 }
 
+Function Convert-HTMLTags {
+    <#
+    .SYNOPSIS
+    Converts custom formatted HTML tags to standard HTML
+    .PARAMETER InputString
+    The string or array of strings of text to parse
+    .EXAMPLE
+    Convert-HTMLTags -InputString 'This is --B--bold text--/B--'
+    .NOTES
+    ========== Change Log History ==========
+    - 2021/02/02 by Chad@ChadsTech.net / Chad.Simmons@CatapultSystems.com - Moved to function
+    - 2018/03/07 by Paul Wetter - Created
+    #>
+    param ([Parameter(Mandatory = $true)][Alias('InputString')][string[]]$S)
+    $S = $S -replace '--CRLF--','<BR />'
+    $S = $S -replace '--TAB--','&nbsp;&nbsp;'
+    $S = $S -replace '--B--','<B>'
+    $S = $S -replace '--/B--','</B>'
+    $S = $S -replace '--I--','<I>'
+    $S = $S -replace '--/I--','</I>'
+    $S = $S -replace '--U--','<U>'
+    $S = $S -replace '--/U--','</U>'
+    $S = $S -replace '--CBOX--','&#9745;'
+    $S = $S -replace '--UNCBOX--','&#9744;'
+    $S = $S -replace '--BULLET--','&bull;'
+    Return $S
+}
 Function Get-SiteCode
 {
   $wqlQuery = 'SELECT * FROM SMS_ProviderLocation'
@@ -2362,6 +2373,84 @@ Function Get-pwCMSiteServicingUpdates {
     Write-ProgressEx -CurrentOperation 'Completed Configuration Manager Update Status and History'    
 }
 
+Function Get-pwCMClientPushInstallationSettings {
+    <#
+    .SYNOPSIS
+    Gets the Details of a ConfigMgr Site's Client Push Installation settings
+    .PARAMETER SiteCode
+    ConfigMgr 3 character Site code (MMS).
+    .PARAMETER SMSProvider
+    ConfigMgr SMS Provider / Primary site server NetBIOS or Fully Qualified Domain Name (FQDN) where WMI queries will be executed on
+    .PARAMETER FilePath
+    Full file path and name to the documentation output file
+    .EXAMPLE
+    Get-pwCMClientPushInstallationSettings -SiteCode $CMSite.SiteCode -FilePath $FilePath
+    .EXAMPLE
+    Get-pwCMClientPushInstallationSettings -SiteCode 'MMS' -FilePath 'C:\Documents\CMDocumentation.html'
+    .NOTES
+    ========== Change Log History ==========
+    - 2021/01/29 by Chad@ChadsTech.net / Chad.Simmons@CatapultSystems.com - Moved to function, scopped to SiteCode, updated output
+    - 2018/03/07 by Paul Wetter - Created
+    === To Do / Proposed Changes ===
+    #>
+    param (
+        [Parameter()][ValidateNotNullOrEmpty()][string]$SiteCode = $CMSite.SiteCode,
+        [Parameter()][ValidateNotNullOrEmpty()][Alias('SiteServer')][string]$SMSProvider = $SMSProvider,
+        [Parameter()][ValidateNotNullOrEmpty()][string]$FilePath = $FilePath
+    )
+    Write-ProgressEx -CurrentOperation 'Enumerating Client Push Settings for Site'
+    Write-HTMLHeading -Text "Client Push Settings for Site $($CMSite.SiteCode)" -Level 2 -PageBreak -File $FilePath
+    Write-HTMLParagraph -Text 'Client push allows Configugration Manager to install the client on computers in the domain directly from Configuration Manager using admin credentials on the remote computer.  This is <a href="https://docs.microsoft.com/en-us/mem/configmgr/core/clients/deploy/plan/client-installation-methods" target="_blank">one of several</a> ways to install the client on computers.' -Level 3 -File $FilePath
+    #Client push settings are found in WMI.  They are all in the list of global properties: SMS_DISCOVERY_DATA_MANAGER
+    $CPProps = (Get-WmiObject -ComputerName $SMSProvider -Namespace root\sms\site_$($CMSite.SiteCode) -Query "SELECT * FROM SMS_SCI_SCProperty where ItemType='SMS_DISCOVERY_DATA_MANAGER' and SiteCode = '$($CMSite.SiteCode)'") | Select-Object PropertyName,Value,Value1,Value2
+
+    $CPText = 'Enable automatic site-wide client push installation'
+    If (($CPProps | Where-Object {$_.PropertyName -eq 'SETTINGS'}).Value1 -eq 'Active') {
+        $CPText = '--CBOX-- ' + $CPText
+    } Else {
+        $CPText = '--UNCBOX-- ' + $CPText
+    }
+    Write-HTMLParagraph -Level 3 -Text $(Convert-HTMLTags -InputString $CPText) -File $FilePath
+
+    $CPText = 'Allow connection fallback to NTLM'
+    If (($CPProps | Where-Object {$_.PropertyName -eq 'ENABLEKERBEROSCHECK'}).Value -eq 3) {
+        $CPText = '--CBOX-- ' + $CPText
+    } Else {
+        $CPText = '--UNCBOX-- ' + $CPText
+    }
+    Write-HTMLParagraph -Level 3 -Text $(Convert-HTMLTags -InputString $CPText) -File $FilePath
+
+    $InstallClientsEnabledTitle = 'Install Configuration Manager client software on the following computers'
+    #FILTERS Property has the following known values.  0 = Servers, Workstations, DCs; 1 = Servers, DCs; 2 = Servers, Workstations; 3 = Servers; 4 = Workstations, DCs; 5 = DCs; 6 = ?; 7 = none
+    $CPSystemTypes = ($CPProps | Where-Object {$_.PropertyName -eq 'FILTERS'}).Value
+    If ($CPSystemTypes -in @(0,1,2,3)) { $CPServers = '--CBOX--' } Else { $CPServers = '--UNCBOX--' }
+    If ($CPSystemTypes -in @(0,2,4)) { $CPWorkstations = '--CBOX--' } Else { $CPWorkstations = '--UNCBOX--' }
+    If ($CPSystemTypes -in @(0,1,4,5)) { $CPDCs = $true } Else { $CPDCs = $false }
+    If ($CPDCs) { $DCBehavior = '--CBOX-- Always install the Configuration Manager client on domain controllers'}
+    Else { $DCBehavior = '--CBOX-- Never install the Configuration Manager client on domain controllers unless specified in the Client Push Installation Wizard'}
+    If (($CPProps|Where-Object {$_.PropertyName -eq 'AutoInstallSiteSystem'}).Value -eq 1) {
+        $CPCMServers = '--CBOX--'
+    } Else {
+        $CPCMServers = '--UNCBOX--'
+    } 
+    Write-Verbose -Message "$InstallClientsEnabledTitle`n$CPServers Servers`n$CPWorkstations Workstations`n$CPCMServers Configuration Manager site system servers`n$DCBehavior"
+    #Write-HtmlParagraph -Text $(Convert-HTMLTags -InputString "--B--$InstallClientsEnabledTitle--/B----CRLF--$CPServers Servers--CRLF--$CPWorkstations Workstations--CRLF--$CPCMServers Configuration Manager site system servers--CRLF--$DCBehavior") -Level 4 -File $FilePath
+    Write-HtmlParagraph -Level 4 -File $FilePath -Text "--B--$InstallClientsEnabledTitle--/B----CRLF--$CPServers Servers--CRLF--$CPWorkstations Workstations--CRLF--$CPCMServers Configuration Manager site system servers--CRLF--$DCBehavior"
+
+    $CPSettings = Get-CMClientPushInstallation -SiteCode $CMSite.SiteCode
+    $CPAccounts=($CPSettings.PropLists|Where-Object {$_.PropertyListName -eq 'Reserved2'}).values
+    $CPAccountsDescription='Even if client push is not enabled on the site, client push accounts are important/required for installing and reinstalling clients from the console.'
+    If ([string]::IsNullOrEmpty($CPAccounts)) { $CPAccounts = 'None defined' }
+    If ($MaskAccounts) { $CPAccounts =  $CPAccounts | Set-AccountMask }
+    Write-HtmlList -Title 'Client Push Installation accounts' -Description $CPAccountsDescription -InputObject $CPAccounts -Level 4 -File $FilePath
+    
+    $InstallProps=($CPSettings.props|Where-Object {$_.PropertyName -eq 'Advanced Client Command Line'}).Value1
+    If ([string]::IsNullOrEmpty($InstallProps)) { $InstallProps = 'None defined' }
+    Write-HtmlList -Title 'Client Push MSI Installation Properties' -InputObject $InstallProps -Level 4 -File $FilePath
+    Write-ProgressEx -CurrentOperation 'Completed Enumeration of Client Push Settings for Site'
+    Write-HtmliLink -ReturnTOC -File $FilePath
+}
+
 Function Write-ProgressEx {
     [CmdletBinding()]
     param(
@@ -3602,99 +3691,11 @@ If (-not($PSBoundParameters.ContainsKey('SkipRemoteServerDetails'))) {
   Write-ProgressEx -CurrentOperation "Completed Enumeration of Software Update Points"
   Write-HtmliLink -ReturnTOC -File $FilePath
   #endregion enumerating Software Update Points and Configuration
+
   #region enumerating client push settings
-    Write-ProgressEx -CurrentOperation "Enumerating Client Push Settings for Site"
-    Write-HTMLHeading -Text "Client Push Settings for Site $($CMSite.SiteCode)" -Level 2 -PageBreak -File $FilePath
-    Write-HTMLParagraph -Text "Client push allows CM to install the client to computers in the domain directly from CM using admin credentials on the remote computer.  This is <a href=`"https://docs.microsoft.com/en-us/sccm/core/clients/deploy/plan/client-installation-methods`" target=`"_blank`">one of several</a> ways to install the CM client on computers." -Level 3 -File $FilePath
-    #Client push settings are found in WMI.  They are all in the list of global properties: SMS_DISCOVERY_DATA_MANAGER
-    $CPProps = (Get-WmiObject -Namespace ROOT\SMS\site_$($CMSite.SiteCode) -ComputerName $SMSProvider -Query "SELECT * FROM SMS_SCI_SCProperty where ItemType='SMS_DISCOVERY_DATA_MANAGER'")|Select-Object PropertyName,Value,Value1,Value2
-    If(($CPProps | Where-Object {$_.PropertyName -eq 'SETTINGS'}).Value1 -eq 'Active'){
-        Write-HTMLParagraph -Level 3 -Text "Automatic site-wide client push is enabled with the below settings." -File $FilePath
-    }else{
-        Write-HTMLParagraph -Level 3 -Text "Automatic site-wide client push is NOT enabled." -File $FilePath
-    }
-
-    $InstallClientsEnabledTitle = "Install Configuration Manager client software on the following computers"
-    $InstallClientsEnabled = @()
-    $InstallClientsDisabledTitle = "Exclude Configuration Manager client software from the following computers"
-    $InstallClientsDisabled = @()
-
-    #FILTERS Property has the following known values.  Evaluating in a Switch: 0=install on all systems; 1=Do not Install Workstations; 2=Do not install on DCs; 4=Do not install servers; 5=Do not install on servers and workstations 7=Do not install servers, workstations or DCs
-    Switch(($CPProps | Where-Object {$_.PropertyName -eq 'FILTERS'}).Value){
-        0{
-            $InstallClientsEnabled += "Servers"
-            $InstallClientsEnabled += "Workstations"
-            $InstallDC = $true
-        }
-        1{
-            $InstallClientsEnabled += "Servers"
-            $InstallClientsDisabled += "Workstations"
-            $InstallDC = $true
-        }
-        2{
-            $InstallClientsEnabled += "Servers"
-            $InstallClientsEnabled += "Workstations"
-        }
-        3{
-            $InstallClientsEnabled += "Servers"
-            $InstallClientsDisabled += "Workstations"
-            $InstallDC = $false
-        }
-        4{
-            $InstallClientsDisabled += "Servers"
-            $InstallClientsEnabled += "Workstations"
-            $InstallDC = $true
-        }
-        5{
-            $InstallClientsDisabled += "Servers"
-            $InstallClientsDisabled += "Workstations"
-            $InstallDC = $true
-        }
-        7{
-            $InstallClientsDisabled += "Servers"
-            $InstallClientsDisabled += "Workstations"
-            $InstallDC = $false
-        }
-    }
-    #AutoInstallSiteSystem: 1=Enabled on Site system servers; 0=Disable install on site system servers
-    switch(($CPProps|Where-Object {$_.PropertyName -eq 'AutoInstallSiteSystem'}).Value){
-        1{$InstallClientsEnabled +="Configuration Manager site system servers"}
-        0{$InstallClientsDisabled +="Configuration Manager site system servers"}
-    }
-    If(-not [string]::IsNullOrEmpty($InstallClientsEnabled)){
-        Write-HtmlList -Title $InstallClientsEnabledTitle -InputObject $InstallClientsEnabled -Level 4 -File $FilePath
-    }
-    If(-not [string]::IsNullOrEmpty($InstallClientsDisabled)){
-        Write-HtmlList -Title $InstallClientsDisabledTitle -InputObject $InstallClientsDisabled -Level 4 -File $FilePath
-    }
-    Switch($InstallDC){
-        $true{$DCBehavior="Always install the Configuration Manager client on domain controllers"}
-        $false{$DCBehavior="Never install the Configuration Manager client on domain controllers unless specified in the Client Push Installation Wizard"}
-    }
-    If(-not [string]::IsNullOrEmpty($DCBehavior)){
-        Write-HtmlList -Title "Domain Controller Client Install Behavior" -InputObject $DCBehavior -Level 4 -File $FilePath
-    }
-    $CPSettings = Get-CMClientPushInstallation
-    $CPAccounts=($CPSettings.PropLists|Where-Object {$_.PropertyListName -eq 'Reserved2'}).values
-    $CPAccountsDescription="Even if client push is not enabled on the site, client push accounts are important/required for installing and reinstalling clients from the console."
-    If(-not [string]::IsNullOrEmpty($CPAccounts)){
-        if ($MaskAccounts){
-            Write-HtmlList -Title "Defined Client Push Accounts" -Description $CPAccountsDescription -InputObject ($CPAccounts|Set-AccountMask) -Level 4 -File $FilePath
-        }else{
-            Write-HtmlList -Title "Defined Client Push Accounts" -Description $CPAccountsDescription -InputObject $CPAccounts -Level 4 -File $FilePath
-        }
-    }else{
-        Write-HtmlList -Title "Defined Client Push Accounts" -Description $CPAccountsDescription -InputObject "None defined" -Level 4 -File $FilePath
-    }
-    $InstallProps=($CPSettings.props|Where-Object {$_.PropertyName -eq 'Advanced Client Command Line'}).Value1
-    If(-not [string]::IsNullOrEmpty($InstallProps)){
-        Write-HtmlList -Title "Client Push MSI Installation Properties" -InputObject $InstallProps -Level 4 -File $FilePath
-    }else{
-        Write-HtmlList -Title "Client Push MSI Installation Properties" -InputObject "None defined" -Level 4 -File $FilePath
-    }
-    Write-ProgressEx -CurrentOperation "Completed Enumeration of Client Push Settings for Site"
-    Write-HtmliLink -ReturnTOC -File $FilePath
+  Get-pwCMClientPushInstallationSettings -SiteCode $CMSite.SiteCode -FilePath $FilePath
   #endregion enumerating client push settings
+
   Write-ProgressEx -CurrentOperation "Completed checking site configuration for $($CMSite.SiteCode)"
 }
 Write-ProgressEx -CurrentOperation "Completed Checking each site's configuration."
