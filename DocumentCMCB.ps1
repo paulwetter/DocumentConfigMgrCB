@@ -67,7 +67,7 @@
     This script creates a HTML document.
 .NOTES
     NAME: DocumentCMCB.ps1
-    VERSION: 3.63
+    VERSION: 3.64
     AUTHOR: Paul Wetter
     Based on original script developed by David O'Brien
     CONTRIBUTOR: Florian Valente (BlackCatDeployment), Skatterbrainz, ChadSimmons
@@ -135,7 +135,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.63'
+$DocumenationScriptVersion = '3.64'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -7965,8 +7965,9 @@ Write-ProgressEx -CurrentOperation 'Completed Windows 10 Servicing'
 Write-ProgressEx -CurrentOperation 'Collecting Configuration Manager Scripts'
 Write-HTMLHeading -Level 2 -PageBreak -Text 'Configuration Manager Scripts' -File $FilePath
 $ScriptFeature = Get-CMSiteFeature| Where-Object {$_.FeatureGuid -like '566F8720-F415-4E10-9A51-CDE682BA2B2E'}
-if (-not [string]::IsNullOrEmpty($ScriptFeature)){
-    If ($ScriptFeature.Status -eq 1){
+$SiteVersion = [version](Get-CMSite).version
+if ((-not [string]::IsNullOrEmpty($ScriptFeature)) -or ($SiteVersion -ge [version]'5.00.9040.1000')){
+    If (($ScriptFeature.Status -eq 1) -or ($SiteVersion -ge [version]'5.00.9040.1000')){
         $CMScripts = Get-WmiObject -Namespace ROOT\SMS\site_$SiteCode -ComputerName $SMSProvider -Class SMS_Scripts
         Write-Debug "$(Get-Date):   Working on $($CMScripts.count) Scripts"
         if ([string]::IsNullOrEmpty($CMScripts)){
