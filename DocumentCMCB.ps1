@@ -2400,7 +2400,7 @@ Function Get-pwCMClientPushInstallationSettings {
     )
     Write-ProgressEx -CurrentOperation 'Enumerating Client Push Settings for Site'
     Write-HTMLHeading -Text "Client Push Settings for Site $($CMSite.SiteCode)" -Level 2 -PageBreak -File $FilePath
-    Write-HTMLParagraph -Text 'Client push allows Configugration Manager to install the client on computers in the domain directly from Configuration Manager using admin credentials on the remote computer.  This is <a href="https://docs.microsoft.com/en-us/mem/configmgr/core/clients/deploy/plan/client-installation-methods" target="_blank">one of several</a> ways to install the client on computers.' -Level 3 -File $FilePath
+    Write-HTMLParagraph -Text 'Client push allows Configuration Manager to install the client on computers in the domain directly from Configuration Manager using admin credentials on the remote computer.  This is <a href="https://docs.microsoft.com/en-us/mem/configmgr/core/clients/deploy/plan/client-installation-methods" target="_blank">one of several</a> ways to install the client on computers.' -Level 3 -File $FilePath
     #Client push settings are found in WMI.  They are all in the list of global properties: SMS_DISCOVERY_DATA_MANAGER
     $CPProps = (Get-WmiObject -ComputerName $SMSProvider -Namespace root\sms\site_$($CMSite.SiteCode) -Query "SELECT * FROM SMS_SCI_SCProperty where ItemType='SMS_DISCOVERY_DATA_MANAGER' and SiteCode = '$($CMSite.SiteCode)'") | Select-Object PropertyName,Value,Value1,Value2
 
@@ -5218,7 +5218,7 @@ Write-HTMLHeading -Level 2 -PageBreak -Text 'Administrative Users' -File $FilePa
 
 $Admins = Get-CMAdministrativeUser
 
-Write-HTMLParagraph -Text 'Details on all administative accounts in the site:' -Level 2 -File $FilePath
+Write-HTMLParagraph -Text 'Details on all administrative accounts in the site:' -Level 2 -File $FilePath
 
 $AdminArray = @();
 
