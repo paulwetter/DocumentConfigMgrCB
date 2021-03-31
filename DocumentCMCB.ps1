@@ -697,7 +697,7 @@ function Ping-Host {
   Param([string]$computername=$(Throw "You must specify a computername.")) 
   Write-Debug "In Ping-Host function" 
   $query="Select * from Win32_PingStatus where address='$computername'" 
-  $wmi=Get-WmiObject -query $query 
+  $wmi=Get-WmiObject -query $query
   if([string]::IsNullOrEmpty($wmi.ResponseTime)){$false}Else{$true}
 }
 
@@ -2751,10 +2751,48 @@ If ($ListAllInformation){
                 $RoleSettings += @("- Certificate: Imported")
             }
             If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "PreStagingAllowed" }).Value -eq 1) {
-                $RoleSettings += @("- Enable for prestaged content - CHECKED")
+                $RoleSettings += @("- Enable for prestaged content: CHECKED")
             }
             Else {
-                $RoleSettings += @("- Enable for prestaged content - UNCHECKED")
+                $RoleSettings += @("- Enable for prestaged content: UNCHECKED")
+            }
+
+            If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "LEDBATEnabled" }).Value -eq 1) {
+                $RoleSettings += @("- LEDBAT: CHECKED")
+            }
+            Else {
+                $RoleSettings += @("- LEDBAT: UNCHECKED")
+            }
+
+            $DoincProps = $SiteRole.Props | Where-Object {$_.PropertyName -in @("DoincEnabled","AgreeDOINCLicense","LocalDriveDOINC","DiskSpaceDOINC","RetainDOINCCache")}
+            If (($DoincProps | Where-Object { $_.PropertyName -eq "DoincEnabled" }).Value -eq 1) {
+                $RoleSettings += @("- Microsoft Connected Cache: Enabled")
+
+                ForEach($Prop in ($DoincProps | Where-Object {$_.PropertName -ne "DoincEnabled"})) {
+                    $RoleSettings += Switch ($Prop.PropertyName) {
+                        "AgreeDOINCLicense" {
+                            If($Prop.Value1 -eq 1) {
+                                  @("--TAB--Terms: CHECKED")
+                            }
+                            Else {
+                                @("--TAB--Terms: UNCHECKED")
+                            }
+                        }
+                        "LocalDriveDOINC" {@("--TAB--Local Drive: $($Prop.Value1)")}
+                        "DiskSpaceDOINC" {@("--TAB--Disk Space: $($Prop.Value) $($Prop.Value1)")}
+                        "RetainDOINCCache"  {
+                            If($Prop.Value1 -eq 1) {
+                                  @("--TAB--Retain Content: CHECKED")
+                            }
+                            Else {
+                                @("--TAB--Retain Content: UNCHECKED")
+                            }
+                        }
+                    }
+                }
+            }
+            Else {
+                $RoleSettings += @("- Microsoft Connected Cache: Disabled")
             }
             $RoleSettings += @("--B--PXE--/B--")
             If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "IsPXE" }).Value -eq 1) {
@@ -2766,10 +2804,10 @@ If ($ListAllInformation){
                     $RoleSettings += @("--TAB--Allow to respond to incoming PXE requests - UNCHECKED")
                 }
                 If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "SupportUnknownMachines" }).Value -eq 1) {
-                    $RoleSettings += @("--TAB--Enable unknow computer support - CHECKED")
+                    $RoleSettings += @("--TAB--Enable unknown computer support - CHECKED")
                 }
                 Else {
-                    $RoleSettings += @("--TAB--Enable unknow computer support - UNCHECKED")
+                    $RoleSettings += @("--TAB--Enable unknown computer support - UNCHECKED")
                 }
                 If (($SiteRole.Props | Where-Object { $_.PropertyName -eq "PXEPassword" }).Value1 -ne "") {
                     $RoleSettings += @("--TAB--Require a password when computers use PXE - CHECKED")
