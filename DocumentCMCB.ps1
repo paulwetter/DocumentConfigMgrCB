@@ -2362,7 +2362,7 @@ Function Get-pwCMSiteServicingUpdates {
                196609 { $SiteUpdate.State = 'Installing' }
                196612 { $SiteUpdate.State = 'Installed' }
                262146 { $SiteUpdate.State = 'Ready to Install' }
-               327682 { $SiteUpdate.State = 'Available to Download' }
+               327682 { $SiteUpdate.State = 'Applicable / Available to Download' } #Monitoring uses the term "Applicable", Administration uses "Available to Download"
               default { $SiteUpdate.State = "Other ($($SiteUpdate.State))" }
             }
           If ($SiteUpdate.State -ne 'Installed') { $SiteUpdate.'Installed Date' = 'N/A' }
