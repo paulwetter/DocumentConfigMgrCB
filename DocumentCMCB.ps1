@@ -67,11 +67,11 @@
     This script creates a HTML document.
 .NOTES
     NAME: DocumentCMCB.ps1
-    VERSION: 3.65
+    VERSION: 3.66
     AUTHOR: Paul Wetter
     Based on original script developed by David O'Brien
     CONTRIBUTOR: Florian Valente (BlackCatDeployment), Skatterbrainz, ChadSimmons
-    LASTEDIT: July 21, 2021
+    LASTEDIT: October 2, 2021
 #>
 
 #endregion
@@ -135,7 +135,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.65'
+$DocumenationScriptVersion = '3.66'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -2400,7 +2400,7 @@ Function Get-pwCMClientPushInstallationSettings {
     )
     Write-ProgressEx -CurrentOperation 'Enumerating Client Push Settings for Site'
     Write-HTMLHeading -Text "Client Push Settings for Site $($CMSite.SiteCode)" -Level 2 -PageBreak -File $FilePath
-    Write-HTMLParagraph -Text 'Client push allows Configugration Manager to install the client on computers in the domain directly from Configuration Manager using admin credentials on the remote computer.  This is <a href="https://docs.microsoft.com/en-us/mem/configmgr/core/clients/deploy/plan/client-installation-methods" target="_blank">one of several</a> ways to install the client on computers.' -Level 3 -File $FilePath
+    Write-HTMLParagraph -Text 'Client push allows Configuration Manager to install the client on computers in the domain directly from Configuration Manager using admin credentials on the remote computer.  This is <a href="https://docs.microsoft.com/en-us/mem/configmgr/core/clients/deploy/plan/client-installation-methods" target="_blank">one of several</a> ways to install the client on computers.' -Level 3 -File $FilePath
     #Client push settings are found in WMI.  They are all in the list of global properties: SMS_DISCOVERY_DATA_MANAGER
     $CPProps = (Get-WmiObject -ComputerName $SMSProvider -Namespace root\sms\site_$($CMSite.SiteCode) -Query "SELECT * FROM SMS_SCI_SCProperty where ItemType='SMS_DISCOVERY_DATA_MANAGER' and SiteCode = '$($CMSite.SiteCode)'") | Select-Object PropertyName,Value,Value1,Value2
 
@@ -3910,95 +3910,124 @@ Write-ProgressEx -CurrentOperation "Completed Enumerating all Discovery Methods"
 #region enumerating Boundaries
 Write-ProgressEx -CurrentOperation "Enumerating and Sorting Site Boundaries"
 Write-HTMLHeading -Level 2 -Text "Summary of Site Boundaries" -File $FilePath
+Write-HTMLParagraph -Level 2 -Text 'Boundaries currently come in 4 types.  See their details in the <a href="https://docs.microsoft.com/en-us/mem/configmgr/core/servers/deploy/configure/boundaries">Microsoft Docs</a>.  Be wary of overlapping boundaries.  An overlapping boundary occurs when a computer will match more than one boundary.' -File $FilePath
 
-$SubnetBoundaryTable = @();
-$ADBoundaryTable = @();
-$IPv6BoundaryTable = @();
-$IPRangeTable = @();
+$SubnetBoundaryTable = @()
+$ADBoundaryTable = @()
+$IPv6BoundaryTable = @()
+$IPRangeTable = @()
+$VPNTable = @()
 
 $Boundaries = Get-CMBoundary
-    if (-not [string]::IsNullOrEmpty($Boundaries))
-{
-  ##Boundary Site Types: 0=IP Subnet; 1=AD Site; 2=IPv6 Prefix; 3=IP Address Range
-  foreach ($Boundary in $Boundaries) {       
-    if ($Boundary.BoundaryType -eq 0) {
-      $BoundaryType = 'IP Subnet';
-      $NamesOfBoundarySiteSystems = $Null
-      if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems))
-      {
-        ForEach-Object -Begin {$BoundarySiteSystems = $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
-      }
-      else 
-      {
-        $NamesOfBoundarySiteSystems = 'n/a'
-      } 
-      $Subnet = New-Object -TypeName psobject -Property @{'Boundary Type' = $BoundaryType; 
-                    'Default Site Code' = "$($Boundary.DefaultSiteCode)";
-                    'Associated Site Systems' = "$NamesOfBoundarySiteSystems"
-                    Description = $Boundary.DisplayName;
-                    Value = $Boundary.Value;
-                    }
-      $SubnetBoundaryTable += $Subnet;
-    }
-    elseif ($Boundary.BoundaryType -eq 1) { 
-      $BoundaryType = 'Active Directory Site';
-      $NamesOfBoundarySiteSystems = $Null
-      if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems))
-      {
-        ForEach-Object -Begin {$BoundarySiteSystems = $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
-      }
-      else 
-      {
-        $NamesOfBoundarySiteSystems = 'n/a'
-      } 
-      $ADBoundary = New-Object -TypeName psobject -Property @{'Boundary Type' = $BoundaryType; 
-                    'Default Site Code' = "$($Boundary.DefaultSiteCode)";
+if (-not [string]::IsNullOrEmpty($Boundaries)){
+    ##Boundary Site Types: 0=IP Subnet; 1=AD Site; 2=IPv6 Prefix; 3=IP Address Range; 4=VPN;
+    foreach ($Boundary in $Boundaries) {
+        if ($Boundary.BoundaryType -eq 0) {
+            $BoundaryType = 'IP Subnet';
+            $NamesOfBoundarySiteSystems = $Null
+            if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems)) {
+                ForEach-Object -Begin {$BoundarySiteSystems = $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
+            } else {
+                $NamesOfBoundarySiteSystems = 'n/a'
+            } 
+            $Subnet = New-Object -TypeName psobject -Property @{
+                'Boundary Type'           = $BoundaryType; 
+                'Default Site Code'       = "$($Boundary.DefaultSiteCode)";
+                'Associated Site Systems' = "$NamesOfBoundarySiteSystems"
+                'Description'             = $Boundary.DisplayName;
+                'Value'                   = $Boundary.Value;
+            }
+            $SubnetBoundaryTable += $Subnet;
+        }
+        elseif ($Boundary.BoundaryType -eq 1) {
+            $BoundaryType = 'Active Directory Site';
+            $NamesOfBoundarySiteSystems = $Null
+            if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems)) {
+                ForEach-Object -Begin {$BoundarySiteSystems = $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
+            } else {
+                $NamesOfBoundarySiteSystems = 'n/a'
+            }
+            $ADBoundary = New-Object -TypeName psobject -Property @{
+                'Boundary Type'           = $BoundaryType;
+                'Default Site Code'       = "$($Boundary.DefaultSiteCode)";
+                'Associated Site Systems' = "$NamesOfBoundarySiteSystems";
+                'Description'             = $Boundary.DisplayName;
+                'Value'                   = $Boundary.Value;
+            }
+            $ADBoundaryTable += $ADBoundary;
+        }
+        elseif ($Boundary.BoundaryType -eq 2) {
+            $BoundaryType = 'IPv6 Prefix';
+            $NamesOfBoundarySiteSystems = $Null
+            if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems)) {
+                ForEach-Object -Begin {$BoundarySiteSystems = $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
+            } else {
+                $NamesOfBoundarySiteSystems = 'n/a'
+            }
+            $IPv6Boundary = New-Object -TypeName psobject -Property @{
+                'Boundary Type'           = $BoundaryType;
+                'Default Site Code'       = "$($Boundary.DefaultSiteCode)";
+                'Associated Site Systems' = "$NamesOfBoundarySiteSystems";
+                'Description'             = $Boundary.DisplayName;
+                'Value'                   = $Boundary.Value;
+            }
+            $IPv6BoundaryTable += $IPv6Boundary;
+        }
+        elseif ($Boundary.BoundaryType -eq 3) {
+            $BoundaryType = 'IP Range';
+            $NamesOfBoundarySiteSystems = $Null
+            if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems)) {
+                ForEach-Object -Begin {$BoundarySiteSystems= $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
+            } else {
+                $NamesOfBoundarySiteSystems = 'n/a'
+            }
+            $IPRangeBoundary = New-Object -TypeName psobject -Property @{
+                'Boundary Type'           = $BoundaryType;
+                'Default Site Code'       = "$($Boundary.DefaultSiteCode)";
+                'Associated Site Systems' = "$NamesOfBoundarySiteSystems";
+                'Description'             = $Boundary.DisplayName;
+                'Value'                   = $Boundary.Value;
+            }
+            $IPRangeTable += $IPRangeBoundary
+        }
+        elseif ($Boundary.BoundaryType -eq 4) {
+            $BoundaryType = 'VPN';
+            $NamesOfBoundarySiteSystems = $Null
+            if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems)) {
+                ForEach-Object -Begin {$BoundarySiteSystems= $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
+            } else {
+                $NamesOfBoundarySiteSystems = 'n/a'
+            }
+            if($Boundary.Value -like "Auto:On"){
+                $VPNBoundary = New-Object -TypeName psobject -Property @{
+                    'Boundary Type'           = 'VPN Auto Detect';
+                    'Default Site Code'       = "$($Boundary.DefaultSiteCode)";
                     'Associated Site Systems' = "$NamesOfBoundarySiteSystems";
-                    Description = $Boundary.DisplayName;
-                    Value = $Boundary.Value;
-                    }
-      $ADBoundaryTable += $ADBoundary;
-    }
-    elseif ($Boundary.BoundaryType -eq 2) { 
-      $BoundaryType = 'IPv6 Prefix';
-      $NamesOfBoundarySiteSystems = $Null
-      if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems))
-      {
-        ForEach-Object -Begin {$BoundarySiteSystems = $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
-      }
-      else 
-      {
-        $NamesOfBoundarySiteSystems = 'n/a'
-      } 
-      $IPv6Boundary = New-Object -TypeName psobject -Property @{'Boundary Type' = $BoundaryType; 
-                    'Default Site Code' = "$($Boundary.DefaultSiteCode)";
+                    'Description'             = $Boundary.DisplayName;
+                    'Value'                   = $Boundary.Value;
+                }
+            }
+            elseif ($Boundary.Value -like "Name:*") {
+                $VPNBoundary = New-Object -TypeName psobject -Property @{
+                    'Boundary Type'           = 'VPN Connection Name';
+                    'Default Site Code'       = "$($Boundary.DefaultSiteCode)";
                     'Associated Site Systems' = "$NamesOfBoundarySiteSystems";
-                    Description = $Boundary.DisplayName;
-                    Value = $Boundary.Value;
-                    }
-      $IPv6BoundaryTable += $IPv6Boundary;
-    }
-    elseif ($Boundary.BoundaryType -eq 3) 
-    { 
-      $BoundaryType = 'IP Range';
-      $NamesOfBoundarySiteSystems = $Null
-      if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems))
-      {
-        ForEach-Object -Begin {$BoundarySiteSystems= $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
-      }
-      else 
-      {
-        $NamesOfBoundarySiteSystems = 'n/a'
-      } 
-      $IPRangeBoundary = New-Object -TypeName psobject -Property @{'Boundary Type' = $BoundaryType;
-                    'Default Site Code' = "$($Boundary.DefaultSiteCode)";
+                    'Description'             = $Boundary.DisplayName;
+                    'Value'                   = $Boundary.Value;
+                }
+            }
+            elseif ($Boundary.Value -like "Description:*") {
+                $VPNBoundary = New-Object -TypeName psobject -Property @{
+                    'Boundary Type'           = 'VPN Connection Description';
+                    'Default Site Code'       = "$($Boundary.DefaultSiteCode)";
                     'Associated Site Systems' = "$NamesOfBoundarySiteSystems";
-                    Description = $Boundary.DisplayName;
-                    Value = $Boundary.Value;
-                    }
-      $IPRangeTable += $IPRangeBoundary
+                    'Description'             = $Boundary.DisplayName;
+                    'Value'                   = $Boundary.Value;
+                }
+            }
+            $VPNTable += $VPNBoundary
+        }
     }
-  }
 }
 Write-ProgressEx -CurrentOperation "Boundaries Collected and sorted. Writing to report"
 
@@ -4006,7 +4035,7 @@ Write-ProgressEx -CurrentOperation "Boundaries Collected and sorted. Writing to 
       Write-ProgressEx -CurrentOperation "Writing [$($IPv6BoundaryTable.count)] IPv6 boundaries"
       Write-HTMLHeading -Level 3 -Text "IPv6 Boundaries" -File $FilePath
       If ($IPv6BoundaryTable){
-          $IPv6BoundaryTable = $IPv6BoundaryTable|Select-Object @{Name='Name';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
+          $IPv6BoundaryTable = $IPv6BoundaryTable|Select-Object @{Name='Boundary';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
           Write-HtmlTable -InputObject $IPv6BoundaryTable -Level 3 -Border 1 -File $FilePath
       } Else {
           Write-HTMLParagraph -Text "No IPv6 boundaries defined." -Level 3 -File $FilePath
@@ -4017,8 +4046,9 @@ Write-ProgressEx -CurrentOperation "Boundaries Collected and sorted. Writing to 
 #region IP Subnet Boundaries Table
       Write-ProgressEx -CurrentOperation "Writing [$($SubnetBoundaryTable.count)] subnet boundaries"
       Write-HTMLHeading -Level 3 -Text "IP Subnet Boundaries" -File $FilePath
+      Write-HTMLParagraph -Level 3 -Text 'Subnet boundaries can be problematic in that the require the client to be able to calculate the subnet ID from the mask and the gateway. In some scenarios, especially with VPN clients, the subnet ID will not calculate and the device will not properly discover its location.  It is generally recommended to use IP ranges instead.  Because of <a href="https://docs.microsoft.com/en-us/mem/configmgr/core/servers/deploy/configure/boundary-group-procedures#show-boundary-groups-for-devices">boundary group caching</a>, boundary group requests are far less frequent, once a day unless <a href="https://home.memftw.com/boundary-group-caching-and-missing-boundaries-in-configmgr/">network changes</a>.' -File $FilePath
       If ($SubnetBoundaryTable){
-          $SubnetBoundaryTable = $SubnetBoundaryTable|Select-Object @{Name='Name';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
+          $SubnetBoundaryTable = $SubnetBoundaryTable|Select-Object @{Name='Boundary';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
           Write-HtmlTable -InputObject $SubnetBoundaryTable -Level 3 -Border 1 -File $FilePath
       } Else {
           Write-HTMLParagraph -Text "No IP subnet boundaries defined." -Level 3 -File $FilePath
@@ -4029,8 +4059,9 @@ Write-ProgressEx -CurrentOperation "Boundaries Collected and sorted. Writing to 
 #region IP Range Boundaries Table
       Write-ProgressEx -CurrentOperation "Writing [$($IPRangeTable.count)] IP range boundaries"
       Write-HTMLHeading -Level 3 -Text "IP Range Boundaries" -File $FilePath
+      Write-HTMLParagraph -Level 3 -Text 'IP range boundaries are the easiest to define and understand as it is just a range of IP addresses. They are however more of a load to calculate for the site server.  But, because of <a href="https://docs.microsoft.com/en-us/mem/configmgr/core/servers/deploy/configure/boundary-group-procedures#show-boundary-groups-for-devices">boundary group caching</a>, boundary group requests are far less frequent, once a day unless <a href="https://home.memftw.com/boundary-group-caching-and-missing-boundaries-in-configmgr/">network changes</a>. So, the extra load is no longer an issue.' -File $FilePath
       If ($IPRangeTable){
-          $IPRangeTable = $IPRangeTable|Select-Object @{Name='Name';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
+          $IPRangeTable = $IPRangeTable|Select-Object @{Name='Boundary';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
           Write-HtmlTable -InputObject $IPRangeTable -Level 3 -Border 1 -File $FilePath
       } Else {
           Write-HTMLParagraph -Text "No IP Range boundaries defined." -Level 3 -File $FilePath
@@ -4040,15 +4071,28 @@ Write-ProgressEx -CurrentOperation "Boundaries Collected and sorted. Writing to 
 #region AD Site Boundaries Table
       Write-ProgressEx -CurrentOperation "Writing [$($ADBoundaryTable.count)] AD Site boundaries"
       Write-HTMLHeading -Level 3 -Text "AD Site Boundaries" -File $FilePath
+      Write-HTMLParagraph -Level 3 -Text 'AD Site boundaries are the easiest to define but, they put you at the mercy of whomever controls AD Sites. If that is you, then you only need to trust yourself.' -File $FilePath
       If ($ADBoundaryTable){
-          $ADBoundaryTable = $ADBoundaryTable|Select-Object @{Name='Name';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
+          $ADBoundaryTable = $ADBoundaryTable|Select-Object @{Name='Boundary';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
           Write-HtmlTable -InputObject $ADBoundaryTable -Level 3 -Border 1 -File $FilePath
       } Else {
           Write-HTMLParagraph -Text "No AD Site boundaries defined." -Level 3 -File $FilePath
       }
 #endregion AD Site Boundaries Table
-    Write-HtmliLink -ReturnTOC -File $FilePath
-    Write-ProgressEx -CurrentOperation "Completed Enumerating and Sorting Site Boundaries"
+
+#region VPN Boundaries Table
+Write-ProgressEx -CurrentOperation "Writing [$($VPNTable.count)] VPN boundaries"
+Write-HTMLHeading -Level 3 -Text "VPN Boundaries" -File $FilePath
+Write-HTMLParagraph -Text 'VPN Boundaries can be used to bind VPN connected devices to specific site systems by using the adapter details to determine if the computer is currently using its VPN. See <a href="https://docs.microsoft.com/en-us/mem/configmgr/core/servers/deploy/configure/boundaries#vpn">Microsoft Docs</a> for details.' -Level 3 -File $FilePath
+If ($VPNTable){
+    $VPNTable = $VPNTable|Select-Object @{Name='Boundary';Expression={$_.Value}},'Description','Boundary Type','Default Site Code','Associated Site Systems'
+    Write-HtmlTable -InputObject $VPNTable -Level 3 -Border 1 -File $FilePath
+} Else {
+    Write-HTMLParagraph -Text "No VPN Boundaries defined." -Level 3 -File $FilePath
+}
+#endregion VPN Boundaries Table
+Write-HtmliLink -ReturnTOC -File $FilePath
+Write-ProgressEx -CurrentOperation "Completed Enumerating and Sorting Site Boundaries"
 #endregion enumerating Boundaries
 
 #region enumerating all Boundary Groups and their members
@@ -5254,7 +5298,7 @@ Write-HTMLHeading -Level 2 -PageBreak -Text 'Administrative Users' -File $FilePa
 
 $Admins = Get-CMAdministrativeUser
 
-Write-HTMLParagraph -Text 'Details on all administative accounts in the site:' -Level 2 -File $FilePath
+Write-HTMLParagraph -Text 'Details on all administrative accounts in the site:' -Level 2 -File $FilePath
 
 $AdminArray = @();
 
