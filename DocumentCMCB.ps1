@@ -67,7 +67,7 @@
     This script creates a HTML document.
 .NOTES
     NAME: DocumentCMCB.ps1
-    VERSION: 3.66
+    VERSION: 3.67
     AUTHOR: Paul Wetter
     Based on original script developed by David O'Brien
     CONTRIBUTOR: Florian Valente (BlackCatDeployment), Skatterbrainz, ChadSimmons
@@ -84,7 +84,7 @@ Param(
     [string]$CompanyName,
     
     [parameter(Mandatory=$False)] 
-    [string]$CompanyLogo = "https://blog.cyberadvisors.com/hubfs/CAI_logo.jpg",
+    [string]$CompanyLogo = "https://wetterssource.com/sites/default/files/logo4_72.png",
 
     [parameter(Mandatory=$False)] 
     [Switch]$ListAllInformation,
@@ -96,7 +96,7 @@ Param(
     [string]$Author="Paul Wetter",
 
     [parameter(Mandatory=$False)] 
-    [string]$Vendor = "Cyber Advisors",
+    [string]$Vendor = "Wetter's Source",
 
     [parameter(Mandatory=$False)] 
     [String]$Title = "Configuration Manager Site Documentation",
@@ -135,7 +135,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.66'
+$DocumenationScriptVersion = '3.67'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -590,6 +590,7 @@ Function Convert-Image2Base64{
         }
     }
     ElseIf ($Path -match '^http[s]://.*(\.png|\.jpg)$'){
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         $ext=$Path.Substring($Path.Length-4)
         $tempfile = "${env:TEMP}\logo31337$ext"
         if (Test-Path $tempfile) {Remove-Item -Path $tempfile -Force}
@@ -3643,53 +3644,206 @@ If (-not($PSBoundParameters.ContainsKey('SkipRemoteServerDetails'))) {
   Write-HTMLHeading -Text "Software Update configuration for Site $($CMSite.SiteCode)" -Level 2 -PageBreak -File $FilePath
   
   Write-HTMLHeading -Text "Software Update Point Component Settings for Site $($CMSite.SiteCode)" -Level 3 -File $FilePath
-  Write-HTMLParagraph -Text "This is a list of all of the software update classifications and products that are synchronized into the site as well as some of the general site configuration settings." -Level 3 -File $FilePath
+  Write-HTMLParagraph -Text "This is a list of all of the software update classifications and products that are synchronized into the site as well as all the details on the Software Update Point configuration." -Level 3 -File $FilePath
 
   $cats=Get-CMSoftwareUpdateCategory -Fast
   $UpdatesClassifications = $cats|Where-Object {$_.CategoryTypeName -eq "UpdateClassification" -and $_.AllowSubscription -eq $true}
   $SubscribedUpdatesClassifications = $UpdatesClassifications|Where-Object {$_.IsSubscribed -eq $true}
   $Products = $cats|Where-Object {$_.CategoryTypeName -eq "Product" -and $_.AllowSubscription -eq $true}
   $SubscribedProducts = $Products|Where-Object {$_.IsSubscribed -eq $true}
-  $SupProperties = (Get-CMSoftwareUpdatePointComponent).props
 
-  $SUPPropertyList = @()
-  $SUPPropertyList += "Synchronizing $($SubscribedUpdatesClassifications.Count) of $($UpdatesClassifications.Count) update classifications."
-  $SUPPropertyList += "Synchronizing $($SubscribedProducts.count) of $($Products.count) products."
-  Foreach ($SupProp in $SupProperties){
-    Switch ($SupProp.PropertyName){
-        'Call WSUS Cleanup'{
-            if ($SupProp.value -eq 1){
-                $SUPPropertyList += "Run WSUS cleanup wizard: Enabled"
-            }Elseif ($SupProp.value -eq 0){
-                $SUPPropertyList += "Run WSUS cleanup wizard: Disabled"
+  $SupProductsAndClasses = @()
+  $SupProductsAndClasses += "Synchronizing $($SubscribedUpdatesClassifications.Count) of $($UpdatesClassifications.Count) update classifications."
+  $SupProductsAndClasses += "Synchronizing $($SubscribedProducts.count) of $($Products.count) products."
+  Write-HtmlList -InputObject $SupProductsAndClasses -Level 3 -File $FilePath
+  Write-HTMLHeading -Text "Selected Software Update Classifications" -Level 4 -File $FilePath -ExcludeTOC
+  Write-HtmlList -InputObject ($SubscribedUpdatesClassifications.LocalizedCategoryInstanceName) -Description "The following categories are synched to this site's software update point(s)" -Level 4 -File $FilePath
+  Write-HTMLHeading -Text "Selected Software Update Point Software Products" -Level 4 -File $FilePath -ExcludeTOC
+  Write-HtmlList -InputObject ($SubscribedProducts.LocalizedCategoryInstanceName | Sort-Object) -Description "The following products are synched to this site's software update point(s)." -Level 4 -File $FilePath
+
+  Write-HTMLHeading -Text "Software Update Point Component Properties" -Level 4 -File $FilePath -ExcludeTOC
+  Write-HTMLParagraph -Text "Below is a summary of all the tabs from the SUP properties." -Level 5 -File $FilePath
+  $SupProperties = (Get-CMSoftwareUpdatePointComponent).props
+  $SupProperties2 = (Get-CimInstance -Query "SELECT * FROM SMS_SCI_Component WHERE FileType = 2 AND ComponentName='SMS_WSUS_SYNC_MANAGER' AND ItemType = 'Component'" -Namespace root\sms\site_$($CMSite.SiteCode)).props
+
+    Write-HTMLHeading -Text "Sync Settings:" -Level 5 -File $FilePath
+#   Sychronization source for this Software Update Point:
+    $SUPPropertyList = @()
+    Foreach ($SupProp in $SupProperties){
+        Switch ($SupProp.PropertyName){
+            'DefaultUseParentWSUS'{
+                switch ($SupProp.value) {
+                    0 {$SUPPropertyList += "Synchronize from Microsoft Update: Selected"}
+                    1 {
+                        $SUPPropertyList += "Synchronize from an upstream data source location (URL): Selected"
+                        Foreach ($SupProp in $SupProperties){
+                            Switch ($SupProp.PropertyName){
+                                'ParentWSUS'{$ParentServer = $Supprop.value2}
+                                'ParentWSUSPort'{$ParentPort = $Supprop.value}
+                                'SSLToParentWSUS'{
+                                    If ($Supprop.value -eq '1'){
+                                        $Parentprotocol = 'https://'
+                                    }else{
+                                        $Parentprotocol = 'http://'
+                                    }
+                                }
+                            }
+                        }
+                        $SUPPropertyList += "URL: $Parentprotocol$ParentServer$ParentPort"
+                    }
+                    2 {$SUPPropertyList += "Do not synchronize from Microsoft Update or upstream data source: Selected"}
+                }
             }
-        }
-        'Sync Supersedence Age'{
-            $SUPPropertyList += "months to wait before a superseded software update is expired: $($SupProp.value)"
-        }
-        'Sync Supersedence Mode'{
-            switch ($SupProp.value){
-                1{$SUPPropertyList += "Do not expire a superseded software update until the software update is superseded for a specified period"}
-                0{$SUPPropertyList += "Immediately expire a superseded software update (ignore `'months to wait before a superseded software update is expired`')"}
-            }
-        }
-        'SupportedUpdateLanguages'{
-            $SUPPropertyList += "Software Update File languages: $($SupProp.Value2)"
-        }
-        'SupportedTitleLanguages'{
-            $SUPPropertyList += "Update Summary Details languages: $($SupProp.Value2)"
         }
     }
-  }
+    Write-HtmlList -InputObject $SUPPropertyList -Description 'Sychronization source for this software update point:' -Level 5 -File $FilePath
 
-  
-  Write-HTMLHeading -Text "Software Update Point Base Settings" -Level 4 -File $FilePath
-  Write-HtmlList -InputObject $SUPPropertyList -Level 4 -File $FilePath
-  Write-HTMLHeading -Text "Selected Software Update Classifications" -Level 4 -File $FilePath
-  Write-HtmlList -InputObject ($SubscribedUpdatesClassifications.LocalizedCategoryInstanceName) -Level 4 -File $FilePath
-  Write-HTMLHeading -Text "Selected Software Update Point Software Products" -Level 4 -File $FilePath
-  Write-HtmlList -InputObject ($SubscribedProducts.LocalizedCategoryInstanceName | Sort-Object) -Level 4 -File $FilePath
+#   WSUS Reporting Events
+    $SUPPropertyList = @()
+    Foreach ($SupProp in $SupProperties){
+        Switch ($SupProp.PropertyName){
+            'ClientReportingLevel'{
+                #0 = Do not create WSUS reporting events; 1 = Create only WSUS status reporting events; 2 = Create all WSUS reporting events;
+                switch ($Supprop.value) {
+                    0 {$SUPPropertyList += 'Do not create WSUS reporting events: Selected'}
+                    1 {$SUPPropertyList += 'Create only WSUS status reporting events: Selected'}
+                    2 {$SUPPropertyList += 'Create all WSUS reporting events: Selected'}
+                }
+            }
+        }
+    }
+    Write-HtmlList -InputObject $SUPPropertyList -Description 'WSUS Reporting Events:' -Level 5 -File $FilePath
 
+    Write-HTMLHeading -Text "Update Files:" -Level 5 -File $FilePath
+    $SUPPropertyList = @()
+    Foreach ($SupProp in $SupProperties2){
+        Switch ($SupProp.PropertyName){
+            'Sync ExpressFiles'{
+                #0 = Download full files for all approved updates; 2 = Download both full files for all approved updates and express installation files for Windows 10
+                switch ($Supprop.value) {
+                    0 {$SUPPropertyList += 'Download full files for all approved updates: Selected'}
+                    2 {$SUPPropertyList += 'Download both full files for all approved updates and express installation files for Windows 10: Selected'}
+                }
+            }
+        }
+    }
+    Write-HtmlList -InputObject $SUPPropertyList -Description 'When downloading update files to your server:' -Level 5 -File $FilePath
+
+#   Sync Schedule
+    Write-HTMLHeading -Text "Sync Schedule:" -Level 5 -File $FilePath
+    $SUPPropertyList = @()
+    Foreach ($SupProp in $SupProperties2){
+        Switch ($SupProp.PropertyName){
+            'Sync Schedule'{
+                If($Supprop.Value1){ #if the schedule value is blank, the the sync schedule is not enabled.
+                    $SUPPropertyList += Get-HumanReadableSchedule -Schedule (Convert-CMSchedule $($Supprop.Value1))
+                } else {
+                    $SUPPropertyList += 'Sync schedule not enabled.'
+                }
+            }
+        }
+    }
+    Write-HtmlList -InputObject $SUPPropertyList -Description 'Enable Synchronization on a schedule:' -Level 5 -File $FilePath
+
+#   Supersedence Rules
+    Write-HTMLHeading -Text "Supersedence Rules:" -Level 5 -File $FilePath
+    Foreach ($SupProp in $SupProperties){
+        Switch ($SupProp.PropertyName){
+            'Sync Supersedence Age For Feature'{
+                $FeatureExpireAge = $Supprop.Value
+            }
+            'Sync Supersedence Age For NonFeature'{
+                $UpdateExpireAge = $Supprop.Value
+            }
+        }
+    }
+    $SUPPropertyList = @()
+    Foreach ($SupProp in $SupProperties){
+        Switch ($SupProp.PropertyName){
+            'Sync Supersedence Mode For NonFeature'{
+                If($SupProp.value -eq 0){
+                    $SUPPropertyList += "Immediately expire a superseded software update: Selected"
+                } else {
+                    $SUPPropertyList += "Do not expire a superseded software update until the software update is superseced for $UpdateExpireAge Months: Selected"
+                }
+            }
+        }
+    }
+    Write-HtmlList -InputObject $SUPPropertyList -Description 'Supersedence behavior of updates other than feature updates:' -Level 5 -File $FilePath
+    $SUPPropertyList = @()
+    Foreach ($SupProp in $SupProperties){
+        Switch ($SupProp.PropertyName){
+            'Sync Supersedence Mode For Feature'{
+                If($SupProp.value -eq 0){
+                    $SUPPropertyList += "Immediately expire a superseded feature update: Selected"
+                } else {
+                    $SUPPropertyList += "Do not expire a superseded feature update until the feature update is superseced for $FeatureExpireAge Months: Selected"
+                }
+            }
+        }
+    }
+    Write-HtmlList -InputObject $SUPPropertyList -Description 'Supersedence behavior for feature updates:' -Level 5 -File $FilePath
+
+#   Languages
+    Write-HTMLHeading -Text "Languages:" -Level 5 -File $FilePath
+    $SUPPropertyList = @()
+    Foreach ($SupProp in $SupProperties){
+        Switch ($SupProp.PropertyName){
+            'SupportedUpdateLanguages'{
+                $SUPPropertyList += "Software Update File languages selected: $($SupProp.Value2)"
+            }
+            'SupportedTitleLanguages'{
+                $SUPPropertyList += "Update Summary Details languages selected: $($SupProp.Value2)"
+            }
+        }
+    }
+    Write-HtmlList -InputObject $SUPPropertyList -Description 'Software Update files and summary information to download:' -Level 5 -File $FilePath
+
+#   WSUS Maintenance
+    Write-HTMLHeading -Text "WSUS Maintenance:" -Level 5 -File $FilePath
+    $SUPPropertyList = @()
+    Foreach ($SupProp in $SupProperties){
+        Switch ($SupProp.PropertyName){
+            'Call WSUS Cleanup'{
+                If($Supprop.Value -eq 1){
+                    $SUPPropertyList += 'Decline expired updates in WSUS according to supersedence rules: Selected'
+                } else {
+                    $SUPPropertyList += 'Decline expired updates in WSUS according to supersedence rules: Not Selected'
+                }
+            }
+            'Call WSUS Delete Obselete Updates'{
+                If($Supprop.Value -eq 1){
+                    $SUPPropertyList += 'Remove obsolete updates from the WSUS database: Selected'
+                } else {
+                    $SUPPropertyList += 'Remove obsolete updates from the WSUS database: Not Selected'
+                }
+            }
+            'Call WSUS Indexing'{
+                If($Supprop.Value -eq 1){
+                    $SUPPropertyList += 'Add non-clustered indexes to the WSUS database: Selected'
+                } else {
+                    $SUPPropertyList += 'Add non-clustered indexes to the WSUS database: Not Selected'
+                }
+            }
+        }
+    }
+    Write-HtmlList -InputObject $SUPPropertyList -Description 'WSUS maintenace tasks run automatically after each sync (<a href="https://docs.microsoft.com/en-us/mem/configmgr/sum/deploy-use/software-updates-maintenance">Microsoft Doc</a>):' -Level 5 -File $FilePath
+
+#   Maximum Run Time
+    Write-HTMLHeading -Text "Maximum Run Time:" -Level 5 -File $FilePath
+    $SUPPropertyList = @()
+    Foreach ($SupProp in $SupProperties2){
+        Switch ($SupProp.PropertyName){
+            'MaxInstallTime-ServicePack'{
+                $SUPPropertyList += "Maximum run time for Windows feature updates (minutes): $($SupProp.Value / 60)"
+            }
+            'MaxInstallTime-Windows'{
+                $SUPPropertyList += "Maximum run time for Office 365 updates and non-feature updates for Windows (minutes): $($SupProp.Value / 60)"
+            }
+        }
+    }
+    Write-HtmlList -InputObject $SUPPropertyList -Description 'Default maximum amount of time a software update installation has to complete:' -Level 5 -File $FilePath
+    Write-HtmliLink -ReturnTOC -File $FilePath
 
   Write-ProgressEx -CurrentOperation "Enumerating all Software Update Points"
   Write-HTMLHeading -Text "Software Update Point Servers for Site $($CMSite.SiteCode)" -Level 3 -File $FilePath
@@ -4163,16 +4317,16 @@ if (-not [string]::IsNullOrEmpty($BoundaryGroups))
         }
     }
     Switch($BoundaryGroup.Flags){
-        0{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----UNCBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----UNCBOX-- Prefer DP over peers within same Subnet.--CRLF----UNCBOX-- Prefer cloud DP over DP."}
-        1{$BGOptions = "--UNCBOX-- Allow peer downloads in this Boundary Group.--CRLF----UNCBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----UNCBOX-- Prefer DP over peers within same Subnet.--CRLF----UNCBOX-- Prefer cloud DP over DP."}
-        2{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----CBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----UNCBOX-- Prefer DP over peers within same Subnet.--CRLF----UNCBOX-- Prefer cloud DP over DP."}
-        4{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----UNCBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----CBOX-- Prefer DP over peers within same Subnet.--CRLF----UNCBOX-- Prefer cloud DP over DP."}
-        6{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----CBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----CBOX-- Prefer DP over peers within same Subnet.--CRLF----UNCBOX-- Prefer cloud DP over DP."}
-        8{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----UNCBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----UNCBOX-- Prefer DP over peers within same Subnet.--CRLF----CBOX-- Prefer cloud DP over DP."}
-        9{$BGOptions = "--UNCBOX-- Allow peer downloads in this Boundary Group.--CRLF----UNCBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----UNCBOX-- Prefer DP over peers within same Subnet.--CRLF----CBOX-- Prefer cloud DP over DP."}
-        10{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----CBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----UNCBOX-- Prefer DP over peers within same Subnet.--CRLF----CBOX-- Prefer cloud DP over DP."}
-        12{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----UNCBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----CBOX-- Prefer DP over peers within same Subnet.--CRLF----CBOX-- Prefer cloud DP over DP."}
-        14{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----CBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----CBOX-- Prefer DP over peers within same Subnet.--CRLF----CBOX-- Prefer cloud DP over DP."}
+        0{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----UNCBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----UNCBOX-- Prefer DP over peers within same Subnet.--CRLF----UNCBOX-- Prefer cloud based sources over on-premise sources."}
+        1{$BGOptions = "--UNCBOX-- Allow peer downloads in this Boundary Group.--CRLF----UNCBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----UNCBOX-- Prefer DP over peers within same Subnet.--CRLF----UNCBOX-- Prefer cloud based sources over on-premise sources."}
+        2{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----CBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----UNCBOX-- Prefer DP over peers within same Subnet.--CRLF----UNCBOX-- Prefer cloud based sources over on-premise sources."}
+        4{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----UNCBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----CBOX-- Prefer DP over peers within same Subnet.--CRLF----UNCBOX-- Prefer cloud based sources over on-premise sources."}
+        6{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----CBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----CBOX-- Prefer DP over peers within same Subnet.--CRLF----UNCBOX-- Prefer cloud based sources over on-premise sources."}
+        8{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----UNCBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----UNCBOX-- Prefer DP over peers within same Subnet.--CRLF----CBOX-- Prefer cloud based sources over on-premise sources."}
+        9{$BGOptions = "--UNCBOX-- Allow peer downloads in this Boundary Group.--CRLF----UNCBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----UNCBOX-- Prefer DP over peers within same Subnet.--CRLF----CBOX-- Prefer cloud based sources over on-premise sources."}
+        10{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----CBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----UNCBOX-- Prefer DP over peers within same Subnet.--CRLF----CBOX-- Prefer cloud based sources over on-premise sources."}
+        12{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----UNCBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----CBOX-- Prefer DP over peers within same Subnet.--CRLF----CBOX-- Prefer cloud based sources over on-premise sources."}
+        14{$BGOptions = "--CBOX-- Allow peer downloads in this Boundary Group.--CRLF----CBOX-- During peer downloads, only use peers within the same Subnet.--CRLF----CBOX-- Prefer DP over peers within same Subnet.--CRLF----CBOX-- Prefer cloud based sources over on-premise sources."}
         default{$BGOptions = "Unknown Options"}
     }
     $BoundaryGroupRow = New-Object -TypeName psobject -Property @{Name = $BoundaryGroup.Name; Description = $BoundaryGroup.Description; 'Assigned Site' = $BoundaryGroup.DefaultSiteCode; 'Boundary Members' = "$BoundaryMembers"; 'Site Systems' = $BoundaryGroupSiteSystems;'Fallback Relationships' = "$FallBackRelationships"; 'Options' = "$BGOptions"};
