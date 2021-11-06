@@ -67,7 +67,7 @@
     This script creates a HTML document.
 .NOTES
     NAME: DocumentCMCB.ps1
-    VERSION: 3.67
+    VERSION: 3.68
     AUTHOR: Paul Wetter
     Based on original script developed by David O'Brien
     CONTRIBUTOR: Florian Valente (BlackCatDeployment), Skatterbrainz, ChadSimmons
@@ -135,7 +135,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.67'
+$DocumenationScriptVersion = '3.68'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -2452,6 +2452,380 @@ Function Get-pwCMClientPushInstallationSettings {
     Write-HtmliLink -ReturnTOC -File $FilePath
 }
 
+#Region Co-Management Functions
+function Get-PWCMCoManagement {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]
+        $SiteCode,
+        [Parameter(Mandatory = $true)]
+        [string]
+        $SMSProvider,
+        [Parameter(Mandatory = $true)]
+        [String]
+        $FilePath = $FilePath
+    )
+    Write-ProgressEx -CurrentOperation 'Enumerating Co-Management Configuration'
+    Write-HTMLHeading -Text 'Co-Management Configuration' -Level 3 -File $FilePath
+    If ((Get-CMConfigurationPolicy -Name 'CoMgmtSettingsProd' -fast).IsAssigned -eq $true){
+        #Co-Management enabled.
+        Write-HTMLParagraph -Text "Co-Management has been configured in this site. Full configuration details are below." -Level 3 -File $FilePath
+        #Get AzureAD Tenant
+        Write-HTMLHeading -Text 'Tenant Onboarding' -Level 4 -File $FilePath -ExcludeTOC
+        $AADTenant = Get-PWCMCoMgmtTenant -SiteCode $SiteCode -SMSProvider $SMSProvider
+        $AADTenantList = @("Tenant Name: $($AADTenant.Name)","Tenant ID: $($AADTenant.TenantID)")
+        Write-HtmlList -InputObject $AADTenantList -Level 4 -File $FilePath
+        #Configure Upload
+        Write-HTMLHeading -Text 'Upload Settings' -Level 4 -File $FilePath -ExcludeTOC
+        $UploadEnabled = Get-PWCMCoMgmtUploadEnabled -SiteCode $SiteCode -SMSProvider $SMSProvider
+        $UploadSettings = @()
+        If ($UploadEnabled -eq "True"){
+            $UploadSettings += "Upload to Microsoft Endpoint Manager admin center: Enabled"
+            #Get Upload Scope: All|Pilot
+            $UploadScope = Get-PWCMCoMgmtAdminCenterDeviceUploadStatus -SiteCode $SiteCode -SMSProvider $SMSProvider
+            switch ($UploadScope) {
+                'All' { $UploadSettings += "Devices Uploaded: All my devices managed by Microsoft Endpoint Configuration Manager" }
+                'Pilot' {
+                    $UploadSettings += "Devices Uploaded: Specific Collection"
+                    #if Upload limited to collection, collection below.
+                    $PilotUploadCollection = Get-PWCMCoMgmtAdminCenterDeviceUploadCollection -SiteCode $SiteCode -SMSProvider $SMSProvider
+                    $UploadSettings += "Collection: $($PilotUploadCollection.Name) ($($PilotUploadCollection.CollectionID))"
+                    $UploadSettings += "Member Count: $($PilotUploadCollection.MemberCount)"
+                }
+            }
+        } else {
+            $UploadSettings += "Upload to Microsoft Endpoint Manager admin center: Disabled"
+        }
+        Write-HtmlList -InputObject $UploadSettings -Level 4 -File $FilePath
+        #Intune automatic enrollment Configuration
+        Write-HTMLHeading -Text 'Enablement' -Level 4 -File $FilePath -ExcludeTOC
+        Write-HTMLParagraph -Text "Below is the configuration for the Intune automatic enrollment." -Level 4 -File $FilePath
+        #Intune automatic enrollment state: All|Pilot|None
+        $EnablementSettings = @()
+        $AuteEnrollState = Get-PWCMCoMgmtAutoEnroll
+        switch ($AuteEnrollState) {
+            'All' { $EnablementSettings += "Automatic Enrollment in Intune: All" }
+            'Pilot' {
+                $EnablementSettings += "Automatic Enrollment in Intune: Pilot"
+                #If autoenrollment in Pilot mode, get the collection
+                $PilotEnrollmentCollection = Get-PWCMCoMgmtAutoEnrollPilot
+                $EnablementSettings += "Collection: $($PilotEnrollmentCollection.Name) ($($PilotEnrollmentCollection.CollectionID))"
+                $EnablementSettings += "Member Count: $($PilotEnrollmentCollection.MemberCount)"
+        }
+            'None' { $EnablementSettings += "Automatic Enrollment in Intune: None" }
+        }
+        Write-HtmlList -InputObject $EnablementSettings -Level 4 -File $FilePath
+        #Get Workload Details
+        Write-HTMLHeading -Text 'Workloads' -Level 4 -File $FilePath -ExcludeTOC
+        Get-CoMgmtWorkloadDetails -File $FilePath
+    } else {
+        #Co-Management Not Enabled
+    }
+}
+
+function Get-CoMgmtWorkloadDetails {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$false,ValueFromPipeline=$false,
+        HelpMessage="This is the File that the html output will write to")]
+        [string]$File
+    )
+    #Get Workloads in production
+    $ProdWorkloads = Get-PWCMCoMgmtProductionWorkloads
+    #Get workloads in pilot
+    $PilotWorkloads = Get-PWCMCoMgmtPilotWorkloads
+
+    $AllWorkLoads = @("Compliance polices","Device Configuration","Endpoint Protection","Resource access policies","Client apps","Office Click-to-Run apps","Windows Update policies")
+
+    $WorkloadSliders = @()
+    foreach ($Workload in $AllWorkLoads) {
+        If ($Workload -in $ProdWorkloads){
+            #Intune
+            $WorkloadSliders += New-HTMLWorkLoadSlider -Workload $Workload -Setting Intune
+        } elseif ($workload -in $PilotWorkloads.Workload) {
+            #Pilot
+            $ThisOne = $PilotWorkloads | Where-Object {$_.Workload -eq $Workload}
+            $WorkloadSliders += New-HTMLWorkLoadSlider -Workload $Workload -Setting Pilot -PilotCollection "$($ThisOne.Collection)"
+        }else{
+            #CM
+            $WorkloadSliders += New-HTMLWorkLoadSlider -Workload $Workload -Setting CM
+        }
+    }
+    $HTMLCoMgmtWorkloads = New-HTMLCoMgmtWorkloads -Workloads $WorkloadSliders -Level 4
+    If ($File) {$HTMLCoMgmtWorkloads | Out-File -filepath $File -Append}
+    Else {Return $HTMLCoMgmtWorkloads}
+}
+
+function Get-PWCMCoMgmtTenant {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$SiteCode,
+        [Parameter(Mandatory = $false)]
+        [string]$SMSProvider = 'localhost'
+    )
+    $AssociatedAADWebApp = (Get-CimInstance -Query 'SELECT * FROM SMS_Azure_CloudService WHERE ServiceType = 5' -Namespace "ROOT\SMS\site_$SiteCode" -ComputerName $SMSProvider).AssociatedAADWebApplications
+    $TenantCIId = (Get-CimInstance -Query "SELECT * FROM SMS_AAD_Application_Ex where ID = $AssociatedAADWebApp" -Namespace "ROOT\SMS\site_$SiteCode" -ComputerName $SMSProvider).TenantID
+    (Get-CimInstance -Query "SELECT * FROM SMS_AAD_Tenant_Ex WHERE ID=$TenantCIId" -Namespace "ROOT\SMS\site_$SiteCode" -ComputerName $SMSProvider) | Select-Object Name,TenantID
+}
+
+function Get-PWCMCoMgmtUploadEnabled {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$SiteCode,
+        [Parameter(Mandatory = $false)]
+        [string]$SMSProvider = 'localhost'
+
+    )
+    $AssociatedAADWebApp = (Get-CimInstance -Query 'SELECT * FROM SMS_Azure_CloudService WHERE ServiceType = 5' -Namespace "ROOT\SMS\site_$SiteCode" -ComputerName $SMSProvider).AssociatedAADWebApplications
+    If ([string]::IsNullOrEmpty($AssociatedAADWebApp)){
+        $false
+    } else {
+        $true
+    }        
+}
+
+function Get-PWCMCoMgmtAdminCenterDeviceUploadStatus {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$SiteCode,
+        [Parameter(Mandatory = $false)]
+        [string]$SMSProvider = 'localhost'
+
+    )
+    $Session = New-CimSession -ComputerName $SMSProvider
+    $AssociatedAADWebApp = (Get-CimInstance -Query 'SELECT * FROM SMS_Azure_CloudService WHERE ServiceType = 5' -Namespace "ROOT\SMS\site_$SiteCode" -CimSession $Session).AssociatedAADWebApplications
+    $TenantCIId = (Get-CimInstance -Query "SELECT * FROM SMS_AAD_Application_Ex where ID = $AssociatedAADWebApp" -Namespace "ROOT\SMS\site_$SiteCode" -CimSession $Session).TenantID
+    $AADTenantID = (Get-CimInstance -Query "SELECT * FROM SMS_AAD_Tenant_Ex WHERE ID=$TenantCIId" -Namespace "ROOT\SMS\site_$SiteCode" -CimSession $Session).TenantID
+    $SpecificCollectionMapping = Invoke-CimMethod -Namespace "ROOT\SMS\site_$SiteCode" -CimSession $Session -ClassName SMS_CoMgmtConfigs -MethodName GetTenantCollectionMapping -Arguments @{TenantID = "$AADTenantID"}
+    $CollectionMappingCollectionID = $SpecificCollectionMapping.CollectionSiteID
+    IF ([string]::IsNullOrEmpty($CollectionMappingCollectionID)){
+        "All"
+    } else {
+        "Pilot"
+    }
+}
+
+function Get-PWCMCoMgmtAdminCenterDeviceUploadCollection {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$SiteCode,
+        [Parameter(Mandatory = $false)]
+        [string]$SMSProvider = 'localhost'
+
+    )
+    $Session = New-CimSession -ComputerName $SMSProvider
+    $AssociatedAADWebApp = (Get-CimInstance -Query 'SELECT * FROM SMS_Azure_CloudService WHERE ServiceType = 5' -Namespace "ROOT\SMS\site_$SiteCode" -CimSession $Session).AssociatedAADWebApplications
+    $TenantCIId = (Get-CimInstance -Query "SELECT * FROM SMS_AAD_Application_Ex where ID = $AssociatedAADWebApp" -Namespace "ROOT\SMS\site_$SiteCode" -CimSession $Session).TenantID
+    $AADTenantID = (Get-CimInstance -Query "SELECT * FROM SMS_AAD_Tenant_Ex WHERE ID=$TenantCIId" -Namespace "ROOT\SMS\site_$SiteCode" -CimSession $Session).TenantID
+    $SpecificCollectionMapping = Invoke-CimMethod -Namespace "ROOT\SMS\site_$SiteCode" -CimSession $Session -ClassName SMS_CoMgmtConfigs -MethodName GetTenantCollectionMapping -Arguments @{TenantID = "$AADTenantID"}
+    $CollectionMappingCollectionID = $SpecificCollectionMapping.CollectionSiteID
+    IF ([string]::IsNullOrEmpty($CollectionMappingCollectionID)){
+        [PSCustomObject]@{
+            Name = ""
+            CollectionID = ""
+            MemberCount = ""
+        }
+    } else {
+        Get-CMCollection -Id $CollectionMappingCollectionID | Select-Object Name,CollectionID,MemberCount
+    }
+}
+
+function Get-PWCMCoMgmtAutoEnroll {
+    [CmdletBinding()]
+    param ()
+    $CMPSSuppressFastNotUsedCheck = $true
+    $CoMgmtSettingsProd = Get-CMConfigurationPolicy -Name 'CoMgmtSettingsProd'
+    $CoMgmtSettingsProdXml = [xml]$CoMgmtSettingsProd.SDMPackageXML
+    $Prod = ($CoMgmtSettingsProdXml.DesiredConfigurationDigest.ConfigurationPolicy.Rules.Rule | Where-Object {$_.annotation.displayname.resourceID -like "AutoEnroll_Name"}).expression.operands.constantvalue.value
+    
+    #Pilot Autoenrollment Boolean
+    $CoMgmtSettingsPilotAutoEnroll = Get-CMConfigurationPolicy -Name 'CoMgmtSettingsPilotAutoEnroll'
+    $CoMgmtSettingsPilotAutoEnrollXml = [xml]$CoMgmtSettingsPilotAutoEnroll.SDMPackageXML
+    $Pilot = ($CoMgmtSettingsPilotAutoEnrollXml.DesiredConfigurationDigest.ConfigurationPolicy.Rules.Rule | Where-Object {$_.annotation.displayname.resourceID -like "AutoEnroll_Name"}).expression.operands.constantvalue.value
+    
+    If ($Prod -eq "True"){
+        $AutoEnroll = "All"
+    } elseif ($Pilot -eq "True") {
+        $AutoEnroll = "Pilot"
+    } else {
+        $AutoEnroll = "None"
+    }
+    $AutoEnroll
+}
+
+Function Get-PWCMCoMgmtAutoEnrollPilot {
+    [CmdletBinding()]
+    param ()
+    $PilotEnrollment = Get-CMConfigurationPolicyDeployment -Name 'CoMgmtSettingsPilotAutoEnroll'
+    If (-not [string]::IsNullOrEmpty($PilotEnrollment)){
+        Get-CMCollection -Id $PilotEnrollment.TargetCollectionID | Select-Object Name,CollectionID,MemberCount
+    }
+}
+
+function Get-PWCMCoMgmtProductionWorkloads {
+    [CmdletBinding()]
+    param ()
+    $CMPSSuppressFastNotUsedCheck = $true
+    $conf = ([xml](Get-CMConfigurationPolicy -Name 'CoMgmtSettingsProd').SDMPackageXML).DesiredConfigurationDigest.ConfigurationPolicy.Rules.Rule[2].Expression.Operands.ConstantValue.value
+    [Flags()] enum Workloads {
+        Nothing = 0
+        None = 1
+        Compliance = 2
+        ResourceAccess = 4
+        DeviceConfiguration = 8
+        Updates = 16
+        EndpointProtection = 32
+        Applications = 64
+        OfficeApps = 128
+    }
+    $WorkLoads = @()
+    switch ([Workloads]$conf){
+        Nothing {}
+        {$_ -band [Workloads]::None} {}
+        {$_ -band [Workloads]::Compliance} {$WorkLoads += "Compliance polices"}
+        {$_ -band [Workloads]::ResourceAccess} {$WorkLoads += "Resource access policies"}
+        {$_ -band [Workloads]::DeviceConfiguration} {$WorkLoads += "Device Configuration"}
+        {$_ -band [Workloads]::Updates} {$WorkLoads += "Windows Update policies"}
+        {$_ -band [Workloads]::EndpointProtection} {$WorkLoads += "Endpoint Protection"}
+        {$_ -band [Workloads]::Applications} {$WorkLoads += "Client apps"}
+        {$_ -band [Workloads]::OfficeApps} {$WorkLoads += "Office Click-to-Run apps"}
+    }
+    Return $WorkLoads
+}
+
+function Get-PWCMCoMgmtPilotWorkloads {
+    [CmdletBinding()]
+    param ()
+    $PilotCoManagementSettings = Get-CMConfigurationPolicy -CategoryInstanceType 'SettingsAndPolicy:SMS_CoManagementSettings' -fast | Select-Object LocalizedDisplayName,LocalizedDescription,CI_ID,IsAssigned | Where-Object {$_.LocalizedDisplayName -in @('CoMgmtSettingsPilotCP','CoMgmtSettingsPilotDC','CoMgmtSettingsPilotEP','CoMgmtSettingsPilotRAP','CoMgmtSettingsPilotO365','CoMgmtSettingsPilotWUP','CoMgmtSettingsPilotCApp')}
+    foreach ($PilotSetting in $PilotCoManagementSettings) {
+        If ($PilotSetting.IsAssigned -eq "True"){
+            $PilotWorkload = Get-CMConfigurationPolicyDeployment -SmsObjectId  $PilotSetting.CI_ID
+            If (-not [string]::IsNullOrEmpty($PilotWorkload)){
+                $PilotCollection = Get-CMCollection -Id $PilotWorkload.TargetCollectionID | Select-Object Name,CollectionID,MemberCount
+                [PSCustomObject]@{
+                    Workload = "$($PilotSetting.LocalizedDescription)"
+                    Collection = "$($PilotCollection.Name) ($($PilotCollection.CollectionID))"
+                }
+            } else {
+                [PSCustomObject]@{
+                    Workload = "$($PilotSetting.LocalizedDescription)"
+                    Collection = ""
+                }    
+            }
+        }
+    }
+}
+
+function New-HTMLCoMgmtWorkloads {
+    [CmdletBinding()]
+    param (
+        [Parameter()]
+        [string[]]
+        $Workloads,
+        [Parameter(HelpMessage="This is the amount of space that the table will indent by")]
+        [ValidateRange(0,9)]
+        [int]$Level=0
+    )
+    begin{
+        Switch ($Level) { 
+            0 {$Indent=0} 
+            1 {$Indent=5} 
+            2 {$Indent=15} 
+            3 {$Indent=25} 
+            4 {$Indent=35} 
+            5 {$Indent=45}
+            6 {$Indent=55} 
+            7 {$Indent=65} 
+            8 {$Indent=75} 
+            9 {$Indent=85} 
+            default {$Indent=5}
+        }
+$content = @"
+<style>
+    th{padding-bottom:10px;}
+    td{padding-bottom:5px;}
+    input[type=range]{
+        Width:300px;
+        background-color:#0000CC;
+        -webkit-appearance: none;
+    }
+</style>
+<Table cellpadding=0 cellspacing=0 style=`"margin-left:$($Indent)px;`">
+    <tr>
+        <th width="200" align="left"></th>
+        <th width="100" align="left">Config Mgr</th>
+        <th width="100" align="center">Pilot Intune</th>
+        <th width="100" align="right">Intune</th>
+        <th width="300" align="left" style="padding-left:10px">Pilot Collection</th>
+    </tr>
+"@
+    }
+    Process{
+        foreach ($Workload in $Workloads){
+            $content = $content + $Workload
+        }
+    }
+    end{
+        $content = $content + '</Table>'
+        Return $content
+    }
+}
+
+function New-HTMLWorkLoadSlider {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]
+        $Workload,
+        [Parameter(Mandatory=$false)]
+        [ValidateSet("CM","Pilot","Intune")]
+        [String]
+        $Setting = "CM",
+        [Parameter(Mandatory=$false)]
+        [string]
+        $PilotCollection = "N/A"
+    )
+    switch ($Setting) {
+        'CM' { $Value = 0 }
+        'Pilot' { $Value = 1 }
+        'Intune' { $Value = 2 }
+    }
+        $content = @"
+    <tr>
+        <td style="font-weight:bold">$Workload</td>
+        <td colspan="3">
+        $(New-HTMLSliderInput -Value $Value -MinValue 0 -MaxValue 2)
+        </td>
+        <td style="padding-left:10px">$PilotCollection</td>
+    </tr>
+"@
+    return $content
+}
+
+function New-HTMLSliderInput {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$false)]
+        [int]
+        $Value = 0,
+        [Parameter(Mandatory=$false)]
+        [int]
+        $MinValue = 0,
+        [Parameter(Mandatory=$false)]
+        [int]
+        $MaxValue = 2
+    )
+    @"
+<input type="range" min="$MinValue" max="$MaxValue" value="$Value" disabled>
+"@
+}
+#EndRegion Co-Management Functions
+
 Function Write-ProgressEx {
     [CmdletBinding()]
     param(
@@ -4380,7 +4754,14 @@ Write-HtmliLink -ReturnTOC -File $FilePath
 #endregion enumerating all Boundary Groups and their members
 
 #region Cloud Services
+Write-HTMLHeading -Level 2 -Text 'Cloud Services' -File $FilePath
+#region Co-Management
+Get-PWCMCoManagement -SiteCode $CMSite.SiteCode -SMSProvider $SMSProvider -FilePath $FilePath
+#endregion Co-Management
+#region Cloud Management Gateway
 Get-pwCMCloudManagementGateway -SiteCode $CMSite.SiteCode -FilePath $FilePath
+Write-HtmliLink -ReturnTOC -File $FilePath
+#endregion Cloud Management Gateway
 #endregion Cloud Services
 
 #region enumerating Client Policies
@@ -6432,7 +6813,7 @@ if (-not ($Null -eq $(Get-CMEndpointProtectionPoint))){
                                         foreach ($ExcludedProcess in $AgentConfig.ExcludedProcesses){
                                             $ProcessArray += "$($ExcludedProcess)"
                                         }
-                                        $listArray += Write-HtmlList -Description 'Excluded processes:' -InputObject $filesArray -Level 1
+                                        $listArray += Write-HtmlList -Description 'Excluded processes:' -InputObject $ProcessArray -Level 1
                                         Write-HtmlList -Title $listTitle -InputObject $listArray -Level 4 -File $FilePath
                                     }
                                 204 {
