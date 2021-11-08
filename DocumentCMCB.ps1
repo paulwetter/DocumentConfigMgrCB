@@ -2736,8 +2736,6 @@ function New-HTMLCoMgmtWorkloads {
         }
 $content = @"
 <style>
-    th{padding-bottom:10px;}
-    td{padding-bottom:5px;}
     input[type=range]{
         Width:300px;
         background-color:#0000CC;
@@ -2747,9 +2745,9 @@ $content = @"
 <Table cellpadding=0 cellspacing=0 style=`"margin-left:$($Indent)px;`">
     <tr>
         <th width="200" align="left"></th>
-        <th width="100" align="left">Config Mgr</th>
-        <th width="100" align="center">Pilot Intune</th>
-        <th width="100" align="right">Intune</th>
+        <th width="95" align="left">Config Mgr</th>
+        <th width="95" align="center">Pilot Intune</th>
+        <th width="95" align="right">Intune</th>
         <th width="300" align="left" style="padding-left:10px">Pilot Collection</th>
     </tr>
 "@
