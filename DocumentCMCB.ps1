@@ -67,7 +67,7 @@
     This script creates a HTML document.
 .NOTES
     NAME: DocumentCMCB.ps1
-    VERSION: 3.68
+    VERSION: 3.69
     AUTHOR: Paul Wetter
     Based on original script developed by David O'Brien
     CONTRIBUTOR: Florian Valente (BlackCatDeployment), Skatterbrainz, ChadSimmons
@@ -135,7 +135,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.68'
+$DocumenationScriptVersion = '3.69'
 
 
 $CMPSSuppressFastNotUsedCheck = $true
@@ -2672,28 +2672,17 @@ function Get-PWCMCoMgmtProductionWorkloads {
     param ()
     $CMPSSuppressFastNotUsedCheck = $true
     $conf = ([xml](Get-CMConfigurationPolicy -Name 'CoMgmtSettingsProd').SDMPackageXML).DesiredConfigurationDigest.ConfigurationPolicy.Rules.Rule[2].Expression.Operands.ConstantValue.value
-    [Flags()] enum Workloads {
-        Nothing = 0
-        None = 1
-        Compliance = 2
-        ResourceAccess = 4
-        DeviceConfiguration = 8
-        Updates = 16
-        EndpointProtection = 32
-        Applications = 64
-        OfficeApps = 128
-    }
     $WorkLoads = @()
-    switch ([Workloads]$conf){
+    switch ($conf){
         Nothing {}
-        {$_ -band [Workloads]::None} {}
-        {$_ -band [Workloads]::Compliance} {$WorkLoads += "Compliance polices"}
-        {$_ -band [Workloads]::ResourceAccess} {$WorkLoads += "Resource access policies"}
-        {$_ -band [Workloads]::DeviceConfiguration} {$WorkLoads += "Device Configuration"}
-        {$_ -band [Workloads]::Updates} {$WorkLoads += "Windows Update policies"}
-        {$_ -band [Workloads]::EndpointProtection} {$WorkLoads += "Endpoint Protection"}
-        {$_ -band [Workloads]::Applications} {$WorkLoads += "Client apps"}
-        {$_ -band [Workloads]::OfficeApps} {$WorkLoads += "Office Click-to-Run apps"}
+        {$_ -band 1} {}
+        {$_ -band 2} {$WorkLoads += "Compliance polices"}
+        {$_ -band 4} {$WorkLoads += "Resource access policies"}
+        {$_ -band 8} {$WorkLoads += "Device Configuration"}
+        {$_ -band 16} {$WorkLoads += "Windows Update policies"}
+        {$_ -band 32} {$WorkLoads += "Endpoint Protection"}
+        {$_ -band 64} {$WorkLoads += "Client apps"}
+        {$_ -band 128} {$WorkLoads += "Office Click-to-Run apps"}
     }
     Return $WorkLoads
 }
