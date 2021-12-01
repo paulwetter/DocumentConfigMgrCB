@@ -369,7 +369,7 @@ $Window.SQLTimeout.Text = "300"
 $window.ComboServerDetailType.ItemsSource = @([PSCustomObject]@{Type = 'WMI'},[PSCustomObject]@{Type = 'HardwareInventory'})
 $window.ComboServerDetailType.DisplayMemberPath = 'Type'
 $window.ComboServerDetailType.SelectedValuePath = 'Type'
-$window.ComboServerDetailType.SelectedValue = 'WMI'
+$window.ComboServerDetailType.SelectedValue = "$RemoteDetailsSource"
 
 $window.SkipRemoteServerDetails.add_Click{
     IF ($window.SkipRemoteServerDetails.IsChecked -eq $true) {
