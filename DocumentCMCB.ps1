@@ -52,6 +52,8 @@
     If The SQL server is on a remote system, you can pass SQL credentials here.
 .PARAMETER SkipRemoteServerDetails
     Skip connecting directly to each remote site system server for hardware and OS details since this can take a long time on sites with many site systems
+.PARAMETER RemoteDetailsSource
+    [WMI | HardwareInventory] The source of the details for the remote server.  This can be either querying WMI on the remote server or by retrieving the details from the most recent hardware inventory.
 .PARAMETER StyleSheet
     This is the path to an external CSS file that will allow you to style the report in your own way.  The style sheet will be embedded into the report.
 .EXAMPLE
@@ -67,11 +69,11 @@
     This script creates a HTML document.
 .NOTES
     NAME: DocumentCMCB.ps1
-    VERSION: 3.69
+    VERSION: 4.0.1
     AUTHOR: Paul Wetter
     Based on original script developed by David O'Brien
     CONTRIBUTOR: Florian Valente (BlackCatDeployment), Skatterbrainz, ChadSimmons
-    LASTEDIT: October 2, 2021
+    LASTEDIT: November 12, 2021
 #>
 
 #endregion
@@ -80,7 +82,7 @@
 [CmdletBinding()]
 
 Param(
-    [parameter(Mandatory=$True)] 
+    [parameter(Mandatory=$False)] 
     [string]$CompanyName,
     
     [parameter(Mandatory=$False)] 
@@ -129,20 +131,329 @@ Param(
     [parameter(Mandatory=$False,HelpMessage="Skip connecting directly to each site system server for hardware and OS details")]
     [switch]$SkipRemoteServerDetails,
 
+    [parameter(Mandatory=$False,HelpMessage="Defines the source for collecting the hardware details on the site servers. [WMI|HardwareInventory]  HardwareInventory is the default")]
+    [ValidateSet("WMI","HardwareInventory")]
+    [string]$RemoteDetailsSource = 'HardwareInventory',
+
     [parameter(Mandatory=$False,HelpMessage="CSS file path")]
     [string]$StyleSheet = ""
 
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '3.69'
+$DocumenationScriptVersion = '4.0.1'
 
+
+If ([string]::IsNullOrEmpty($CompanyName)){
+$ScriptPath = split-path -parent $MyInvocation.MyCommand.Definition
+
+function Get-DocumentCMCBUI {
+    param ()
+$xaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" MinWidth="450"
+   Width="575" SizeToContent="Height" Title="DocumentCMCB UI" Topmost="True">
+    <Grid Margin="10,10,10,10" HorizontalAlignment="center">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="550"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,10" Orientation="Vertical">
+            <Grid HorizontalAlignment="center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="250"/>
+                    <ColumnDefinition Width="300"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" TextAlignment="Center" FontWeight="UltraBold" FontSize="18">DocumentCMCB</TextBlock>
+            </Grid>
+            <TextBlock TextWrapping="Wrap" Width="Auto" Margin="5">
+                <Run>This is a front end to DocumentCMCB.ps1 and allows you to more easily make your documentation selections.</Run>
+            </TextBlock>
+        </StackPanel>
+        <Grid Grid.Row="1" Grid.Column="0" Margin="10,0,10,0" HorizontalAlignment="center" x:Name="Questions" Visibility="Visible">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="125"/>
+                <ColumnDefinition Width="425"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Grid.Column="0" Margin="10,10,0,2" HorizontalAlignment="Right">Title:</TextBlock>
+            <TextBox Grid.Row="0" Grid.Column="1" Name="StringTitle" Margin="5,10,10,2" HorizontalAlignment="left" VerticalContentAlignment="center" Width="300"/>
+            <TextBlock Grid.Row="1" Grid.Column="0" Margin="10,10,0,2" HorizontalAlignment="right">Company Name:</TextBlock>
+            <TextBox Grid.Row="1" Grid.Column="1" Name="StringCompanyName" Margin="5,10,10,2" HorizontalAlignment="left" VerticalContentAlignment="center" Width="220"/>
+            <TextBlock Grid.Row="2" Grid.Column="0" Margin="10,10,0,2" HorizontalAlignment="right">Company Logo:</TextBlock>
+            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
+                <TextBox Name="StringCompanyLogo" Margin="5,10,10,2" HorizontalAlignment="left" VerticalContentAlignment="center" Width="300"/>
+                <Button Name="BrowseLogo" MinWidth="50" Height="18" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalAlignment="center">Browse</Button>
+            </StackPanel>
+            <TextBlock Grid.Row="3" Grid.Column="0" Margin="10,10,0,2" HorizontalAlignment="Right">Author:</TextBlock>
+            <TextBox Grid.Row="3" Grid.Column="1" Name="StringAuthor" Margin="5,10,10,2" HorizontalAlignment="left" VerticalContentAlignment="center" Width="150"/>
+            <TextBlock Grid.Row="4" Grid.Column="0" Margin="10,10,0,2" HorizontalAlignment="Right">Vendor:</TextBlock>
+            <TextBox Grid.Row="4" Grid.Column="1" Name="StringVendor" Margin="5,10,10,2" HorizontalAlignment="left" VerticalContentAlignment="center" Width="150"/>
+            <TextBlock Grid.Row="5" Grid.Column="0" Margin="10,10,0,2" HorizontalAlignment="right">Save File:</TextBlock>
+            <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal">
+                <TextBox Name="StringSaveFile" Margin="5,10,10,2" HorizontalAlignment="left" VerticalContentAlignment="center" Width="300"/>
+                <Button Name="BrowseSave" MinWidth="50" Height="18" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalAlignment="center">Browse</Button>
+            </StackPanel>
+            <TextBlock Grid.Row="6" Grid.Column="0" Margin="10,10,0,2" HorizontalAlignment="Right">SMS Provider:</TextBlock>
+            <TextBox Grid.Row="6" Grid.Column="1" Name="SMSProvider" Margin="5,10,10,2" HorizontalAlignment="left" VerticalContentAlignment="center" Width="150"/>
+        </Grid>
+        <Grid Grid.Row="2" Grid.Column="0" Margin="10,0,10,10" HorizontalAlignment="center" x:Name="SwitchParams" Visibility="Visible">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="250"/>
+                <ColumnDefinition Width="250"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <CheckBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Name="ListAllInformation" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalContentAlignment="center" IsChecked="false" ToolTip="This provides deeper details on all settings within the site">Document Detailed Information</CheckBox>
+            <CheckBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Name="ListAppDetails" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalContentAlignment="center" IsChecked="false" ToolTip="This will document full details on the applications in the site">Document details on application</CheckBox>
+            <CheckBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Name="UnknownClientSettings" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalContentAlignment="center" IsChecked="false" ToolTip="If there are client settings that are not accounted for, checking this box will list the details on the unknown client settings.">Document unknown Client Settings</CheckBox>
+            <CheckBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Name="NoSqlDetail" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalContentAlignment="center" IsChecked="false" ToolTip="Skips the data that is collected by querying the SQL database directly">Skip SQL queries</CheckBox>
+            <CheckBox Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Name="AddDateTime" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalContentAlignment="center" IsChecked="false" ToolTip="Check this to append a timestamp to the end of the filename specified above">Add Data/Time to File name</CheckBox>
+            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" ToolTip="Maximum amount of time that the script will allow queries to run">
+                <TextBlock Margin="30,10,0,2" HorizontalAlignment="right">SQL Timeout:</TextBlock>
+                <TextBox Name="SQLTimeout" Margin="5,10,10,2" HorizontalAlignment="left" VerticalContentAlignment="center" Width="50"/>
+            </StackPanel>
+            <CheckBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Name="SkipRemoteServerDetails" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalContentAlignment="center" IsChecked="false" ToolTip="This can speed up the documentation process as this will skip reaching out to remote WMI on each site server for collecting additional details for the machine">Skip Remote Server Details</CheckBox>
+            <CheckBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Name="MaskAccounts" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalContentAlignment="center" IsChecked="false" ToolTip="Check this to mask the names of user accounts that are used in your CM site">Mask user accounts</CheckBox>
+            <ComboBox Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Name="ComboServerDetailType" Margin="5,10,10,2" HorizontalAlignment="left" VerticalContentAlignment="center" Width="150" ToolTip="Choosing the Source of HardwareInventory will significantly increase the time to collect this data but, will be limited to the accuracy of hardware inventory."></ComboBox>
+        </Grid>
+        <Grid Grid.Row="3" Grid.Column="0" Margin="10,0,10,0" HorizontalAlignment="center" x:Name="StyleSheet" Visibility="Visible">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="125"/>
+                <ColumnDefinition Width="425"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Grid.Column="0" Margin="10,10,0,2" HorizontalAlignment="right">Custom Style Sheet:</TextBlock>
+            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
+                <TextBox Name="StringStyleSheet" Margin="5,10,10,2" HorizontalAlignment="left" VerticalContentAlignment="center" Width="300"/>
+                <Button Name="BrowseStyleSheet" MinWidth="50" Height="18" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalAlignment="center">Browse</Button>
+            </StackPanel>
+        </Grid>
+        <StackPanel Grid.Row="4" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0">
+            <Grid Margin="10,0,10,10" HorizontalAlignment="center" Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="125"/>
+                    <ColumnDefinition Width="125"/>
+                    <ColumnDefinition Width="150"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Button Grid.Row="2" Grid.Column="0" Name="ButCancel" IsCancel="True" MinWidth="80" Height="22" Margin="5" HorizontalAlignment="Right" Background="#ff9999">Exit</Button>
+                <Button Grid.Row="2" Grid.Column="2" Name="ButStart" IsCancel="False" MinWidth="100" Height="22" Margin="5" HorizontalAlignment="Left" Background="#33ff99">Start Documenting!</Button>
+            </Grid>
+        </StackPanel>
+    </Grid>
+</Window>
+"@
+
+function Convert-XAMLtoWindow {
+    param
+    (
+        [Parameter(Mandatory=$true)]
+        [string]
+        $XAML
+    )
+    
+    Add-Type -AssemblyName PresentationFramework
+    
+    $reader = [XML.XMLReader]::Create([IO.StringReader]$XAML)
+    $result = [Windows.Markup.XAMLReader]::Load($reader)
+    $reader.Close()
+    $reader = [XML.XMLReader]::Create([IO.StringReader]$XAML)
+    while ($reader.Read())
+    {
+        $name=$reader.GetAttribute('Name')
+        if (!$name) { $name=$reader.GetAttribute('x:Name') }
+        if($name)
+        {$result | Add-Member NoteProperty -Name $name -Value $result.FindName($name) -Force}
+    }
+    $reader.Close()
+    $result
+}
+
+
+function Show-WPFWindow {
+    param
+    (
+        [Parameter(Mandatory)]
+        [Windows.Window]
+        $Window
+    )
+    
+    $result = $null
+    $null = $window.Dispatcher.InvokeAsync{
+        $result = $window.ShowDialog()
+        Set-Variable -Name result -Value $result -Scope 1
+    }.Wait()
+    $result
+}
+
+function Get-FileName {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $false)]
+        [System.IO.FileInfo]
+        $InitialDirectory = "$([environment]::getfolderpath("MyPictures"))",
+        [Parameter(Mandatory = $false)]
+        [String]
+        $Title = "Browse to company logo file:",
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Filter = "Image Files|*.jpg;*.jpeg;*.png;"
+    )
+    [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") |
+    Out-Null
+    $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
+    $OpenFileDialog.initialDirectory = $InitialDirectory
+    $OpenFileDialog.filter = $Filter
+    $OpenFileDialog.Title = $Title
+    $OpenFileDialog.ShowDialog() | Out-Null
+    $OpenFileDialog.filename
+}
+
+function New-FileName {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $false)]
+        [System.IO.FileInfo]
+        $InitialDirectory = "$([environment]::getfolderpath("MyDocuments"))",
+        [Parameter(Mandatory = $false)]
+        [String]
+        $Title = "Browse to save HTML File:"            
+    )
+    [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") |
+    Out-Null
+    $SaveFileDialog = New-Object System.Windows.Forms.SaveFileDialog
+    $SaveFileDialog.initialDirectory = $InitialDirectory
+    $SaveFileDialog.FileName = "CMDocumentation";
+    $SaveFileDialog.DefaultExt = "html";
+    $SaveFileDialog.filter = "HTML|*.html;"
+    $SaveFileDialog.Title = $Title
+    $SaveFileDialog.ShowDialog() | Out-Null
+    $SaveFileDialog.filename
+}
+
+$window = Convert-XAMLtoWindow -XAML $xaml
+
+$window.StringTitle.Text = "Configuration Manager Site Documentation"
+$window.StringVendor.Text = "Wetter's Source"
+$window.StringAuthor.Text = "Paul Wetter"
+$Window.StringSaveFile.Text = "$ScriptPath\CMDocumentation.html"
+$Window.SMSProvider.Text = "localhost"
+$Window.SQLTimeout.Text = "300"
+$window.ComboServerDetailType.ItemsSource = @([PSCustomObject]@{Type = 'WMI'},[PSCustomObject]@{Type = 'HardwareInventory'})
+$window.ComboServerDetailType.DisplayMemberPath = 'Type'
+$window.ComboServerDetailType.SelectedValuePath = 'Type'
+$window.ComboServerDetailType.SelectedValue = 'WMI'
+
+$window.SkipRemoteServerDetails.add_Click{
+    IF ($window.SkipRemoteServerDetails.IsChecked -eq $true) {
+        $window.ComboServerDetailType.IsEnabled = $false
+        #$window.ComboServerDetailType.SelectedValue = 'WMI'
+    } else {
+        $window.ComboServerDetailType.IsEnabled = $true
+    }
+}
+
+$window.BrowseLogo.add_Click{
+    $window.StringCompanyLogo.Text = Get-FileName -InitialDirectory "$([environment]::getfolderpath("MyPictures"))" -Title "Browse to company logo file:" -Filter "Image Files|*.jpg;*.jpeg;*.png;"
+}
+
+$window.BrowseStyleSheet.add_Click{
+    $window.StringStyleSheet.Text = Get-FileName -InitialDirectory "$([environment]::getfolderpath("MyDocuments"))" -Title "Browse to custom style sheet:" -Filter "Style Files|*.css;*.txt;"
+}
+
+$window.BrowseSave.add_Click{
+    $window.StringSaveFile.Text = New-FileName
+}
+
+$window.ListAllInformation.add_Click{
+    If ($window.ListAllInformation.IsChecked -eq $true){
+        $window.ListAppDetails.IsEnabled = $false
+        $window.ListAppDetails.IsChecked = $false
+    } else {
+        $window.ListAppDetails.IsEnabled = $true
+    }
+}
+
+$window.NoSqlDetail.add_Click{
+    If ($window.NoSqlDetail.IsChecked -eq $true){
+        $window.SQLTimeout.IsEnabled = $false
+    } else {
+        $window.SQLTimeout.IsEnabled = $true
+    }
+}
+
+
+$window.ButStart.add_Click{
+    if ([string]::IsNullOrEmpty($window.StringCompanyName.Text)){
+        $window.StringCompanyName.Background = "#ff9999"
+        write-host "EMPTY"
+    } else {
+        $window.StringCompanyName.Background = "white"
+        $script:Stuff = [ordered]@{            
+            "CompanyName" = "$($window.StringCompanyName.Text)"
+            "CompanyLogo" = $(if ([string]::IsNullOrEmpty("$($window.StringCompanyLogo.Text)")){"https://wetterssource.com/sites/default/files/logo4_72.png"}else{"$($window.StringCompanyLogo.Text)"})
+            "ListAllInformation" = $Window.ListAllInformation.IsChecked
+            "ListAppDetails" = $Window.ListAppDetails.IsChecked
+            "Author" = "$($window.StringAuthor.Text)"
+            "Vendor" = "$($window.StringVendor.Text)"
+            "Title" = "$($window.StringTitle.Text)"
+            "FilePath" = "$($Window.StringSaveFile.Text)"
+            "SMSProvider" = "$($Window.SMSProvider.Text)"
+            "AddDateTime" = $Window.AddDateTime.IsChecked
+            "UnknownClientSettings" = $Window.UnknownClientSettings.IsChecked
+            "NoSqlDetail" = $Window.NoSqlDetail.IsChecked
+            "SQLTimeout" = "$($Window.SQLTimeout.Text)"
+            "MaskAccounts" = $Window.MaskAccounts.IsChecked
+            "SkipRemoteServerDetails" = $Window.SkipRemoteServerDetails.IsChecked
+            "RemoteDetailsSource" = $window.ComboServerDetailType.SelectedValue
+            "StyleSheet" = "$($window.StringStyleSheet.Text)"
+        }
+        $window.DialogResult = $false
+    }
+}
+
+$null = Show-WPFWindow -Window $window
+}
+
+    Get-DocumentCMCBUI
+    If([string]::IsNullOrEmpty($Stuff)){break}
+    $Stuff.keys | ForEach-Object { Set-Variable -Name $_ -Value $Stuff["$_"]}
+    $Stuff.keys | ForEach-Object {"Variable [$_]: $((get-variable $_).value)"}
+}
 
 $CMPSSuppressFastNotUsedCheck = $true
 $Global:DocTOC = @()
 $ScriptStartTime = Get-date
 Write-host "Beginning Execution of version $DocumenationScriptVersion at: $($ScriptStartTime.ToShortTimeString())"
 Write-Verbose "Beginning Execution of version $DocumenationScriptVersion at: $($ScriptStartTime.ToShortTimeString())"
+
 
 #region HTML Writing Functions
 Function Write-HTMLTable{
@@ -183,29 +494,18 @@ Function Write-HTMLTable{
         [int]$Spacing=0,
         [Parameter(Mandatory=$false,ValueFromPipeline=$false,
         HelpMessage="This is the amount of space that the table will indent by")]
-        [ValidateRange(0,9)]
+        [ValidateRange(0,6)]
         [int]$Level=0,
         [Parameter(Mandatory=$false,ValueFromPipeline=$false,
         HelpMessage="This is the file that the HTML will be written to")]
         [string]$File
     )
 
-    Switch ($Level) { 
-        0 {$Indent=0} 
-        1 {$Indent=5} 
-        2 {$Indent=15} 
-        3 {$Indent=25} 
-        4 {$Indent=35} 
-        5 {$Indent=45}
-        6 {$Indent=55} 
-        7 {$Indent=65} 
-        8 {$Indent=75} 
-        9 {$Indent=85} 
-        default {$Indent=5}
-    }
+    $IndentClass = "Level$Level"
+
     If ($InputObject) {
         $table = $InputObject|ConvertTo-Html -Fragment
-        $table[0] = "<table cellpadding=$Padding cellspacing=$Spacing border=$Border style=`"margin-left:$($Indent)px;`">"
+        $table[0] = "<table cellpadding=$Padding cellspacing=$Spacing border=$Border class=`"$IndentClass`">"
         $table = Convert-HTMLTags -InputString $table
     } Else {
         Write-Verbose 'Input object was empty outputting empty object paragraph text...'
@@ -264,28 +564,20 @@ Function Write-HtmlList{
         [string]$File
     )
 
-    switch ($Level) 
-    { 
-        0 {$Indent=0} 
-        1 {$Indent=5} 
-        2 {$Indent=15} 
-        3 {$Indent=25} 
-        4 {$Indent=35} 
-        5 {$Indent=45}
-        6 {$Indent=55} 
-        default {$Indent=5}
-    }
+    $IndentClass = "Level$Level"
+    $IndentSubClass = "Level$($Level)Sub"
+
     if ($Title)
         {
-          $ListHTML = "<P style=`"margin-left:$($indent)px;`"><B>$($Title)</B>"
+          $ListHTML = "<P class=`"$IndentClass`"><B>$($Title)</B>"
         }Else{
-          $ListHTML = "<P style=`"margin-left:$($indent)px;`">"
+          $ListHTML = "<P class=`"$IndentClass`">"
         }
     if ($Description)
         {
-          $ListHTML = $ListHTML + "<Div style=`"margin-left:$($indent + 5)px;`">$Description</div>"
+          $ListHTML = $ListHTML + "<Div class=`"$IndentSubClass`">$Description</div>"
         }
-    $GroupList = "<$Type style=`"margin-left:$($indent)px;margin-top:0px;`">"
+    $GroupList = "<$Type class=`"$IndentClass`" style=`"margin-top:0px;`">"
     If ($InputObject){
         foreach ($Item in $InputObject)
             {
@@ -385,17 +677,8 @@ Function Write-HTMLParagraph{
         [string]$File
     )
     
-    Switch ($Level) { 
-        0 {$Indent=0} 
-        1 {$Indent=5} 
-        2 {$Indent=15} 
-        3 {$Indent=25} 
-        4 {$Indent=35} 
-        5 {$Indent=45}
-        6 {$Indent=55} 
-        default {$Indent=5}
-    }
-    $Paragraph = "<P style=`"margin-left:$($Indent)px;`">$(Convert-HTMLTags -InputString $Text)</p>"
+    $IndentClass = "Level$Level"
+    $Paragraph = "<P class=`"$IndentClass`">$(Convert-HTMLTags -InputString $Text)</p>"
     If ($File) {$Paragraph | Out-File -filepath $File -Append}
     Else {Return $Paragraph}
 }
@@ -451,8 +734,33 @@ Function Write-HTMLHeader{
     $DefaultStyle += "TH  {background-color:LightBlue;padding: 3px; border: 2px solid black;}"
     $DefaultStyle += "TD  {padding: 3px; border: 1px solid black;}"
     $DefaultStyle += "TABLE	{border-collapse: collapse;}"
+    $DefaultStyle += ""
+    $DefaultStyle += "/*Cover Styles*/"
     $DefaultStyle += "TABLE.Cover TR {background-color:white}"
+    $DefaultStyle += ".Cover {width:100%;border: 0px}"
     $DefaultStyle += ".CoverImage {width:auto; max-width:auto}"
+    $DefaultStyle += ".CoverImage {width:auto; max-width:auto}"
+    $DefaultStyle += ".CoverTitle {border: 0px;font-size:48pt}"
+    $DefaultStyle += ".CoverOrg {border: 0px;font-size:24pt;padding-left:10px}"
+    $DefaultStyle += ".CoverAuthor {border: 0px;font-size:18pt}"
+    $DefaultStyle += ".CoverVendor {border: 0px;font-size:24pt}"
+    $DefaultStyle += ".CoverVersion {border: 0px;font-size:11pt;padding-left:10px}"
+    $DefaultStyle += ""
+    $DefaultStyle += "/* These are the indent levels within the document */"    
+    $DefaultStyle += ".Level0 {margin-left:0px;}"
+    $DefaultStyle += ".Level1 {margin-left:5px;}"
+    $DefaultStyle += ".Level2 {margin-left:15px;}"
+    $DefaultStyle += ".Level3 {margin-left:25px;}"
+    $DefaultStyle += ".Level4 {margin-left:35px;}"
+    $DefaultStyle += ".Level5 {margin-left:45px;}"
+    $DefaultStyle += ".Level6 {margin-left:55px;}"
+    $DefaultStyle += ".Level0Sub {margin-left:5px;}"
+    $DefaultStyle += ".Level1Sub {margin-left:10px;}"
+    $DefaultStyle += ".Level2Sub {margin-left:20px;}"
+    $DefaultStyle += ".Level3Sub {margin-left:30px;}"
+    $DefaultStyle += ".Level4Sub {margin-left:40px;}"
+    $DefaultStyle += ".Level5Sub {margin-left:50px;}"
+    $DefaultStyle += ".Level6Sub {margin-left:60px;}"
     $DefaultStyle += "</Style>"
     ##End Default Style
     If($CssStyleFile){
@@ -484,9 +792,9 @@ Function Write-HTMLFooter{
 .PARAMETER File
     This is the file that the HTML will be written to.
 .EXAMPLE
-    Write-HTMLHeader
+    Write-HTMLFooter
 .EXAMPLE
-    Write-HTMLHeader -file "C:\test.html"
+    Write-HTMLFooter -file "C:\test.html"
 .NOTES
     Author: Paul Wetter
     Website: 
@@ -497,7 +805,7 @@ Function Write-HTMLFooter{
     [CmdletBinding()]
     param (
         [Parameter(Mandatory=$false,ValueFromPipeline=$false,
-        HelpMessage="This is the amount of space that the table will indent by")]
+        HelpMessage="The path to the file that we will write to.")]
         [string]$File
     )
     $Footer += "</body></html>"
@@ -555,9 +863,9 @@ Function Write-HTMLCoverPage{
         [string]$File
     )
     $Cover = @()
-    $Cover += "<Table class=`"Cover`" border=0 cellspacing=0 cellpadding=0 style=`"width:100%;border: 0px`">"
-    $Cover += "<TR><TD Height=50 VAlign=`"top`" align=`"left`" style=`"border: 0px;font-size:48pt`">$Title</TD></TR>"
-    $Cover += "<TR><TD Height=20 VAlign=`"top`" align=`"left`" style=`"border: 0px;font-size:24pt;padding-left:10px`">Report Prepared for: $Org</TD></TR>"
+    $Cover += "<Table border=0 cellspacing=0 cellpadding=0 class=`"Cover`">"
+    $Cover += "<TR><TD Height=50 VAlign=`"top`" align=`"left`" class=`"CoverTitle`">$Title</TD></TR>"
+    $Cover += "<TR><TD Height=20 VAlign=`"top`" align=`"left`" class=`"CoverOrg`">Report Prepared for: $Org</TD></TR>"
     If ($ImagePath){
         $ImageData=Convert-Image2Base64 -Path $ImagePath
     }
@@ -566,9 +874,9 @@ Function Write-HTMLCoverPage{
     }Else{
         $Cover += "<TR><TD Height=680 VAlign=`"top`" style=`"border: 0px`">&nbsp;</TD></TR>"
     }
-    $Cover += "<TR><TD Height=30 VAlign=`"top`" Align=`"right`" style=`"border: 0px;font-size:18pt`">Report Prepared By: $Author</TD></TR>"
-    If ($Vendor) {$Cover += "<TR><TD Height=30 VAlign=`"top`" Align=`"right`" style=`"border: 0px;font-size:24pt`">$Vendor</TD></TR>"}
-    $Cover += "<TR><TD Height=20 VAlign=`"top`" align=`"right`" style=`"border: 0px;font-size:11pt;padding-left:10px`">Executed with script version: $DocumenationScriptVersion</TD></TR>"
+    $Cover += "<TR><TD Height=30 VAlign=`"top`" Align=`"right`" Class=`"CoverAuthor`">Report Prepared By: $Author</TD></TR>"
+    If ($Vendor) {$Cover += "<TR><TD Height=30 VAlign=`"top`" Align=`"right`" Class=`"CoverVendor`">$Vendor</TD></TR>"}
+    $Cover += "<TR><TD Height=20 VAlign=`"top`" align=`"right`" Class=`"CoverVersion`">Executed with script version: $DocumenationScriptVersion</TD></TR>"
     $Cover += "</Table>"
     If ($File) {$Cover | Out-File -filepath $File -Append}
     Else {Return $Cover}
@@ -2315,16 +2623,16 @@ Function Get-pwCMManagementPoints {
         }
         Write-HtmlList -InputObject $MPText -Title "Management Point Name: <B>$MPName</B>" -Level 2 -File $FilePath
         Remove-Variable -Name MPText, MPIntranet, MPInternet, MPHealthAlert, UseSiteDB, MPCMGTraffic
-        If (-not($PSBoundParameters.ContainsKey('SkipRemoteServerDetails'))) {
-            Write-Debug "$(Get-Date):   Test-Path -Path `"filesystem::\\$MPName\C$`""
-            Push-Location -Path 'C:'
-            $PathTest = Test-Path -Path "filesystem::\\$MPName\C$"
-            Write-Debug "$(Get-Date):   Testing Access to Management Point: $MPName -- $PathTest"
-            If (Test-Path -Path "filesystem::\\$MPName\C$") {$CMMPServerName=$MPName}
-            Pop-Location
-        }
+        # If (-not($SkipRemoteServerDetails)) {
+        #     Write-Debug "$(Get-Date):   Test-Path -Path `"filesystem::\\$MPName\C$`""
+        #     Push-Location -Path 'C:'
+        #     $PathTest = Test-Path -Path "filesystem::\\$MPName\C$"
+        #     Write-Debug "$(Get-Date):   Testing Access to Management Point: $MPName -- $PathTest"
+        #     If (Test-Path -Path "filesystem::\\$MPName\C$") {$CMMPServerName=$MPName}
+        #     Pop-Location
+        # }
     }
-    Write-Debug "$(Get-Date):   Default Management Point: $CMMPServerName"
+    # Write-Debug "$(Get-Date):   Default Management Point: $CMMPServerName"
     Write-HtmliLink -ReturnTOC -File $FilePath
     Write-ProgressEx -CurrentOperation "Complete" -Activity "Management Points" -Status "Complete" -Id 2 -Completed
 }
@@ -2464,7 +2772,7 @@ function Get-PWCMCoManagement {
         $SMSProvider,
         [Parameter(Mandatory = $true)]
         [String]
-        $FilePath = $FilePath
+        $FilePath
     )
     Write-ProgressEx -CurrentOperation 'Enumerating Co-Management Configuration'
     Write-HTMLHeading -Text 'Co-Management Configuration' -Level 3 -File $FilePath
@@ -2717,23 +3025,11 @@ function New-HTMLCoMgmtWorkloads {
         [string[]]
         $Workloads,
         [Parameter(HelpMessage="This is the amount of space that the table will indent by")]
-        [ValidateRange(0,9)]
+        [ValidateRange(0,6)]
         [int]$Level=0
     )
     begin{
-        Switch ($Level) { 
-            0 {$Indent=0} 
-            1 {$Indent=5} 
-            2 {$Indent=15} 
-            3 {$Indent=25} 
-            4 {$Indent=35} 
-            5 {$Indent=45}
-            6 {$Indent=55} 
-            7 {$Indent=65} 
-            8 {$Indent=75} 
-            9 {$Indent=85} 
-            default {$Indent=5}
-        }
+        $IndentClass = "Level$Level"
 $content = @"
 <style>
     input[type=range]{
@@ -2742,7 +3038,7 @@ $content = @"
         -webkit-appearance: none;
     }
 </style>
-<Table cellpadding=0 cellspacing=0 style=`"margin-left:$($Indent)px;`">
+<Table cellpadding=0 cellspacing=0 class=`"$IndentClass`">
     <tr>
         <th width="200" align="left"></th>
         <th width="95" align="left">Config Mgr</th>
@@ -3635,88 +3931,144 @@ If ($ListAllInformation){
   #endregion SiteRoles
 
   #region Site Server Details
-If (-Not($PSBoundParameters.ContainsKey('SkipRemoteServerDetails'))) {
-  Write-ProgressEx -CurrentOperation "Collecting Site Server Information"
-  $SiteServers = Get-CMSiteSystemServer | Where-Object {$_.NALType -notlike 'Windows Azure'} | Select-Object @{Name='ServerName';expression={$_.NetworkOSPath.trim('\')}}
-  Write-HTMLHeading -Text "Site Server Information" -Level 2 -File $FilePath
-  Write-HTMLParagraph -Text "The section contains basic information on each of the site servers in the environment.  The data is collected via remote WMI queries." -Level 2 -File $FilePath
-  foreach ($SiteServer in $SiteServers){
-    $ServerInfo = @()
-    $Server = $SiteServer.ServerName
-    Write-HTMLHeading -Text "$Server" -Level 3 -File $FilePath
-    Write-ProgressEx -Id 1 -Activity "Server Details" -Status "Querying WMI" -CurrentOperation "Collecting basic information for server [$Server] via WMI."
-    Try{
-        $InstalledServerFeatures = ''
-        $InstalledFeatures=Get-WmiObject -Query 'SELECT * FROM Win32_OptionalFeature where InstallState = 1' -ComputerName $Server -ErrorAction Stop |Select-Object Caption,Name
-        foreach ($Feature in $InstalledFeatures){
-            $InstalledServerFeatures = "$InstalledServerFeatures; $($Feature.Name)"
+If (-Not($SkipRemoteServerDetails)) {
+    Write-ProgressEx -CurrentOperation "Collecting Site Server Information"
+    $SiteServers = Get-CMSiteSystemServer | Where-Object {$_.NALType -notlike 'Windows Azure'} | Select-Object @{Name='ServerName';expression={$_.NetworkOSPath.trim('\')}}
+    Write-HTMLHeading -Text "Site Server Information" -Level 2 -File $FilePath
+    switch ($RemoteDetailsSource) {
+        'WMI' {
+            Write-HTMLParagraph -Text "The section contains basic information on each of the site servers in the environment.  The data is being collected via remote WMI queries." -Level 2 -File $FilePath
+            foreach ($SiteServer in $SiteServers){
+                $ServerInfo = @()
+                $Server = $SiteServer.ServerName
+                Write-HTMLHeading -Text "$Server" -Level 3 -File $FilePath
+                Write-ProgressEx -Id 1 -Activity "Server Details" -Status "Querying WMI" -CurrentOperation "Collecting basic information for server [$Server] via WMI."
+                Try{
+                    $InstalledServerFeatures = ''
+                    $InstalledFeatures=Get-WmiObject -Query 'SELECT * FROM Win32_OptionalFeature where InstallState = 1' -ComputerName $Server -ErrorAction Stop |Select-Object Caption,Name
+                    foreach ($Feature in $InstalledFeatures){
+                        $InstalledServerFeatures = "$InstalledServerFeatures; $($Feature.Name)"
+                    }
+                }
+                Catch{
+                    Write-debug "$(Get-Date):   Unable to query WMI for Installed Features on server [$Server]."
+                    $InstalledFeatures=@("Feature Query Failed")
+                }
+                $InstalledServerFeatures = $InstalledServerFeatures.Trim(';')
+                Try{
+                    $Drives = Get-WmiObject -Query 'SELECT * FROM Win32_LogicalDisk WHERE DriveType = 3' -ComputerName $Server -ErrorAction Stop
+                    $DriveList = @()
+                    Foreach ($Drive in $Drives){
+                        $Letter = $Drive.DeviceID
+                        $Size=[math]::Round($($Drive.Size)/1024/1024/1024,1)
+                        $Free=[math]::Round($($Drive.FreeSpace)/1024/1024/1024,1)
+                        $DriveList += New-Object -TypeName psobject -Property @{'DriveLetter'="$Letter";'Size'="$Size GB";'FreeSpace'="$Free GB"}
+                    }
+                }
+                Catch{
+                    Write-debug "$(Get-Date):   Unable to query WMI for drive info on server [$Server]."
+                    $DriveList = New-Object -TypeName psobject -Property @{'DriveLetter'="NA";'Size'="NA";'FreeSpace'="NA"}
+                }
+                try{
+                    [int]$Capacity = 0
+                    Get-WmiObject -Class win32_physicalmemory -ComputerName $Server -ErrorAction Stop | ForEach-Object {[int64]$Capacity = $Capacity + [int64]$_.Capacity}
+                    $TotalMemory = $Capacity / 1024 / 1024 / 1024
+                }
+                catch{
+                    Write-debug "$(Get-Date):   Failed to collect memory information for server [$Server]."
+                    [string]$TotalMemory = "Memory query failed"
+                }
+                Try{
+                    $CPUs = Get-WmiObject -Class win32_processor -ComputerName $Server -ErrorAction Stop
+                    [int]$Cores=0
+                    foreach ($CPU in $CPUs) {
+                        $Cores = $Cores + $CPU.NumberOfCores
+                        $CPUModel = $CPU.Name
+                    }
+                }
+                Catch{
+                    Write-debug "$(Get-Date):   Failed to collect processor information for server [$Server]."
+                    [string]$Cores = "Unknown"
+                    $CPUModel = "Model Unknown"
+                }
+                Try{
+                    $OSInfo = Get-WmiObject -Class win32_OperatingSystem -Property Caption,BuildNumber -ComputerName $Server -ErrorAction Stop
+                    $OSName = $OSInfo.Caption
+                    $OSBuild = $Osinfo.BuildNumber
+                }
+                Catch{
+                    Write-debug "$(Get-Date):   Failed to collect OS information for server [$Server]."
+                    $OSName = "Unknown"
+                    $OSBuild = "Unknown"
+                }
+                $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Operating System";'Value'="$OSName"}
+                $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Operating System Build";'Value'="$OSBuild"}
+                $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Installed OS Features";'Value'="$InstalledServerFeatures"}
+                $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Total Memory";'Value'="$TotalMemory GB"}
+                $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="CPU(Cores)";'Value'="$CPUModel ($Cores)"}
+                Foreach($Drive in $DriveList){
+                    $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Local Disk ($($Drive.DriveLetter))";'Value'="Capacity: $($Drive.Size)--CRLF--Free Space: $($Drive.FreeSpace)"}
+                }
+                $ServerInfo =  $ServerInfo|Select-Object 'Property','Value'
+                Write-HtmlTable -InputObject $ServerInfo -Border 1 -Level 3 -File $FilePath
+            }
+        }
+        'HardwareInventory' {
+            Write-HTMLParagraph -Text "The section contains basic information on each of the site servers in the environment.  The data is being collected via CM Hardware Inventory queries." -Level 2 -File $FilePath
+            foreach ($SiteServer in $SiteServers){
+                $ServerInfo = @()
+                $Server = $SiteServer.ServerName
+                Write-HTMLHeading -Text "$Server" -Level 3 -File $FilePath
+                Write-ProgressEx -Id 1 -Activity "Server Details" -Status "Querying HW Inventory" -CurrentOperation "Collecting basic information for server [$Server] via hardware inventory."
+                Try{
+                    #$RSystem = Get-CimInstance -Query "SELECT ResourceId FROM SMS_R_System WHERE NetbiosName like `"$Server`""  -Namespace "ROOT\SMS\site_$SiteCode" -ComputerName $SMSProvider
+                    $RSystem = Get-CimInstance -Query "SELECT ResourceId,Name FROM SMS_R_System WHERE ResourceNames like `"$Server`""  -Namespace "ROOT\SMS\site_$SiteCode" -ComputerName $SMSProvider -ErrorAction Stop
+                    $ServerResourceId = $RSystem.ResourceId
+                }
+                catch {
+                    #Failed, but don't care right now as the ServerResourceId will be empty, so it will move on.
+                }
+                If ([string]::IsNullOrEmpty($ServerResourceId)){
+                    $OSName = 'Not Found in HW Inventory'
+                    $OSBuild = 'Not Found in HW Inventory'
+                    $InstalledServerFeatures = 'Not Found in HW Inventory'
+                    $TotalMemory = 'Not Found'
+                    $CPUModel = 'Not Found'
+                    $Cores = 'Not Found'
+                } else {
+                    $InstalledFeatures = Get-CimInstance -Query "SELECT Name,InstallState FROM SMS_G_System_OPTIONAL_FEATURE WHERE ResourceID=$ServerResourceId and InstallState=1" -Namespace "ROOT\SMS\site_$SiteCode" -ComputerName $SMSProvider| Sort-Object Name
+                    $InstalledServerFeatures = $InstalledFeatures.name -join '; '
+                    
+                    $OS = Get-CimInstance -Query "SELECT * FROM SMS_G_System_OPERATING_SYSTEM WHERE ResourceID=$ServerResourceId" -Namespace "ROOT\SMS\site_$SiteCode" -ComputerName $SMSProvider
+                    $OSName = $OS.Caption
+                    $OSBuild = $OS.BuildNumber
+                    $TotalMemory = [math]::Round($OS.TotalVisibleMemorySize/1024)
+                    $CPUs = Get-CimInstance -Query "SELECT * FROM SMS_G_System_PROCESSOR WHERE ResourceID=$ServerResourceId" -Namespace "ROOT\SMS\site_$SiteCode" -ComputerName $SMSProvider
+                    $CPUModel = $CPUs.Name
+                    $Cores = $CPUs.NumberOfCores
+                    $DriveList = Get-CimInstance -Query "SELECT * FROM SMS_G_System_LOGICAL_DISK WHERE DriveType=3 AND ResourceID=$ServerResourceId" -Namespace "ROOT\SMS\site_$SiteCode" -ComputerName $SMSProvider
+                    $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Operating System";'Value'="$OSName"}
+                    $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Operating System Build";'Value'="$OSBuild"}
+                    $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Installed OS Features";'Value'="$InstalledServerFeatures"}
+                    $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Total Memory";'Value'="$TotalMemory GB"}
+                    $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="CPU(Cores)";'Value'="$CPUModel ($Cores)"}
+                    Foreach($Drive in $DriveList){
+                        $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Local Disk ($($Drive.DeviceID))";'Value'="Capacity: $([math]::Round($Drive.Size/1024,1)) GB--CRLF--Free Space: $([math]::Round($Drive.FreeSpace/1024,1)) GB"}
+                    }
+                    $ServerInfo =  $ServerInfo|Select-Object 'Property','Value'
+                    Write-HtmlTable -InputObject $ServerInfo -Border 1 -Level 3 -File $FilePath
+                    Remove-Variable DriveList -ErrorAction Ignore
+                    Remove-Variable ServerResourceId -ErrorAction Ignore
+                }
+            }
         }
     }
-    Catch{
-        Write-debug "$(Get-Date):   Unable to query WMI for Installed Features on server [$Server]."
-        $InstalledFeatures=@("Feature Query Failed")
-    }
-    $InstalledServerFeatures = $InstalledServerFeatures.Trim(';')
-    Try{
-        $Drives = Get-WmiObject -Query 'SELECT * FROM Win32_LogicalDisk WHERE DriveType = 3' -ComputerName $Server -ErrorAction Stop
-        $DriveList = @()
-        Foreach ($Drive in $Drives){
-            $Letter = $Drive.DeviceID
-            $Size=[math]::Round($($Drive.Size)/1024/1024/1024,1)
-            $Free=[math]::Round($($Drive.FreeSpace)/1024/1024/1024,1)
-            $DriveList += New-Object -TypeName psobject -Property @{'DriveLetter'="$Letter";'Size'="$Size GB";'FreeSpace'="$Free GB"}
-        }
-    }
-    Catch{
-        Write-debug "$(Get-Date):   Unable to query WMI for drive info on server [$Server]."
-        $DriveList = New-Object -TypeName psobject -Property @{'DriveLetter'="NA";'Size'="NA";'FreeSpace'="NA"}
-    }
-    try{
-        [int]$Capacity = 0
-        Get-WmiObject -Class win32_physicalmemory -ComputerName $Server -ErrorAction Stop | ForEach-Object {[int64]$Capacity = $Capacity + [int64]$_.Capacity}
-        $TotalMemory = $Capacity / 1024 / 1024 / 1024
-    }
-    catch{
-        Write-debug "$(Get-Date):   Failed to collect memory information for server [$Server]."
-        [string]$TotalMemory = "Memory query failed"
-      }
-    Try{
-        $CPUs = Get-WmiObject -Class win32_processor -ComputerName $Server -ErrorAction Stop
-        [int]$Cores=0
-        foreach ($CPU in $CPUs) {
-            $Cores = $Cores + $CPU.NumberOfCores
-            $CPUModel = $CPU.Name
-        }
-    }
-    Catch{
-        Write-debug "$(Get-Date):   Failed to collect processor information for server [$Server]."
-        [string]$Cores = "Unknown"
-        $CPUModel = "Model Unknown"
-    }
-    Try{
-        $OSInfo = Get-WmiObject -Class win32_OperatingSystem -Property Caption,BuildNumber -ComputerName $Server -ErrorAction Stop
-        $OSName = $OSInfo.Caption
-        $OSBuild = $Osinfo.BuildNumber
-    }
-    Catch{
-        Write-debug "$(Get-Date):   Failed to collect OS information for server [$Server]."
-        $OSName = "Unknown"
-        $OSBuild = "Unknown"
-    }
-    $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Operating System";'Value'="$OSName"}
-    $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Operating System Build";'Value'="$OSBuild"}
-    $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Installed OS Features";'Value'="$InstalledServerFeatures"}
-    $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Total Memory";'Value'="$TotalMemory"}
-    $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="CPU(Cores)";'Value'="$CPUModel ($Cores)"}
-    Foreach($Drive in $DriveList){
-        $ServerInfo += New-Object -TypeName psobject -Property @{'Property'="Local Disk ($($Drive.DriveLetter))";'Value'="Capacity: $($Drive.Size)--CRLF--Free Space: $($Drive.FreeSpace)"}
-    }
-    $ServerInfo =  $ServerInfo|Select-Object 'Property','Value'
-    Write-HtmlTable -InputObject $ServerInfo -Border 1 -Level 3 -File $FilePath
-  }
-  Write-ProgressEx -Id 1 -Activity "Server Details" -Status "Querying WMI" -CurrentOperation "End Collecting Site Server Information" -Completed
-  Write-ProgressEx -CurrentOperation "End Collecting Site Server Information"
-  Write-HtmliLink -ReturnTOC -File $FilePath
+    Write-ProgressEx -Id 1 -Activity "Server Details" -Status "Querying WMI" -CurrentOperation "End Collecting Site Server Information" -Completed
+    Write-ProgressEx -CurrentOperation "End Collecting Site Server Information"
+    Write-HtmliLink -ReturnTOC -File $FilePath
+} else {
+    Write-HTMLHeading -Text "Site Server Information" -Level 2 -File $FilePath
+    Write-HTMLParagraph -Text "Additional details on site servers was skipped in this report. You may try the Hardware Inventory method if time and/or remote connectivity or access is a concern." -Level 2 -File $FilePath
 }
   #endregion Site Server Details
 
@@ -3858,7 +4210,7 @@ if ($ListAllInformation){
           Write-HTMLParagraph -Text "Below are the database files for the site database ($CMDatabase):" -Level 2 -File $FilePath
           $DatabaseFiles = Invoke-SqlDataReader -ServerInstance $SQLConnectString -Database Master -QueryTimeout $SQLTimeout -Query "SELECT db.name `'DatabaseName`',type_desc `'FileType`',physical_name `'FilePath`',mf.state_desc `'Status`',size*8/1024 `'FileSizeMB`',max_size `'MaximumSize`',growth `'GrowthRate`',(CASE WHEN is_percent_growth = 1 THEN `'Percent`' ELSE `'MB`' END) `'GrowthUnit`',create_date `'DateCreated`',compatibility_level `'DBLevel`',user_access_desc `'AccessMode`',recovery_model_desc `'RecoveryModel`' FROM sys.master_files mf INNER JOIN sys.databases db ON db.database_id = mf.database_id where db.name = `'$CMDatabase`'" #-Credential $SQLCredential
           If ([string]::IsNullOrEmpty($DatabaseFiles)) {
-              Write-HTMLParagraph -Text "Permission to perform this action is not granted.  Run 'GRANT VIEW ANY DEFINITION TO [%UserOrGroupToGrantRightsTo%]' on the SQL instance.  See https://docs.microsoft.com/en-us/sql/relational-databases/system-catalog-views/sys-master-files-transact-sql?view=sql-server-2016#permissions for detail." -Level 7 -File $FilePath
+              Write-HTMLParagraph -Text "Permission to perform this action is not granted.  Run 'GRANT VIEW ANY DEFINITION TO [%UserOrGroupToGrantRightsTo%]' on the SQL instance.  See https://docs.microsoft.com/en-us/sql/relational-databases/system-catalog-views/sys-master-files-transact-sql?view=sql-server-2016#permissions for detail." -Level 6 -File $FilePath
           } Else {
             $DatabaseFiles = $DatabaseFiles | Select-Object @{Name='File Type';Expression={$_.FileType}},@{Name='File Path';Expression={$_.FilePath}},Status,@{Name='File Size MB';Expression={'{0:N0}' -f $_.FileSizeMB}},@{Name='Maximum Size';Expression={$(IF($_.MaximumSize -eq -1){"Unlimited"}else{'{0:N0}' -f ($_.MaximumSize/128)})}},@{Name='Growth Rate';Expression={"$(IF($_.GrowthUnit -eq "Percent"){"$($_.GrowthRate)%"}Else{"$($_.GrowthRate/128)MB"})"}},@{Name='Recovery Model';Expression={$_.RecoveryModel}}
             Write-HtmlTable -InputObject $DatabaseFiles -Border 1 -Level 3 -File $FilePath
@@ -3871,7 +4223,7 @@ if ($ListAllInformation){
           } catch {
             If ($($error[0].Exception.Message) -eq 'Exception calling "Load" with "1" argument(s): "The user does not have permission to perform this action."') {
                 Write-HTMLParagraph -Text "Error exception: $($Error[0].exception.Message)" -Level 2 -File $FilePath
-                Write-HTMLParagraph -Text "Permission to perform this action is not granted.  Run 'GRANT VIEW SERVER STATE TO [%UserOrGroupToGrantRightsTo%]' on the SQL instance.  See https://docs.microsoft.com/en-us/sql/relational-databases/system-dynamic-management-views/sys-dm-db-index-physical-stats-transact-sql?view=sql-server-2016#permissions for detail." -Level 7 -File $FilePath
+                Write-HTMLParagraph -Text "Permission to perform this action is not granted.  Run 'GRANT VIEW SERVER STATE TO [%UserOrGroupToGrantRightsTo%]' on the SQL instance.  See https://docs.microsoft.com/en-us/sql/relational-databases/system-dynamic-management-views/sys-dm-db-index-physical-stats-transact-sql?view=sql-server-2016#permissions for detail." -Level 6 -File $FilePath
             } Else {
                 Write-HTMLParagraph -Text "Error exception: $($Error[0].exception.Message)" -Level 6 -File $FilePath
                 Write-Debug "$(Get-Date):   Error exception: $($Error[0].exception)"
@@ -3901,7 +4253,7 @@ if ($ListAllInformation){
   Write-HTMLHeading -Text "Summary of Distribution Points for Site $($CMSite.SiteCode)" -Level 2 -PageBreak -File $FilePath
   $CMDistributionPoints = Get-CMDistributionPoint -SiteCode $CMSite.SiteCode
   
-If (-not($PSBoundParameters.ContainsKey('SkipRemoteServerDetails'))) {
+If (-not($SkipRemoteServerDetails)) {
   foreach ($CMDistributionPoint in $CMDistributionPoints)
   {
     $CMDPServerName = $CMDistributionPoint.NetworkOSPath.Split('\\')[2]
@@ -4025,7 +4377,7 @@ If (-not($PSBoundParameters.ContainsKey('SkipRemoteServerDetails'))) {
   Write-HTMLHeading -Text "Software Update Point Component Properties" -Level 4 -File $FilePath -ExcludeTOC
   Write-HTMLParagraph -Text "Below is a summary of all the tabs from the SUP properties." -Level 5 -File $FilePath
   $SupProperties = (Get-CMSoftwareUpdatePointComponent).props
-  $SupProperties2 = (Get-CimInstance -Query "SELECT * FROM SMS_SCI_Component WHERE FileType = 2 AND ComponentName='SMS_WSUS_SYNC_MANAGER' AND ItemType = 'Component'" -Namespace root\sms\site_$($CMSite.SiteCode)).props
+  $SupProperties2 = (Get-CimInstance -Query "SELECT * FROM SMS_SCI_Component WHERE FileType = 2 AND ComponentName='SMS_WSUS_SYNC_MANAGER' AND ItemType = 'Component'" -Namespace "root\sms\site_$($CMSite.SiteCode)" -ComputerName $SMSProvider).props
 
     Write-HTMLHeading -Text "Sync Settings:" -Level 5 -File $FilePath
 #   Sychronization source for this Software Update Point:
@@ -4441,10 +4793,10 @@ if (-not [string]::IsNullOrEmpty($Boundaries)){
             $BoundaryType = 'IP Subnet';
             $NamesOfBoundarySiteSystems = $Null
             if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems)) {
-                ForEach-Object -Begin {$BoundarySiteSystems = $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
+                $NamesOfBoundarySiteSystems = $Boundary.SiteSystems -join ', '
             } else {
                 $NamesOfBoundarySiteSystems = 'n/a'
-            } 
+            }
             $Subnet = New-Object -TypeName psobject -Property @{
                 'Boundary Type'           = $BoundaryType; 
                 'Default Site Code'       = "$($Boundary.DefaultSiteCode)";
@@ -4458,7 +4810,7 @@ if (-not [string]::IsNullOrEmpty($Boundaries)){
             $BoundaryType = 'Active Directory Site';
             $NamesOfBoundarySiteSystems = $Null
             if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems)) {
-                ForEach-Object -Begin {$BoundarySiteSystems = $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
+                $NamesOfBoundarySiteSystems = $Boundary.SiteSystems -join ', '
             } else {
                 $NamesOfBoundarySiteSystems = 'n/a'
             }
@@ -4475,7 +4827,7 @@ if (-not [string]::IsNullOrEmpty($Boundaries)){
             $BoundaryType = 'IPv6 Prefix';
             $NamesOfBoundarySiteSystems = $Null
             if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems)) {
-                ForEach-Object -Begin {$BoundarySiteSystems = $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
+                $NamesOfBoundarySiteSystems = $Boundary.SiteSystems -join ', '
             } else {
                 $NamesOfBoundarySiteSystems = 'n/a'
             }
@@ -4492,7 +4844,7 @@ if (-not [string]::IsNullOrEmpty($Boundaries)){
             $BoundaryType = 'IP Range';
             $NamesOfBoundarySiteSystems = $Null
             if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems)) {
-                ForEach-Object -Begin {$BoundarySiteSystems= $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
+                $NamesOfBoundarySiteSystems = $Boundary.SiteSystems -join ', '
             } else {
                 $NamesOfBoundarySiteSystems = 'n/a'
             }
@@ -4509,7 +4861,7 @@ if (-not [string]::IsNullOrEmpty($Boundaries)){
             $BoundaryType = 'VPN';
             $NamesOfBoundarySiteSystems = $Null
             if (-not [string]::IsNullOrEmpty($Boundary.SiteSystems)) {
-                ForEach-Object -Begin {$BoundarySiteSystems= $Boundary.SiteSystems} -Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} -End {$NamesOfBoundarySiteSystems} | Out-Null
+                $NamesOfBoundarySiteSystems = $Boundary.SiteSystems -join ', '
             } else {
                 $NamesOfBoundarySiteSystems = 'n/a'
             }
