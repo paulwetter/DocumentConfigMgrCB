@@ -395,7 +395,7 @@ $window.BrowseSave.add_Click{
 $window.ListAllInformation.add_Click{
     If ($window.ListAllInformation.IsChecked -eq $true){
         $window.ListAppDetails.IsEnabled = $false
-        $window.ListAppDetails.IsChecked = $false
+        $window.ListAppDetails.IsChecked = $true
     } else {
         $window.ListAppDetails.IsEnabled = $true
     }
