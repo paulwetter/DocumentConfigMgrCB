@@ -34,6 +34,8 @@ My updated script contains pretty much everything collected from the original.  
 * Co-Management Settings
 * VPN boundaries
 * **New UI added in Version 4.0!!!**
+* 4.0 Script now defaults to collect site system information from Hardware inventory instead of WMI.
+  * Use parameter `-RemoteDetailsSource <WMI|HardwareInventory>`
 
 ## Script Usage Examples
 
