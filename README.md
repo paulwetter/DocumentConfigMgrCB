@@ -20,7 +20,8 @@ My updated script contains pretty much everything collected from the original.  
 * Collects Site features and servicing history.  
 * Collect configuration of all discovery methods.
 * Collect Default Boundary Group settings.  
-* Extended to include configuration of all the new Client Settings.  
+* Extended to include configuration of all the new Client Settings.
+  * Now inclues the default client settings.
 * Collects additional Collection information.  
 * Summarizes Collections with maintenance windows.
 * Summary of all the different Compliance settings (Conditional Access, Company resources, etc).  
@@ -30,6 +31,8 @@ My updated script contains pretty much everything collected from the original.  
 * Lists Task Sequence steps.  
 * Summary or detailed options.  
 * CM Scripts
+* Co-Management Settings
+* VPN boundaries
 * **New UI added in Version 4.0!!!**
 
 ## Script Usage Examples
