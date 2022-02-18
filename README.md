@@ -39,7 +39,7 @@ My updated script contains pretty much everything collected from the original.  
 Run without any parameters specified, this will trigger the UI:  
  ```DocumentCMCB.ps1```
 #### UI
-When launched without any parameters, this UI will launch.
+When launched without any parameters, this UI will launch.  From here, you can configure the script to run as you see fit.  Note that most options have help text when you hover over them.
 ![Image of UI](./WpfUI.png)
 
 ### EXAMPLE 2
