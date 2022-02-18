@@ -29,14 +29,18 @@ My updated script contains pretty much everything collected from the original.  
 * Added OSD Related Items (Installers, Images, Upgrade Packages)  
 * Lists Task Sequence steps.  
 * Summary or detailed options.  
-* CM Scripts  
+* CM Scripts
+* **New UI added in Version 4.0!!!**
 
 ## Script Usage Examples
 
 ### EXAMPLE 1
 
-This will document everything with just the summary information of each component:  
+Run without any parameters specified, this will trigger the UI:  
  ```DocumentCMCB.ps1```
+#### UI
+When launched without any parameters, this UI will launch.
+![Image of UI](./WpfUI.png)
 
 ### EXAMPLE 2
 

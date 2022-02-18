@@ -69,7 +69,7 @@
     This script creates a HTML document.
 .NOTES
     NAME: DocumentCMCB.ps1
-    VERSION: 4.0.1
+    VERSION: 4.0.2
     AUTHOR: Paul Wetter
     Based on original script developed by David O'Brien
     CONTRIBUTOR: Florian Valente (BlackCatDeployment), Skatterbrainz, ChadSimmons
@@ -141,7 +141,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '4.0.1'
+$DocumenationScriptVersion = '4.0.2'
 
 
 If ([string]::IsNullOrEmpty($CompanyName)){
@@ -153,11 +153,12 @@ $xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" MinWidth="450"
    Width="575" SizeToContent="Height" Title="DocumentCMCB UI" Topmost="True">
-    <Grid Margin="10,10,10,10" HorizontalAlignment="center">
+    <Grid Margin="10,10,3,10" HorizontalAlignment="center">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="550"/>
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -229,13 +230,13 @@ $xaml = @"
             <CheckBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Name="ListAllInformation" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalContentAlignment="center" IsChecked="false" ToolTip="This provides deeper details on all settings within the site">Document Detailed Information</CheckBox>
             <CheckBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Name="ListAppDetails" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalContentAlignment="center" IsChecked="false" ToolTip="This will document full details on the applications in the site">Document details on application</CheckBox>
             <CheckBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Name="UnknownClientSettings" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalContentAlignment="center" IsChecked="false" ToolTip="If there are client settings that are not accounted for, checking this box will list the details on the unknown client settings.">Document unknown Client Settings</CheckBox>
-            <CheckBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Name="NoSqlDetail" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalContentAlignment="center" IsChecked="false" ToolTip="Skips the data that is collected by querying the SQL database directly">Skip SQL queries</CheckBox>
+            <CheckBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Name="NoSqlDetail" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalContentAlignment="center" IsChecked="false" ToolTip="Skips the data that is collected by querying the SQL database directly. Check this if you do not have full access to the SQL database.">Skip SQL queries</CheckBox>
             <CheckBox Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Name="AddDateTime" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalContentAlignment="center" IsChecked="false" ToolTip="Check this to append a timestamp to the end of the filename specified above">Add Data/Time to File name</CheckBox>
             <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" ToolTip="Maximum amount of time that the script will allow queries to run">
                 <TextBlock Margin="30,10,0,2" HorizontalAlignment="right">SQL Timeout:</TextBlock>
                 <TextBox Name="SQLTimeout" Margin="5,10,10,2" HorizontalAlignment="left" VerticalContentAlignment="center" Width="50"/>
             </StackPanel>
-            <CheckBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Name="SkipRemoteServerDetails" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalContentAlignment="center" IsChecked="false" ToolTip="This can speed up the documentation process as this will skip reaching out to remote WMI on each site server for collecting additional details for the machine">Skip Remote Server Details</CheckBox>
+            <CheckBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Name="SkipRemoteServerDetails" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalContentAlignment="center" IsChecked="false" ToolTip="This can speed up the documentation process as this will skip reaching out to remote WMI on each site server for collecting additional details for the machine. It also helps if you do not have remote access to some of these machines.">Skip Remote Server Details</CheckBox>
             <CheckBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Name="MaskAccounts" Margin="5,10,10,2" HorizontalAlignment="Left" VerticalContentAlignment="center" IsChecked="false" ToolTip="Check this to mask the names of user accounts that are used in your CM site">Mask user accounts</CheckBox>
             <ComboBox Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Name="ComboServerDetailType" Margin="5,10,10,2" HorizontalAlignment="left" VerticalContentAlignment="center" Width="150" ToolTip="Choosing the Source of HardwareInventory will significantly increase the time to collect this data but, will be limited to the accuracy of hardware inventory."></ComboBox>
         </Grid>
@@ -267,6 +268,15 @@ $xaml = @"
                 <Button Grid.Row="2" Grid.Column="2" Name="ButStart" IsCancel="False" MinWidth="100" Height="22" Margin="5" HorizontalAlignment="Left" Background="#33ff99">Start Documenting!</Button>
             </Grid>
         </StackPanel>
+        <Grid Grid.Row="5" Grid.Column="0" Margin="10,0,10,0" HorizontalAlignment="center" x:Name="Version" Visibility="Visible">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="530"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Grid.Column="0" Margin="0" HorizontalAlignment="right" FontSize="10">Version: $DocumenationScriptVersion</TextBlock>
+        </Grid>
     </Grid>
 </Window>
 "@
