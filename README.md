@@ -31,9 +31,10 @@ My updated script contains pretty much everything collected from the original.  
 * Lists Task Sequence steps.  
 * Summary or detailed options.  
 * CM Scripts
-* Co-Management Settings
 * VPN boundaries
+## 4.0 Additions
 * **New UI added in Version 4.0!!!**
+* Co-Management Settings
 * 4.0 Script now defaults to collect site system information from Hardware inventory instead of WMI.
   * Use parameter `-RemoteDetailsSource <WMI|HardwareInventory>`
 
