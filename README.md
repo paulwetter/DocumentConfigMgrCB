@@ -32,7 +32,9 @@ My updated script contains pretty much everything collected from the original.  
 * Summary or detailed options.  
 * CM Scripts
 * VPN boundaries
+
 ## 4.0 Additions
+
 * **New UI added in Version 4.0!!!**
 * Co-Management Settings
 * 4.0 Script now defaults to collect site system information from Hardware inventory instead of WMI.
@@ -44,7 +46,9 @@ My updated script contains pretty much everything collected from the original.  
 
 Run without any parameters specified, this will trigger the UI:  
  ```DocumentCMCB.ps1```
+
 #### UI
+
 When launched without any parameters, this UI will launch.  From here, you can configure the script to run as you see fit.  Note that most options have help text when you hover over them.
 ![Image of UI](./WpfUI.png)
 
