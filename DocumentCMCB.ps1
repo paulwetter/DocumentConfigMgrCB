@@ -69,11 +69,11 @@
     This script creates a HTML document.
 .NOTES
     NAME: DocumentCMCB.ps1
-    VERSION: 4.0.2
+    VERSION: 4.0.4
     AUTHOR: Paul Wetter
     Based on original script developed by David O'Brien
     CONTRIBUTOR: Florian Valente (BlackCatDeployment), Skatterbrainz, ChadSimmons
-    LASTEDIT: November 12, 2021
+    LASTEDIT: March 1, 2022
 #>
 
 #endregion
@@ -141,7 +141,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '4.0.2'
+$DocumenationScriptVersion = '4.0.4'
 
 
 If ([string]::IsNullOrEmpty($CompanyName)){
@@ -2867,6 +2867,7 @@ function Get-PWCMCoManagement {
         Get-CoMgmtWorkloadDetails -File $FilePath
     } else {
         #Co-Management Not Enabled
+        Write-HTMLParagraph -Text "Co-Management has not been configured in this site." -Level 3 -File $FilePath
     }
 }
 
@@ -8260,80 +8261,85 @@ foreach ($ADR in $ADRs){
         Write-HtmlTable -InputObject $Package -Level 5 -File $FilePath
     }
     Write-HTMLHeading -Level 5 -Text "Deployments for ADR: $($ADR.Name)" -File $FilePath
-    If ($ListAllInformation){
-        Foreach ($Deployment in $ADRDeployments){
-            $ADRDTListDetails = @()
-            $DTxml=([xml]$Deployment.DeploymentTemplate).DeploymentCreationActionXML
-            $ADRDTListTitle = "Deployment Collection: $($Deployment.CollectionName) ($($Deployment.CollectionID))"
-            $ADRDTListDetails += "Enable the deployment after this rule is run: $($DTxml.EnableDeployment)"
-            $ADRDTListDetails += "Use Wake-on-LAN to wake up clients for required deployments: $($DTxml.EnableWakeOnLan)"
-            Switch ($($DTxml.StateMessageVerbosity)){
-                1 {$StateMessages = 'Only error messages'}
-                5 {$StateMessages = 'Only success and error messages'}
-                10 {$StateMessages = 'All messages'}
+    If ([string]::IsNullOrEmpty($ADRDeployments)){
+        Write-HTMLParagraph -Text 'There are no deployments attached to this ADR.  This may be an issue as ADRs should have at least one deployment.' -Level 5 -File $FilePath            
+    } else {
+        If ($ListAllInformation){
+            Foreach ($Deployment in $ADRDeployments){
+                $ADRDTListDetails = @()
+                $DTxml=([xml]$Deployment.DeploymentTemplate).DeploymentCreationActionXML
+                $ADRDTListTitle = "Deployment Collection: $($Deployment.CollectionName) ($($Deployment.CollectionID))"
+                $ADRDTListDetails += "Enable the deployment after this rule is run: $($DTxml.EnableDeployment)"
+                $ADRDTListDetails += "Use Wake-on-LAN to wake up clients for required deployments: $($DTxml.EnableWakeOnLan)"
+                Switch ($($DTxml.StateMessageVerbosity)){
+                    1 {$StateMessages = 'Only error messages'}
+                    5 {$StateMessages = 'Only success and error messages'}
+                    10 {$StateMessages = 'All messages'}
+                }
+                $ADRDTListDetails += "Choose how much state detail you want clients to report back. Detail level: $StateMessages"
+                Switch ($($DTxml.Utc)){
+                    false{$timebase = 'Client local time'}
+                    true{$timebase = 'UTC'}
+                }
+                $ADRDTListDetails += "Time based on: $timebase"
+                If ($DTxml.AvailableDeltaDuration -eq 0){
+                    $ADRDTListDetails += "Software available time: As soon as possible"
+                }else{
+                    $ADRDTListDetails += "Software available time: $($DTxml.AvailableDeltaDuration) $($DTxml.AvailableDeltaDurationUnits)"
+                }
+                If ($DTxml.Duration -eq 0){
+                    $ADRDTListDetails += "Installation Deadline: As soon as possible"
+                }else{
+                    $ADRDTListDetails += "Installation Deadline: $($DTxml.Duration) $($DTxml.DurationUnits)"
+                }
+                $ADRDTListDetails += "Delay Enforcement of this deployment according to user preferences, up to the grace period defined in client settings: $($DTxml.SoftDeadlineEnabled)"
+                Switch ($($DTxml.UserNotificationOption)){
+                    'DisplayAll'{$UserNotification = 'Display in Software Center and show all notifications'}
+                    'DisplaySoftwareCenterOnly'{$UserNotification = 'Display in Software Center, and only show nitifications for computer restarts'}
+                    'HideAll'{$UserNotification = 'Hide in Software Center and all notifications'}
+                }
+                $ADRDTListDetails += "User notifications: $UserNotification"
+                Switch ($($DTxml.AllowInstallOutSW)){
+                    false{$InstallOutMW = 'Do not allow'}
+                    true{$InstallOutMW = 'Allow installations'}
+                }
+                $ADRDTListDetails += "Deadline behavior for Software Update installation outside of maintenance windows: $InstallOutMW"
+                Switch ($($DTxml.AllowRestart)){
+                    false{$RestartOutMW = 'Do not allow'}
+                    true{$RestartOutMW = 'Allow restarts'}
+                }
+                $ADRDTListDetails += "Deadline behavior for System restarts outside of maintenance windows: $RestartOutMW"
+                $ADRDTListDetails += "Suppress reboots on servers if update requires reboot: $($DTxml.SuppressServers)"
+                $ADRDTListDetails += "Suppress reboots on workstations if update requires reboot: $($DTxml.SuppressWorkstations)"
+                $ADRDTListDetails += "Windows Embedded devices, Commit changes at deadline: $($DTxml.PersistOnWriteFilterDevices)"
+                $ADRDTListDetails += "If any update in this deployment requires a system restart, run updates deployment evaluation cycle after restart: $($DTxml.RequirePostRebootFullScan)"
+                If($($DTxml.EnableAlert) -eq $false){
+                    $ADRDTListDetails += "Configuration Manager alerts.  Generate an alert when the following conditions are met: False"
+                }else{
+                    $ADRDTListDetails += "Configuration Manager alerts.  Generate an alert when the following conditions are met: True<br />Client Compliance is below the following percent: $($DTxml.AlertThresholdPercentage)<br />Offset from the deadline: $($DTxml.AlertDuration)"
+                }
+                $ADRDTListDetails += "Disable Operations Manager alerts while software updates run: $($DTxml.DisableMomAlert)"
+                $ADRDTListDetails += "Generate Operations Manager alert when a software update installation fails: $($DTxml.GenerateMomAlert)"
+                switch ($DTxml.UseRemoteDP){
+                    false{$deploymentopt = 'Do not install software updates'}
+                    true{$deploymentopt = 'Download software updates from distribution point and install'}
+                }
+                $ADRDTListDetails += "Select deployment options to use when when client uses neighbor or default boundary group: $deploymentopt"
+                switch ($DTxml.UseUnprotectedDP){
+                    false{$deploymentopt2 = 'Do not install software updates'}
+                    true{$deploymentopt2 = 'Download and install software updates from the distribution points in the site default boundary group'}
+                }
+                $ADRDTListDetails += "When software updates are not available on any distribution point in current or neighbor boundary group, download from default boundary group: $deploymentopt2"
+                $ADRDTListDetails += "Allow clients to share content with other clients on the same subnet: $($DTxml.UseBranchCache)"
+                $ADRDTListDetails += "If software updates are not available on distribution point in current, neighbor or site boundary groups, download content from Microsoft Updates: $($DTxml.AllowWUMU)"
+                $ADRDTListDetails += "Allow clients on a metered Internet connection to download content after the installation deadline which might incur additional costs: $($DTxml.AllowUseMeteredNetwork)"
+                Write-HtmlList -InputObject $ADRDTListDetails -Title $ADRDTListTitle -Level 5 -File $FilePath
+                #$DTxml
             }
-            $ADRDTListDetails += "Choose how much state detail you want clients to report back. Detail level: $StateMessages"
-            Switch ($($DTxml.Utc)){
-                false{$timebase = 'Client local time'}
-                true{$timebase = 'UTC'}
-            }
-            $ADRDTListDetails += "Time based on: $timebase"
-            If ($DTxml.AvailableDeltaDuration -eq 0){
-                $ADRDTListDetails += "Software available time: As soon as possible"
-            }else{
-                $ADRDTListDetails += "Software available time: $($DTxml.AvailableDeltaDuration) $($DTxml.AvailableDeltaDurationUnits)"
-            }
-            If ($DTxml.Duration -eq 0){
-                $ADRDTListDetails += "Installation Deadline: As soon as possible"
-            }else{
-                $ADRDTListDetails += "Installation Deadline: $($DTxml.Duration) $($DTxml.DurationUnits)"
-            }
-            $ADRDTListDetails += "Delay Enforcement of this deployment according to user preferences, up to the grace period defined in client settings: $($DTxml.SoftDeadlineEnabled)"
-            Switch ($($DTxml.UserNotificationOption)){
-                'DisplayAll'{$UserNotification = 'Display in Software Center and show all notifications'}
-                'DisplaySoftwareCenterOnly'{$UserNotification = 'Display in Software Center, and only show nitifications for computer restarts'}
-                'HideAll'{$UserNotification = 'Hide in Software Center and all notifications'}
-            }
-            $ADRDTListDetails += "User notifications: $UserNotification"
-            Switch ($($DTxml.AllowInstallOutSW)){
-                false{$InstallOutMW = 'Do not allow'}
-                true{$InstallOutMW = 'Allow installations'}
-            }
-            $ADRDTListDetails += "Deadline behavior for Software Update installation outside of maintenance windows: $InstallOutMW"
-            Switch ($($DTxml.AllowRestart)){
-                false{$RestartOutMW = 'Do not allow'}
-                true{$RestartOutMW = 'Allow restarts'}
-            }
-            $ADRDTListDetails += "Deadline behavior for System restarts outside of maintenance windows: $RestartOutMW"
-            $ADRDTListDetails += "Suppress reboots on servers if update requires reboot: $($DTxml.SuppressServers)"
-            $ADRDTListDetails += "Suppress reboots on workstations if update requires reboot: $($DTxml.SuppressWorkstations)"
-            $ADRDTListDetails += "Windows Embedded devices, Commit changes at deadline: $($DTxml.PersistOnWriteFilterDevices)"
-            $ADRDTListDetails += "If any update in this deployment requires a system restart, run updates deployment evaluation cycle after restart: $($DTxml.RequirePostRebootFullScan)"
-            If($($DTxml.EnableAlert) -eq $false){
-                $ADRDTListDetails += "Configuration Manager alerts.  Generate an alert when the following conditions are met: False"
-            }else{
-                $ADRDTListDetails += "Configuration Manager alerts.  Generate an alert when the following conditions are met: True<br />Client Compliance is below the following percent: $($DTxml.AlertThresholdPercentage)<br />Offset from the deadline: $($DTxml.AlertDuration)"
-            }
-            $ADRDTListDetails += "Disable Operations Manager alerts while software updates run: $($DTxml.DisableMomAlert)"
-            $ADRDTListDetails += "Generate Operations Manager alert when a software update installation fails: $($DTxml.GenerateMomAlert)"
-            switch ($DTxml.UseRemoteDP){
-                false{$deploymentopt = 'Do not install software updates'}
-                true{$deploymentopt = 'Download software updates from distribution point and install'}
-            }
-            $ADRDTListDetails += "Select deployment options to use when when client uses neighbor or default boundary group: $deploymentopt"
-            switch ($DTxml.UseUnprotectedDP){
-                false{$deploymentopt2 = 'Do not install software updates'}
-                true{$deploymentopt2 = 'Download and install software updates from the distribution points in the site default boundary group'}
-            }
-            $ADRDTListDetails += "When software updates are not available on any distribution point in current or neighbor boundary group, download from default boundary group: $deploymentopt2"
-            $ADRDTListDetails += "Allow clients to share content with other clients on the same subnet: $($DTxml.UseBranchCache)"
-            $ADRDTListDetails += "If software updates are not available on distribution point in current, neighbor or site boundary groups, download content from Microsoft Updates: $($DTxml.AllowWUMU)"
-            $ADRDTListDetails += "Allow clients on a metered Internet connection to download content after the installation deadline which might incur additional costs: $($DTxml.AllowUseMeteredNetwork)"
-            Write-HtmlList -InputObject $ADRDTListDetails -Title $ADRDTListTitle -Level 5 -File $FilePath
-            #$DTxml
+        }Else{
+            $ADRDeployments = ($ADRDeployments|Select-Object @{Name='Collection';expression={$_.CollectionName}},Enabled)
+                Write-HtmlTable -InputObject $ADRDeployments -Level 5 -File $FilePath
         }
-    }Else{
-        Write-HtmlTable -InputObject ($ADRDeployments|Select-Object @{Name='Collection';expression={$_.CollectionName}},Enabled) -Level 5 -File $FilePath
     }
 }
 Write-HtmliLink -ReturnTOC -File $FilePath
