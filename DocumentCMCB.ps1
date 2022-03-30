@@ -7584,11 +7584,28 @@ if ($ListAllInformation -or $ListAppDetails){
                         #Enhanced Detection Method
                         $DTListData += "Using enhanced detection method."
                         #$EDM = [xml]($DT.Installer.DetectAction.Args.arg | Where-Object {$_.Name -eq 'MethodBody'}).'#text'
+                    } elseif ($DT.Installer.DetectAction.Provider -eq 'Script') {
+                        #Custom Script Detection
+                        $addScript = $true
+                        $DTListData += "Script detection method."
+
+                        $DMScriptType = $DT.Installer.DetectAction.Args.Arg[1].'#text'
+                        Switch ($DMScriptType) {
+                            0 { $DMScriptType = 'Powershell' }
+                            1 { $DMScriptType = 'VBScript' }
+                            2 { $DMScriptType = 'JScript' }
+                        }
+                        $DTListData += "Language: $DMScriptType"
+                        $DTListData += "Detection Script:"
                     } else {
                         #Unknown
                         $DTListData += "Other detection method."
                     }
                     Write-HtmlList -InputObject $DTListData -Description $DTSection -Level 6 -File $FilePath
+		    If ($addScript -eq $true){
+                        $DMScriptText = $DT.Installer.DetectAction.Args.Arg[2].'#text'
+                        Write-HTMLParagraph -Text "<pre style=`"margin-left:95px; background-color:#eeeeee;`">$DMScriptText</pre>" -Level 6 -File $FilePath
+                    }
 
                     $DTListData = @()
                     $DTSection = "User Experience"
