@@ -771,6 +771,34 @@ Function Write-HTMLHeader{
     $DefaultStyle += ".Level4Sub {margin-left:40px;}"
     $DefaultStyle += ".Level5Sub {margin-left:50px;}"
     $DefaultStyle += ".Level6Sub {margin-left:60px;}"
+    $DefaultStyle += "/* Color Coding the Detection Methods */"
+    $DefaultStyle += ".EdmOr{"
+    $DefaultStyle += "display: inline-block;"
+    $DefaultStyle += "font-weight: bolder;"
+    $DefaultStyle += "border-width: 1px;"
+    $DefaultStyle += "border-style: solid;"
+    $DefaultStyle += "padding: 5px;"
+    $DefaultStyle += "margin: 3px;"
+    $DefaultStyle += "background-color:lightskyblue;"
+    $DefaultStyle += "}"
+    $DefaultStyle += ".EdmAnd{"
+    $DefaultStyle += "display: inline-block;"
+    $DefaultStyle += "font-weight: bolder;"
+    $DefaultStyle += "border-width: 1px;"
+    $DefaultStyle += "border-style: solid;"
+    $DefaultStyle += "padding: 5px;"
+    $DefaultStyle += "margin: 3px;"
+    $DefaultStyle += "background-color:lightslategray;"
+    $DefaultStyle += "}"
+    $DefaultStyle += ".EdmSetting{"
+    $DefaultStyle += "font-weight:normal;"
+    $DefaultStyle += "border-width: 1px;"
+    $DefaultStyle += "border-style: dotted;"
+    $DefaultStyle += "padding: 5px;"
+    $DefaultStyle += "margin: 3px;"
+    $DefaultStyle += "background-color: lightblue;"
+    $DefaultStyle += "}"
+    $DefaultStyle += "/* END Color Coding the Detection Methods */"
     $DefaultStyle += "</Style>"
     ##End Default Style
     If($CssStyleFile){
@@ -7574,11 +7602,19 @@ if ($ListAllInformation -or $ListAppDetails){
                     
                     $DTListData = @()
                     $DTSection = "Detection Method"
-                    If ($DT.Installer.DetectAction.Provider -like 'MSI'){
+                    If (![string]::IsNullOrEmpty($DT.Installer.CustomData.EnhancedDetectionMethod.Settings.MSI.ProductCode)){
                         #MSI
-                        $ProductCode = ($DT.Installer.DetectAction.args.arg | Where-Object {$_.Name -eq 'ProductCode'}).'#text'
+                        $ProductCode = $DT.Installer.CustomData.EnhancedDetectionMethod.Settings.MSI.ProductCode
                         $DTListData += "MSI detection method."
                         $DTListData += "MSI Product Code: $ProductCode"
+                        if ($DT.Installer.CustomData.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType -eq 'int64'){ #'int64' when not set. AKA "MSI product code must exit"
+                            $DTListData += "Rule: Product code is installed on system."
+                        } elseif ($DT.Installer.CustomData.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType -eq 'Version'){
+                            $DMDataType = $DT.Installer.CustomData.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType  #probably always be a 'Version'
+                            $DMOperator = $DT.Installer.CustomData.EnhancedDetectionMethod.Rule.Expression.Operator
+                            $DMValue = $DT.Installer.CustomData.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value #version number
+                            $DTListData += "Rule: Product code [$DMDataType] is [$DMOperator] [$DMValue]"
+                        }
                     } elseif ($DT.Installer.DetectAction.Provider -like 'Local') {
                         #Enhanced Detection Method
                         $DTListData += "Using enhanced detection method."
