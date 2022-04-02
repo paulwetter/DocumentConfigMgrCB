@@ -69,11 +69,11 @@
     This script creates a HTML document.
 .NOTES
     NAME: DocumentCMCB.ps1
-    VERSION: 4.0.4
+    VERSION: 4.1.0
     AUTHOR: Paul Wetter
     Based on original script developed by David O'Brien
-    CONTRIBUTOR: Florian Valente (BlackCatDeployment), Skatterbrainz, ChadSimmons
-    LASTEDIT: March 1, 2022
+    CONTRIBUTOR: Florian Valente (BlackCatDeployment), Skatterbrainz, ChadSimmons, elgrunt0, CometCom1
+    LASTEDIT: March 31, 2022
 #>
 
 #endregion
@@ -141,7 +141,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '4.0.4'
+$DocumenationScriptVersion = '4.1.0'
 
 
 If ([string]::IsNullOrEmpty($CompanyName)){
@@ -459,6 +459,7 @@ $null = Show-WPFWindow -Window $window
 }
 
 $CMPSSuppressFastNotUsedCheck = $true
+Write-Verbose "CMPSSuppressFastNotUsedCheck set to $CMPSSuppressFastNotUsedCheck"
 $Global:DocTOC = @()
 $ScriptStartTime = Get-date
 Write-host "Beginning Execution of version $DocumenationScriptVersion at: $($ScriptStartTime.ToShortTimeString())"
@@ -693,8 +694,6 @@ Function Write-HTMLParagraph{
     Else {Return $Paragraph}
 }
 
-
-
 Function Write-HTMLHeader{
 <#
 .SYNOPSIS
@@ -779,7 +778,7 @@ Function Write-HTMLHeader{
     $DefaultStyle += "border-style: solid;"
     $DefaultStyle += "padding: 5px;"
     $DefaultStyle += "margin: 3px;"
-    $DefaultStyle += "background-color:lightskyblue;"
+    $DefaultStyle += "background-color:rgb(195, 224, 241);"
     $DefaultStyle += "}"
     $DefaultStyle += ".EdmAnd{"
     $DefaultStyle += "display: inline-block;"
@@ -788,17 +787,28 @@ Function Write-HTMLHeader{
     $DefaultStyle += "border-style: solid;"
     $DefaultStyle += "padding: 5px;"
     $DefaultStyle += "margin: 3px;"
-    $DefaultStyle += "background-color:lightslategray;"
+    $DefaultStyle += "background-color:rgb(195, 199, 202);"
     $DefaultStyle += "}"
     $DefaultStyle += ".EdmSetting{"
+    $DefaultStyle += "display: inline-block;"
     $DefaultStyle += "font-weight:normal;"
     $DefaultStyle += "border-width: 1px;"
     $DefaultStyle += "border-style: dotted;"
     $DefaultStyle += "padding: 5px;"
     $DefaultStyle += "margin: 3px;"
-    $DefaultStyle += "background-color: lightblue;"
+    $DefaultStyle += "background-color: rgb(198, 220, 228);"
     $DefaultStyle += "}"
     $DefaultStyle += "/* END Color Coding the Detection Methods */"
+    $DefaultStyle += ".ScriptDetectionMethod{"
+    $DefaultStyle += "display: inline-block;"
+    $DefaultStyle += "margin-left:95px;"
+    $DefaultStyle += "background-color:#eeeeee;"
+    $DefaultStyle += "border-width: 1px;"
+    $DefaultStyle += "border-style: solid;"
+    $DefaultStyle += "padding: 3px;"
+    $DefaultStyle += 'font-family: Consolas,"courier new";'
+    $DefaultStyle += "}"
+    
     $DefaultStyle += "</Style>"
     ##End Default Style
     If($CssStyleFile){
@@ -850,7 +860,6 @@ Function Write-HTMLFooter{
     If ($File) {$Footer | Out-File -filepath $File -Append}
     Else {Return $Footer}
 }
-
 
 Function Write-HTMLCoverPage{
 <#
@@ -1018,7 +1027,6 @@ function Write-HtmliLink{
     Else {$iLink}
 }
 
-
 function Write-HtmlComment{
     [CmdletBinding()]
     param (
@@ -1030,6 +1038,20 @@ function Write-HtmlComment{
         [String]$File
     )
     "<!--$Text-->" | Out-File -filepath $File -Append
+}
+
+Function Write-RawHTML {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true,ValueFromPipeline=$false,
+        HelpMessage="This is the html text that will be written")]
+        [AllowEmptyString()]
+        [string[]]$HTML,
+        [Parameter(Mandatory=$true,ValueFromPipeline=$false,
+        HelpMessage="This is the text that will appear in the lower left by line")]
+        [string]$File
+    )
+    $HTML | Out-File -filepath $File -Append
 }
 
 ##########################################################################################################################
@@ -1355,7 +1377,7 @@ Function Get-HumanReadableSchedule {
 }
 
 ##Recursively processes through all the conditions in a task sequence step.
-function Process-TSConditions{
+function Read-TSConditions{
     param ($condition,$Level = 0)
     $prefix = ""
     for ($x=0; $x -lt $Level; $x++){$prefix="--TAB--" + $prefix}
@@ -1472,13 +1494,13 @@ function Process-TSConditions{
         'not'{"$($prefix)-If none of these conditions are true"}
         }
         $Level = $Level + 1
-        Process-TSConditions -condition $condition.operator -Level $Level
+        Read-TSConditions -condition $condition.operator -Level $Level
     }
 }
 
 
 ##Recursively processes through all the steps in a task sequence
-Function Process-TSSteps{
+Function Read-TSSteps{
     param ($Sequence,$GroupName)
     foreach ($node in $Sequence.ChildNodes){
         switch($node.localname) {
@@ -1487,7 +1509,7 @@ Function Process-TSSteps{
                     $StepDescription = "$($node.Description)"
                 }
                 if ($node.condition){
-                    $Conditions=(Process-TSConditions -condition $node.condition) -join "--CRLF--"
+                    $Conditions=(Read-TSConditions -condition $node.condition) -join "--CRLF--"
                 }
                 try {
                         if (-not [string]::IsNullOrEmpty($node.disable)){
@@ -1526,7 +1548,7 @@ Function Process-TSSteps{
                     $StepDescription = "$($node.Description)"
                 }
                 if ($node.condition){
-                    $Conditions=(Process-TSConditions -condition $node.condition) -join "--CRLF--"
+                    $Conditions=(Read-TSConditions -condition $node.condition) -join "--CRLF--"
                 }
                 try {
                         if (-not [string]::IsNullOrEmpty($node.disable)){
@@ -1557,7 +1579,7 @@ Function Process-TSSteps{
             'group'{
                 $TSStepNumber++
                 if ($node.condition){
-                    $Conditions=(Process-TSConditions -condition $node.condition) -join "--CRLF--"
+                    $Conditions=(Read-TSConditions -condition $node.condition) -join "--CRLF--"
                 }
                 if (-not [string]::IsNullOrEmpty($node.Description)){
                     $StepDescription = "$($node.Description)"
@@ -1582,7 +1604,7 @@ Function Process-TSSteps{
                 Remove-Variable Conditions -ErrorAction Ignore
                 Remove-Variable StepDescription -ErrorAction Ignore
                 $TSStep
-                Process-TSSteps -Sequence $node -GroupName "$($node.Name)" -TSSteps $TSSteps -StepCounter $TSStepNumber
+                Read-TSSteps -Sequence $node -GroupName "$($node.Name)" -TSSteps $TSSteps -StepCounter $TSStepNumber
             }
             default{}
         }
@@ -2986,6 +3008,7 @@ function Get-PWCMCoMgmtAutoEnroll {
     [CmdletBinding()]
     param ()
     $CMPSSuppressFastNotUsedCheck = $true
+    Write-Verbose "CMPSSuppressFastNotUsedCheck set to $CMPSSuppressFastNotUsedCheck"
     $CoMgmtSettingsProd = Get-CMConfigurationPolicy -Name 'CoMgmtSettingsProd'
     $CoMgmtSettingsProdXml = [xml]$CoMgmtSettingsProd.SDMPackageXML
     $Prod = ($CoMgmtSettingsProdXml.DesiredConfigurationDigest.ConfigurationPolicy.Rules.Rule | Where-Object {$_.annotation.displayname.resourceID -like "AutoEnroll_Name"}).expression.operands.constantvalue.value
@@ -3018,6 +3041,7 @@ function Get-PWCMCoMgmtProductionWorkloads {
     [CmdletBinding()]
     param ()
     $CMPSSuppressFastNotUsedCheck = $true
+    Write-Verbose "CMPSSuppressFastNotUsedCheck set to $CMPSSuppressFastNotUsedCheck"
     $conf = ([xml](Get-CMConfigurationPolicy -Name 'CoMgmtSettingsProd').SDMPackageXML).DesiredConfigurationDigest.ConfigurationPolicy.Rules.Rule[2].Expression.Operands.ConstantValue.value
     $WorkLoads = @()
     switch ($conf){
@@ -3147,6 +3171,255 @@ function New-HTMLSliderInput {
 "@
 }
 #EndRegion Co-Management Functions
+
+#Region Enhanced Detection Method 
+Function Get-FilterEDM {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true)]
+        [xml]
+        $EnhansedDetectionMethods,
+        [Parameter(Mandatory=$true)]
+        $RuleExpression,
+        [Parameter(Mandatory=$false)]
+        [hashtable]$DMSummary = @{}
+    )
+    foreach ($Expression in $RuleExpression) {
+        If ($Expression.Operator -eq 'And') {
+            Write-Verbose "adding an And"
+#            $DMSummary.Add('And',@{})
+            if ($DMSummary.keys -notcontains 'And'){
+                $DMSummary.Add('And',@())
+            }
+            $TheseDetails = Get-FilterEDM -EnhansedDetectionMethods $EnhansedDetectionMethods -RuleExpression $Expression.Operands.Expression
+            foreach ($key in $TheseDetails.keys){
+                $DMSummary.And += @{$key = $($TheseDetails.$key)}
+            }
+        }
+        ElseIf ($Expression.Operator -eq 'Or') {
+            Write-Verbose "adding an Or"
+#            $DMSummary.Add('Or',@{})
+            if ($DMSummary.keys -notcontains 'Or'){
+                $DMSummary.Add('Or',@())
+            }
+            $TheseDetails = Get-FilterEDM -EnhansedDetectionMethods $EnhansedDetectionMethods -RuleExpression $Expression.Operands.Expression
+            foreach ($key in $TheseDetails.keys){
+                $DMSummary.Or += @{$key = $($TheseDetails.$key)}
+            }
+        }
+        Else {
+            if ($DMSummary.keys -notcontains 'Settings'){
+                $DMSummary.Add('Settings',@())
+            }
+            $SettingLogicalName = $Expression.Operands.SettingReference.SettingLogicalName
+            Switch($Expression.Operands.SettingReference.SettingSourceType){
+                'Registry'{
+                    Write-Verbose "registry Setting"
+                    $RegSetting = $EnhansedDetectionMethods.EnhancedDetectionMethod.Settings.SimpleSetting | Where-Object {$_.LogicalName -eq "$SettingLogicalName"}
+                    $DMSummary.Settings += @{'RegSetting' = [PSCustomObject]@{
+                            RegHive      = $RegSetting.RegistryDiscoverySource.Hive
+                            RegKey       = $RegSetting.RegistryDiscoverySource.Key
+                            RegValue     = $RegSetting.RegistryDiscoverySource.ValueName
+                            Reg64Bit     = $RegSetting.RegistryDiscoverySource.Is64Bit
+                            RegMethod    = $Expression.Operands.SettingReference.Method
+                            RegData      = $Expression.Operands.ConstantValue.Value
+                            RegDataList  = $Expression.Operands.ConstantValueList.ConstantValue.Value
+                            RegDataType  = $Expression.Operands.SettingReference.DataType
+                            RegOperator  = $Expression.Operator
+                        }
+                    }
+                }
+                'File'{
+                    $FileSetting = $EnhansedDetectionMethods.EnhancedDetectionMethod.Settings.File | Where-Object {$_.LogicalName -eq "$SettingLogicalName"}
+                    $DMSummary.Settings += @{'FileSetting' = [PSCustomObject]@{
+                            ParentFolder             = $FileSetting.Path
+                            FileName                 = $FileSetting.Filter
+                            File64Bit                = $FileSetting.Is64Bit
+                            FileOperator             = $Expression.Operator
+                            FileMethod               = $Expression.Operands.SettingReference.Method
+                            FileValueList            = $Expression.Operands.ConstantValueList.ConstantValue.Value
+                            FileValue                = $Expression.Operands.ConstantValue.Value
+                            FilePropertyName         = $Expression.Operands.SettingReference.PropertyPath
+                            FilePropertyNameDataType = $Expression.Operands.SettingReference.DataType
+                        }
+                    }
+                }
+                'Folder'{
+                    $FolderSetting = $EnhansedDetectionMethods.EnhancedDetectionMethod.Settings.Folder | Where-Object {$_.LogicalName -eq "$SettingLogicalName"}
+                    $DMSummary.Settings += @{'FolderSetting' = [PSCustomObject]@{
+                            ParentFolder               = $FolderSetting.Path
+                            FolderName                 = $FolderSetting.Filter
+                            Folder64Bit                = $FolderSetting.Is64Bit
+                            FolderOperator             = $Expression.Operator
+                            FolderMethod               = $Expression.Operands.SettingReference.Method
+                            FolderValueList            = $Expression.Operands.ConstantValueList.ConstantValue.Value
+                            FolderValue                = $Expression.Operands.ConstantValue.Value
+                            FolderPropertyName         = $Expression.Operands.SettingReference.PropertyPath
+                            FolderPropertyNameDataType = $Expression.Operands.SettingReference.DataType
+                        }
+                    }
+                }
+                'MSI'{
+                    $MSISetting = $EnhansedDetectionMethods.EnhancedDetectionMethod.Settings.MSI | Where-Object {$_.LogicalName -eq "$SettingLogicalName"}
+                    if ($Expression.Operands.SettingReference.DataType -eq 'Int64'){ #Existensile detection
+                        Write-Verbose "MSI Exists on System"
+                        #$MSIDetection = "MSI Exists on System"
+                    } elseif ($Expression.Operands.SettingReference.DataType -eq 'Version') { #Exists plus is a specific version of MSI
+                        Write-Verbose "MSI Version is..."
+                        #$MSIOperator = "The MSI $MSIDataType is $(Convert-EdmOperator $Expression.Operator) [$MSIVersion]."
+                    } Else {
+                        Write-Verbose "Unknown MSI Configuration for product code."
+                    }
+                    $DMSummary.Settings += @{'MsiSetting' = [PSCustomObject]@{
+                            MSIProductCode     = $MSISetting.ProductCode
+                            MSIDataType        = $Expression.Operands.SettingReference.DataType
+                            MSIMethod          = $Expression.Operands.SettingReference.Method
+                            MSIDataValue       = $Expression.Operands.ConstantValue.Value
+                            MSIPropertyName    = $Expression.Operands.SettingReference.PropertyPath
+                            MSIOperator        = $Expression.Operator
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Return $DMSummary
+}
+
+Function Convert-EdmOperator {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]
+        $Operator,
+        [Parameter(Mandatory=$false)]
+        [string]
+        $Data,
+        [Parameter(Mandatory=$false)]
+        [string[]]
+        $DataList
+    )
+    switch ($Operator) {
+        Equals { $OperationText = "is equals to: $Data" }
+        NotEquals { $OperationText = "is not equal to: $Data" }
+        GreaterEquals { $OperationText = "is greater than or equal to: $Data" }
+        LessThan { $OperationText = "is less than: $Data" }
+        LessEquals { $OperationText = "is less than or equal to: $Data" }
+        GreaterThan { $OperationText = "is greater than: $Data" }
+        Between { $OperationText = "is between: $($DataList[0]) and $($DataList[1])" }
+        OneOf { $OperationText = "is One Of the following: $($DataList -join '; ')" }
+        NoneOf { $OperationText = "is None Of the following: $($DataList -join '; ')" }
+        default { $OperationText = "Unknown operation for data." }
+    }
+    Write-Output $OperationText
+}
+
+function Write-EDMs{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true)]
+        [hashtable]$EDMHash
+    )
+    foreach ($key in $EDMHash.keys){
+        if ($key -like 'Or'){
+            foreach ($ThisOr in $EDMHash.Or) {
+                Write-Output '<div class="EdmOr">'
+                Write-Output 'Or<br />'
+                Write-Verbose "One of these conditions (Or)"
+                Write-EDMs $ThisOr
+                Write-Output '</div><br />'
+                Write-Verbose "End (Or)"
+            }
+        }
+        elseif ($key -like 'And'){
+            foreach ($ThisAnd in $EDMHash.And) {
+                Write-Output '<div class="EdmAnd">'
+                Write-Output 'And<br />'
+                Write-Verbose "All of these conditions (And)"
+                Write-EDMs $ThisAnd
+                Write-Output '</div><br />'
+                Write-Verbose "End (And)"
+            }
+        }
+        elseif ($Key -like 'Settings') {
+            foreach ($Setting in $EDMHash.Settings){
+                Write-output '<div class="EdmSetting">'
+                $Values = $setting.Values[0].ForEach({$_})[0]
+                switch ($($Setting.Keys.ForEach({$_})[0])) {
+                    'RegSetting' {
+                        Write-output "Registry Key: $($values.RegHive)\$($values.RegKey)<br />"
+                        Write-output "&bull; Registry Value Name: $($values.RegValue)<br />"
+                        If ($Values.RegDataType -eq "Boolean"){
+                            Write-Output "&nbsp;&nbsp;&nbsp;&bull; Reg key/value exists.<br />"
+                        } else {
+                            Write-Output "&bull; Value Data Type: $($Values.RegDataType)<br />"
+                            $Operation = Convert-EdmOperator -Operator $Values.RegOperator -Data "$($Values.RegData)" -DataList $($Values.RegDataList)
+                            Write-Output "&nbsp;&nbsp;&nbsp;&bull; $($Operation)<br />"
+                        }
+                        If ($Values.Reg64Bit -eq "false"){
+                            Write-output "&#9745; Reg Key Associated with 32-bit App on 64-bit system" ##Checked
+                        } else {
+                            Write-output "&#9744; Reg Key Associated with 32-bit App on 64-bit system" ##Unchecked
+                        }
+                    }
+                    'FileSetting' {
+                        Write-output "File System File: $($values.ParentFolder)\$($values.FileName)<br />"
+                        If ($Values.FilePropertyNameDataType -eq "Int64" -and $Values.FileMethod -eq "Count" -and $Values.FileValue -eq 0){
+                            Write-Output "&nbsp;&nbsp;&nbsp;&bull; File exists.<br />"
+                        } else {
+                            Write-output "&bull; File Property Name: $($values.FilePropertyName)<br />"
+                            Write-Output "&bull; File Property Data Type: $($Values.FilePropertyNameDataType)<br />"
+                            $Operation = Convert-EdmOperator -Operator $Values.FileOperator -Data "$($Values.FileValue)" -DataList $($Values.FileValueList)
+                            Write-Output "&nbsp;&nbsp;&nbsp;&bull; $($Operation)<br />"
+                        }
+                        If ($Values.File64Bit -eq "false"){
+                            Write-output "&#9745; File/Folder associated with 32-bit App on 64-bit system" ##Checked
+                        } else {
+                            Write-output "&#9744; File/Folder associated with 32-bit App on 64-bit system" ##Unchecked
+                        }
+                    }
+                    'FolderSetting' {
+                        Write-output "File System Folder: $($values.ParentFolder)\$($values.FolderName)<br />"
+                        If ($Values.FolderPropertyNameDataType -eq "Int64" -and $Values.FolderMethod -eq "Count" -and $Values.FolderValue -eq 0){
+                            Write-Output "&nbsp;&nbsp;&nbsp;&bull; Folder exists.<br />"
+                        } else {
+                            Write-output "&bull; File Property Name: $($values.FolderPropertyName)<br />"
+                            Write-Output "&bull; File Property Data Type: $($Values.FolderPropertyNameDataType)<br />"
+                            $Operation = Convert-EdmOperator -Operator $Values.FolderOperator -Data "$($Values.FolderValue)" -DataList $($Values.FolderValueList)
+                            Write-Output "&nbsp;&nbsp;&nbsp;&bull; $($Operation)<br />"
+                        }
+                        If ($Values.Folder64Bit -eq "false"){
+                            Write-output "&#9745; File/Folder associated with 32-bit App on 64-bit system" ##Checked
+                        } else {
+                            Write-output "&#9744; File/Folder associated with 32-bit App on 64-bit system" ##Unchecked
+                        }
+                    }
+                    'MsiSetting' {
+                        Write-output "MSI Product Code: $($values.MSIProductCode)<br />"
+                        If ($Values.MSIDataType -eq "Int64" -and $Values.MSIMethod -eq "Count" -and $Values.MSIDataValue -eq 0){
+                            Write-Output "&nbsp;&nbsp;&nbsp;&bull; MSI exists.<br />"
+                        } else {
+                            Write-output "&bull; MSI Property Name: $($values.MSIPropertyName)<br />"
+                            Write-Output "&bull; MSI Property Data Type: $($Values.MSIDataType)<br />"
+                            $Operation = Convert-EdmOperator -Operator $Values.MSIOperator -Data "$($Values.MSIDataValue)"
+                            Write-Output "&nbsp;&nbsp;&nbsp;&bull; $($Operation)<br />"
+                        }
+                    }
+                    Default {
+                        $SettingDetails = 'Unknown Detection Setting.'
+                    }
+                }
+                Write-Output $SettingDetails
+                #Write-output "$($Setting.Keys)"
+                Write-output '</div><br />'
+                Write-Verbose "These Settings: $($Setting.Keys)"
+            }
+        }
+    }
+}
+
+
+#EndRegion Enhanced Detection Method Fuctions
 
 Function Write-ProgressEx {
     [CmdletBinding()]
@@ -7602,48 +7875,6 @@ if ($ListAllInformation -or $ListAppDetails){
                     Write-HtmlList -InputObject $DTListData -Description $DTSection -Level 6 -File $FilePath
                     
                     $DTListData = @()
-                    $DTSection = "Detection Method"
-                    If (![string]::IsNullOrEmpty($DT.Installer.CustomData.EnhancedDetectionMethod.Settings.MSI.ProductCode)){
-                        #MSI
-                        $ProductCode = $DT.Installer.CustomData.EnhancedDetectionMethod.Settings.MSI.ProductCode
-                        $DTListData += "MSI detection method."
-                        $DTListData += "MSI Product Code: $ProductCode"
-                        if ($DT.Installer.CustomData.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType -eq 'int64'){ #'int64' when not set. AKA "MSI product code must exit"
-                            $DTListData += "Rule: Product code is installed on system."
-                        } elseif ($DT.Installer.CustomData.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType -eq 'Version'){
-                            $DMDataType = $DT.Installer.CustomData.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.DataType  #probably always be a 'Version'
-                            $DMOperator = $DT.Installer.CustomData.EnhancedDetectionMethod.Rule.Expression.Operator
-                            $DMValue = $DT.Installer.CustomData.EnhancedDetectionMethod.Rule.Expression.Operands.ConstantValue.Value #version number
-                            $DTListData += "Rule: Product code [$DMDataType] is [$DMOperator] [$DMValue]"
-                        }
-                    } elseif ($DT.Installer.DetectAction.Provider -like 'Local') {
-                        #Enhanced Detection Method
-                        $DTListData += "Using enhanced detection method."
-                        #$EDM = [xml]($DT.Installer.DetectAction.Args.arg | Where-Object {$_.Name -eq 'MethodBody'}).'#text'
-                    } elseif ($DT.Installer.DetectAction.Provider -eq 'Script') {
-                        #Custom Script Detection
-                        $addScript = $true
-                        $DTListData += "Script detection method."
-
-                        $DMScriptType = $DT.Installer.DetectAction.Args.Arg[1].'#text'
-                        Switch ($DMScriptType) {
-                            0 { $DMScriptType = 'Powershell' }
-                            1 { $DMScriptType = 'VBScript' }
-                            2 { $DMScriptType = 'JScript' }
-                        }
-                        $DTListData += "Language: $DMScriptType"
-                        $DTListData += "Detection Script:"
-                    } else {
-                        #Unknown
-                        $DTListData += "Other detection method."
-                    }
-                    Write-HtmlList -InputObject $DTListData -Description $DTSection -Level 6 -File $FilePath
-		    If ($addScript -eq $true){
-                        $DMScriptText = $DT.Installer.DetectAction.Args.Arg[2].'#text'
-                        Write-HTMLParagraph -Text "<pre style=`"margin-left:95px; background-color:#eeeeee;`">$DMScriptText</pre>" -Level 6 -File $FilePath
-                    }
-
-                    $DTListData = @()
                     $DTSection = "User Experience"
                     switch (($DT.Installer.InstallAction.args.arg | Where-Object {$_.Name -eq 'ExecutionContext'}).'#text') {
                         'System' { $InstallBehavior = 'Install for system' }
@@ -7728,6 +7959,39 @@ if ($ListAllInformation -or $ListAppDetails){
                         }
                     }
                     Write-HtmlList -InputObject $DTListData -Description $DTSection -Level 6 -File $FilePath
+
+                    #Region Detection Methods
+                    $DTListData = @()
+                    If ($DT.Installer.DetectAction.Provider -eq 'Script') {
+                        #Script Detection Method
+                        $DTSection = "Script Detection Method"
+                        $DMScriptType = $DT.Installer.DetectAction.Args.Arg[1].'#text'
+                        Switch ($DMScriptType) {
+                            0 { $DMScriptType = 'Powershell' }
+                            1 { $DMScriptType = 'VBScript' }
+                            2 { $DMScriptType = 'JScript' }
+                        }
+                        $DTListData += "Language: $DMScriptType"
+                        Write-HTMLHeading -Text $DTSection -Level 6 -ExcludeTOC -File $FilePath
+                        If ($HideScript -eq $true){
+                            Write-HtmlList -InputObject $DTListData -Level 6 -File $FilePath
+                        } else {
+                            $DTListData += "Detection Script:"
+                            Write-HtmlList -InputObject $DTListData -Level 6 -File $FilePath
+                            $DMScriptText = $DT.Installer.DetectAction.Args.Arg[2].'#text'
+                            Write-RawHTML -HTML "<div class=`"ScriptDetectionMethod`">$DMScriptText</div>" -File $FilePath
+                        }
+                    } else {
+                        #Process Enhanced detection method.
+                        $DTSection = "Enhanced Detection Method"
+                        Write-HTMLHeading -Text $DTSection -Level 6 -ExcludeTOC -File $FilePath
+                        $EDMs = [xml]$DT.Installer.CustomData.EnhancedDetectionMethod.OuterXml
+                        $HashedEDMs = Get-FilterEDM -EnhansedDetectionMethods $EDMs -RuleExpression $EDMs.EnhancedDetectionMethod.Rule.Expression
+                        $EDMHtml = Write-EDMs -EDMHash $HashedEDMs
+                        Write-RawHTML -HTML "<div class=`"Level6`">$EDMHtml</div>" -File $FilePath
+                    }
+                    #EndRegion Detection Methods
+
                 }
             }
             else {
@@ -8712,7 +8976,7 @@ if ($ListAllInformation){
                 Write-HTMLHeading -Level 5 -Text "Task Sequence Steps" -File $FilePath
                 $Sequence = $Null
                 $Sequence = ([xml]$TaskSequence.Sequence).sequence
-                $AllSteps = Process-TSSteps -Sequence $Sequence
+                $AllSteps = Read-TSSteps -Sequence $Sequence
                 $c = 0
                 foreach ($Step in $AllSteps){$c++;$Step|Add-Member -MemberType NoteProperty -Name 'Step' -Value $c}
                 $AllSteps = $AllSteps |Select-Object 'Step','Group Name','Step Name','Description','Action','Status','Continue on Error','Conditions'
