@@ -69,7 +69,7 @@
     This script creates a HTML document.
 .NOTES
     NAME: DocumentCMCB.ps1
-    VERSION: 4.1.0
+    VERSION: 4.1.1
     AUTHOR: Paul Wetter
     Based on original script developed by David O'Brien
     CONTRIBUTOR: Florian Valente (BlackCatDeployment), Skatterbrainz, ChadSimmons, elgrunt0, CometCom1
@@ -141,7 +141,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '4.1.0'
+$DocumenationScriptVersion = '4.1.1'
 
 
 If ([string]::IsNullOrEmpty($CompanyName)){
@@ -3309,6 +3309,12 @@ Function Convert-EdmOperator {
         Between { $OperationText = "is between: $($DataList[0]) and $($DataList[1])" }
         OneOf { $OperationText = "is One Of the following: $($DataList -join '; ')" }
         NoneOf { $OperationText = "is None Of the following: $($DataList -join '; ')" }
+        BeginsWith { $OperationText = "Begins with: $Data" }
+        NotBeginsWith { $OperationText = "Does not begin with: $Data" }
+        EndsWith { $OperationText = "Ends with: $Data" }
+        NotEndsWith { $OperationText = "Does not end with: $Data" }
+        Contains { $OperationText = "Contains: $Data" }
+        NotContains { $OperationText = "Does not contain: $Data" }
         default { $OperationText = "Unknown operation for data." }
     }
     Write-Output $OperationText
