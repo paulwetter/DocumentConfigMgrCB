@@ -69,11 +69,11 @@
     This script creates a HTML document.
 .NOTES
     NAME: DocumentCMCB.ps1
-    VERSION: 4.1.1
+    VERSION: 4.1.2
     AUTHOR: Paul Wetter
     Based on original script developed by David O'Brien
     CONTRIBUTOR: Florian Valente (BlackCatDeployment), Skatterbrainz, ChadSimmons, elgrunt0, CometCom1
-    LASTEDIT: March 31, 2022
+    LASTEDIT: April 23, 2022
 #>
 
 #endregion
@@ -141,7 +141,7 @@ Param(
 	)
 #endregion script parameters
 
-$DocumenationScriptVersion = '4.1.1'
+$DocumenationScriptVersion = '4.1.2'
 
 
 If ([string]::IsNullOrEmpty($CompanyName)){
@@ -3328,101 +3328,178 @@ function Write-EDMs{
     )
     foreach ($key in $EDMHash.keys){
         if ($key -like 'Or'){
+            Write-Output '<div class="EdmOr">'
+            Write-Output 'Or<br />'
+            Write-Verbose "One of these conditions (Or)"
             foreach ($ThisOr in $EDMHash.Or) {
-                Write-Output '<div class="EdmOr">'
-                Write-Output 'Or<br />'
-                Write-Verbose "One of these conditions (Or)"
-                Write-EDMs $ThisOr
-                Write-Output '</div><br />'
-                Write-Verbose "End (Or)"
+                if ($ThisOr.Keys -contains 'Settings') {
+                    foreach ($Setting in $ThisOr.Settings){
+                        Write-output '<div class="EdmSetting">'
+                        $Values = $setting.Values[0].ForEach({$_})[0]
+                        switch ($($Setting.Keys.ForEach({$_})[0])) {
+                            'RegSetting' {
+                                Write-output "Registry Key: $($values.RegHive)\$($values.RegKey)<br />"
+                                Write-output "&bull; Registry Value Name: $($values.RegValue)<br />"
+                                If ($Values.RegDataType -eq "Boolean"){
+                                    Write-Output "&nbsp;&nbsp;&nbsp;&bull; Reg key/value exists.<br />"
+                                } else {
+                                    Write-Output "&bull; Value Data Type: $($Values.RegDataType)<br />"
+                                    $Operation = Convert-EdmOperator -Operator $Values.RegOperator -Data "$($Values.RegData)" -DataList $($Values.RegDataList)
+                                    Write-Output "&nbsp;&nbsp;&nbsp;&bull; $($Operation)<br />"
+                                }
+                                If ($Values.Reg64Bit -eq "false"){
+                                    Write-output "&#9745; Reg Key Associated with 32-bit App on 64-bit system" ##Checked
+                                } else {
+                                    Write-output "&#9744; Reg Key Associated with 32-bit App on 64-bit system" ##Unchecked
+                                }
+                            }
+                            'FileSetting' {
+                                Write-output "File System File: $($values.ParentFolder)\$($values.FileName)<br />"
+                                If ($Values.FilePropertyNameDataType -eq "Int64" -and $Values.FileMethod -eq "Count" -and $Values.FileValue -eq 0){
+                                    Write-Output "&nbsp;&nbsp;&nbsp;&bull; File exists.<br />"
+                                } else {
+                                    Write-output "&bull; File Property Name: $($values.FilePropertyName)<br />"
+                                    Write-Output "&bull; File Property Data Type: $($Values.FilePropertyNameDataType)<br />"
+                                    $Operation = Convert-EdmOperator -Operator $Values.FileOperator -Data "$($Values.FileValue)" -DataList $($Values.FileValueList)
+                                    Write-Output "&nbsp;&nbsp;&nbsp;&bull; $($Operation)<br />"
+                                }
+                                If ($Values.File64Bit -eq "false"){
+                                    Write-output "&#9745; File/Folder associated with 32-bit App on 64-bit system" ##Checked
+                                } else {
+                                    Write-output "&#9744; File/Folder associated with 32-bit App on 64-bit system" ##Unchecked
+                                }
+                            }
+                            'FolderSetting' {
+                                Write-output "File System Folder: $($values.ParentFolder)\$($values.FolderName)<br />"
+                                If ($Values.FolderPropertyNameDataType -eq "Int64" -and $Values.FolderMethod -eq "Count" -and $Values.FolderValue -eq 0){
+                                    Write-Output "&nbsp;&nbsp;&nbsp;&bull; Folder exists.<br />"
+                                } else {
+                                    Write-output "&bull; File Property Name: $($values.FolderPropertyName)<br />"
+                                    Write-Output "&bull; File Property Data Type: $($Values.FolderPropertyNameDataType)<br />"
+                                    $Operation = Convert-EdmOperator -Operator $Values.FolderOperator -Data "$($Values.FolderValue)" -DataList $($Values.FolderValueList)
+                                    Write-Output "&nbsp;&nbsp;&nbsp;&bull; $($Operation)<br />"
+                                }
+                                If ($Values.Folder64Bit -eq "false"){
+                                    Write-output "&#9745; File/Folder associated with 32-bit App on 64-bit system" ##Checked
+                                } else {
+                                    Write-output "&#9744; File/Folder associated with 32-bit App on 64-bit system" ##Unchecked
+                                }
+                            }
+                            'MsiSetting' {
+                                Write-output "MSI Product Code: $($values.MSIProductCode)<br />"
+                                If ($Values.MSIDataType -eq "Int64" -and $Values.MSIMethod -eq "Count" -and $Values.MSIDataValue -eq 0){
+                                    Write-Output "&nbsp;&nbsp;&nbsp;&bull; MSI exists.<br />"
+                                } else {
+                                    Write-output "&bull; MSI Property Name: $($values.MSIPropertyName)<br />"
+                                    Write-Output "&bull; MSI Property Data Type: $($Values.MSIDataType)<br />"
+                                    $Operation = Convert-EdmOperator -Operator $Values.MSIOperator -Data "$($Values.MSIDataValue)"
+                                    Write-Output "&nbsp;&nbsp;&nbsp;&bull; $($Operation)<br />"
+                                }
+                            }
+                            Default {
+                                $SettingDetails = 'Unknown Detection Setting.'
+                            }
+                        }
+                        Write-Output $SettingDetails
+                        #Write-output "$($Setting.Keys)"
+                        Write-output '</div><br />'
+                        Write-Verbose "These Settings: $($Setting.Keys)"
+                    }
+                } else {
+                    Write-EDMs $ThisOr
+                    Write-Output '</div><br />'
+                    Write-Verbose "End (Or)"
+                }
             }
         }
         elseif ($key -like 'And'){
+            Write-Output '<div class="EdmAnd">'
+            Write-Output 'And<br />'
+            Write-Verbose "All of these conditions (And)"
             foreach ($ThisAnd in $EDMHash.And) {
-                Write-Output '<div class="EdmAnd">'
-                Write-Output 'And<br />'
-                Write-Verbose "All of these conditions (And)"
-                Write-EDMs $ThisAnd
-                Write-Output '</div><br />'
-                Write-Verbose "End (And)"
-            }
-        }
-        elseif ($Key -like 'Settings') {
-            foreach ($Setting in $EDMHash.Settings){
-                Write-output '<div class="EdmSetting">'
-                $Values = $setting.Values[0].ForEach({$_})[0]
-                switch ($($Setting.Keys.ForEach({$_})[0])) {
-                    'RegSetting' {
-                        Write-output "Registry Key: $($values.RegHive)\$($values.RegKey)<br />"
-                        Write-output "&bull; Registry Value Name: $($values.RegValue)<br />"
-                        If ($Values.RegDataType -eq "Boolean"){
-                            Write-Output "&nbsp;&nbsp;&nbsp;&bull; Reg key/value exists.<br />"
-                        } else {
-                            Write-Output "&bull; Value Data Type: $($Values.RegDataType)<br />"
-                            $Operation = Convert-EdmOperator -Operator $Values.RegOperator -Data "$($Values.RegData)" -DataList $($Values.RegDataList)
-                            Write-Output "&nbsp;&nbsp;&nbsp;&bull; $($Operation)<br />"
+                if ($ThisAnd.Keys -contains 'Settings') {
+                foreach ($Setting in $ThisAnd.Settings){
+                    Write-output '<div class="EdmSetting">'
+                    $Values = $setting.Values[0].ForEach({$_})[0]
+                    switch ($($Setting.Keys.ForEach({$_})[0])) {
+                        'RegSetting' {
+                            Write-output "Registry Key: $($values.RegHive)\$($values.RegKey)<br />"
+                            Write-output "&bull; Registry Value Name: $($values.RegValue)<br />"
+                            If ($Values.RegDataType -eq "Boolean"){
+                                Write-Output "&nbsp;&nbsp;&nbsp;&bull; Reg key/value exists.<br />"
+                            } else {
+                                Write-Output "&bull; Value Data Type: $($Values.RegDataType)<br />"
+                                $Operation = Convert-EdmOperator -Operator $Values.RegOperator -Data "$($Values.RegData)" -DataList $($Values.RegDataList)
+                                Write-Output "&nbsp;&nbsp;&nbsp;&bull; $($Operation)<br />"
+                            }
+                            If ($Values.Reg64Bit -eq "false"){
+                                Write-output "&#9745; Reg Key Associated with 32-bit App on 64-bit system" ##Checked
+                            } else {
+                                Write-output "&#9744; Reg Key Associated with 32-bit App on 64-bit system" ##Unchecked
+                            }
                         }
-                        If ($Values.Reg64Bit -eq "false"){
-                            Write-output "&#9745; Reg Key Associated with 32-bit App on 64-bit system" ##Checked
-                        } else {
-                            Write-output "&#9744; Reg Key Associated with 32-bit App on 64-bit system" ##Unchecked
+                        'FileSetting' {
+                            Write-output "File System File: $($values.ParentFolder)\$($values.FileName)<br />"
+                            If ($Values.FilePropertyNameDataType -eq "Int64" -and $Values.FileMethod -eq "Count" -and $Values.FileValue -eq 0){
+                                Write-Output "&nbsp;&nbsp;&nbsp;&bull; File exists.<br />"
+                            } else {
+                                Write-output "&bull; File Property Name: $($values.FilePropertyName)<br />"
+                                Write-Output "&bull; File Property Data Type: $($Values.FilePropertyNameDataType)<br />"
+                                $Operation = Convert-EdmOperator -Operator $Values.FileOperator -Data "$($Values.FileValue)" -DataList $($Values.FileValueList)
+                                Write-Output "&nbsp;&nbsp;&nbsp;&bull; $($Operation)<br />"
+                            }
+                            If ($Values.File64Bit -eq "false"){
+                                Write-output "&#9745; File/Folder associated with 32-bit App on 64-bit system" ##Checked
+                            } else {
+                                Write-output "&#9744; File/Folder associated with 32-bit App on 64-bit system" ##Unchecked
+                            }
                         }
-                    }
-                    'FileSetting' {
-                        Write-output "File System File: $($values.ParentFolder)\$($values.FileName)<br />"
-                        If ($Values.FilePropertyNameDataType -eq "Int64" -and $Values.FileMethod -eq "Count" -and $Values.FileValue -eq 0){
-                            Write-Output "&nbsp;&nbsp;&nbsp;&bull; File exists.<br />"
-                        } else {
-                            Write-output "&bull; File Property Name: $($values.FilePropertyName)<br />"
-                            Write-Output "&bull; File Property Data Type: $($Values.FilePropertyNameDataType)<br />"
-                            $Operation = Convert-EdmOperator -Operator $Values.FileOperator -Data "$($Values.FileValue)" -DataList $($Values.FileValueList)
-                            Write-Output "&nbsp;&nbsp;&nbsp;&bull; $($Operation)<br />"
+                        'FolderSetting' {
+                            Write-output "File System Folder: $($values.ParentFolder)\$($values.FolderName)<br />"
+                            If ($Values.FolderPropertyNameDataType -eq "Int64" -and $Values.FolderMethod -eq "Count" -and $Values.FolderValue -eq 0){
+                                Write-Output "&nbsp;&nbsp;&nbsp;&bull; Folder exists.<br />"
+                            } else {
+                                Write-output "&bull; File Property Name: $($values.FolderPropertyName)<br />"
+                                Write-Output "&bull; File Property Data Type: $($Values.FolderPropertyNameDataType)<br />"
+                                $Operation = Convert-EdmOperator -Operator $Values.FolderOperator -Data "$($Values.FolderValue)" -DataList $($Values.FolderValueList)
+                                Write-Output "&nbsp;&nbsp;&nbsp;&bull; $($Operation)<br />"
+                            }
+                            If ($Values.Folder64Bit -eq "false"){
+                                Write-output "&#9745; File/Folder associated with 32-bit App on 64-bit system" ##Checked
+                            } else {
+                                Write-output "&#9744; File/Folder associated with 32-bit App on 64-bit system" ##Unchecked
+                            }
                         }
-                        If ($Values.File64Bit -eq "false"){
-                            Write-output "&#9745; File/Folder associated with 32-bit App on 64-bit system" ##Checked
-                        } else {
-                            Write-output "&#9744; File/Folder associated with 32-bit App on 64-bit system" ##Unchecked
+                        'MsiSetting' {
+                            Write-output "MSI Product Code: $($values.MSIProductCode)<br />"
+                            If ($Values.MSIDataType -eq "Int64" -and $Values.MSIMethod -eq "Count" -and $Values.MSIDataValue -eq 0){
+                                Write-Output "&nbsp;&nbsp;&nbsp;&bull; MSI exists.<br />"
+                            } else {
+                                Write-output "&bull; MSI Property Name: $($values.MSIPropertyName)<br />"
+                                Write-Output "&bull; MSI Property Data Type: $($Values.MSIDataType)<br />"
+                                $Operation = Convert-EdmOperator -Operator $Values.MSIOperator -Data "$($Values.MSIDataValue)"
+                                Write-Output "&nbsp;&nbsp;&nbsp;&bull; $($Operation)<br />"
+                            }
                         }
-                    }
-                    'FolderSetting' {
-                        Write-output "File System Folder: $($values.ParentFolder)\$($values.FolderName)<br />"
-                        If ($Values.FolderPropertyNameDataType -eq "Int64" -and $Values.FolderMethod -eq "Count" -and $Values.FolderValue -eq 0){
-                            Write-Output "&nbsp;&nbsp;&nbsp;&bull; Folder exists.<br />"
-                        } else {
-                            Write-output "&bull; File Property Name: $($values.FolderPropertyName)<br />"
-                            Write-Output "&bull; File Property Data Type: $($Values.FolderPropertyNameDataType)<br />"
-                            $Operation = Convert-EdmOperator -Operator $Values.FolderOperator -Data "$($Values.FolderValue)" -DataList $($Values.FolderValueList)
-                            Write-Output "&nbsp;&nbsp;&nbsp;&bull; $($Operation)<br />"
-                        }
-                        If ($Values.Folder64Bit -eq "false"){
-                            Write-output "&#9745; File/Folder associated with 32-bit App on 64-bit system" ##Checked
-                        } else {
-                            Write-output "&#9744; File/Folder associated with 32-bit App on 64-bit system" ##Unchecked
-                        }
-                    }
-                    'MsiSetting' {
-                        Write-output "MSI Product Code: $($values.MSIProductCode)<br />"
-                        If ($Values.MSIDataType -eq "Int64" -and $Values.MSIMethod -eq "Count" -and $Values.MSIDataValue -eq 0){
-                            Write-Output "&nbsp;&nbsp;&nbsp;&bull; MSI exists.<br />"
-                        } else {
-                            Write-output "&bull; MSI Property Name: $($values.MSIPropertyName)<br />"
-                            Write-Output "&bull; MSI Property Data Type: $($Values.MSIDataType)<br />"
-                            $Operation = Convert-EdmOperator -Operator $Values.MSIOperator -Data "$($Values.MSIDataValue)"
-                            Write-Output "&nbsp;&nbsp;&nbsp;&bull; $($Operation)<br />"
+                        Default {
+                            $SettingDetails = 'Unknown Detection Setting.'
                         }
                     }
-                    Default {
-                        $SettingDetails = 'Unknown Detection Setting.'
-                    }
+                    Write-Output $SettingDetails
+                    #Write-output "$($Setting.Keys)"
+                    Write-output '</div><br />'
+                    Write-Verbose "These Settings: $($Setting.Keys)"
                 }
-                Write-Output $SettingDetails
-                #Write-output "$($Setting.Keys)"
-                Write-output '</div><br />'
-                Write-Verbose "These Settings: $($Setting.Keys)"
+                } else {
+                    Write-EDMs $ThisAnd
+                    Write-Output '</div><br />'
+                    Write-Verbose "End (And)"                        
+                }
             }
         }
     }
 }
+
 
 
 #EndRegion Enhanced Detection Method Fuctions
@@ -7994,6 +8071,7 @@ if ($ListAllInformation -or $ListAppDetails){
                         $EDMs = [xml]$DT.Installer.CustomData.EnhancedDetectionMethod.OuterXml
                         $HashedEDMs = Get-FilterEDM -EnhansedDetectionMethods $EDMs -RuleExpression $EDMs.EnhancedDetectionMethod.Rule.Expression
                         $EDMHtml = Write-EDMs -EDMHash $HashedEDMs
+                        $EDMHtml = "$($EDMHtml)</div>" # i gave up on figuring this out and just added the missing Div here.
                         Write-RawHTML -HTML "<div class=`"Level6`">$EDMHtml</div>" -File $FilePath
                     }
                     #EndRegion Detection Methods
