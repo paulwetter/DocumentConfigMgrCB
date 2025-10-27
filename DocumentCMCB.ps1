@@ -3046,12 +3046,12 @@ function Get-PWCMCoMgmtProductionWorkloads {
     $WorkLoads = @()
     switch ($conf){
         Nothing {}
-        {$_ -band 1} {}
-        {$_ -band 2} {$WorkLoads += "Compliance polices"}
+        {$_ -band 8193} {}
+        {$_ -band 2} {$WorkLoads += "Compliance policies"}
         {$_ -band 4} {$WorkLoads += "Resource access policies"}
         {$_ -band 8} {$WorkLoads += "Device Configuration"}
         {$_ -band 16} {$WorkLoads += "Windows Update policies"}
-        {$_ -band 32} {$WorkLoads += "Endpoint Protection"}
+        {$_ -band 4128} {$WorkLoads += "Endpoint Protection"}
         {$_ -band 64} {$WorkLoads += "Client apps"}
         {$_ -band 128} {$WorkLoads += "Office Click-to-Run apps"}
     }
