@@ -2905,7 +2905,7 @@ function Get-CoMgmtWorkloadDetails {
     #Get workloads in pilot
     $PilotWorkloads = Get-PWCMCoMgmtPilotWorkloads
 
-    $AllWorkLoads = @("Compliance polices","Device Configuration","Endpoint Protection","Resource access policies","Client apps","Office Click-to-Run apps","Windows Update policies")
+    $AllWorkLoads = @("Compliance policies","Device Configuration","Endpoint Protection","Resource access policies","Client apps","Office Click-to-Run apps","Windows Update policies")
 
     $WorkloadSliders = @()
     foreach ($Workload in $AllWorkLoads) {
