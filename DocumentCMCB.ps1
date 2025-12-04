@@ -4771,7 +4771,6 @@ If (-not($SkipRemoteServerDetails)) {
         $DPText = $DPText + "<BR />Failed to access server $CMDPServerName.<BR /><BR />" 
         }
     }
-}
     Write-HTMLParagraph -Text "$DPText" -Level 4 -File $FilePath
     $DPText = "<B>Additional Configuration:</B><ul>"
     $DPInfo = $CMDistributionPoint.Props
@@ -4820,6 +4819,7 @@ If (-not($SkipRemoteServerDetails)) {
       $DPText = $DPText + "<ul><li>This Distribution Point is not a member of any DP Group.</li></ul>"
     }
     Write-HTMLParagraph -Text $DPText -Level 4 -File $FilePath
+  }
   }
   Write-HtmliLink -ReturnTOC -File $FilePath
   Write-ProgressEx -CurrentOperation "Completed DPs" -Activity "Distribution Points" -Status "Collecting from DB and WMI" -Id 3 -Completed
